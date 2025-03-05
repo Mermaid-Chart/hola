@@ -41,6 +41,9 @@ const getStyles = (options) =>
     stroke-width: 1px;
   }
 
+    [data-look="neo"].node path:nth-of-type(1) {
+    filter: ${options.dropShadow};
+  }
 
 .divider {
   stroke: ${options.nodeBorder};
@@ -75,7 +78,7 @@ g.classGroup line {
 
 .relation {
   stroke: ${options.lineColor};
-  stroke-width: 1;
+  stroke-width: ${options.strokeWidth};
   fill: none;
 }
 

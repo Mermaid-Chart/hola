@@ -11,7 +11,6 @@ const insertMarkers = (elem, markerArray, type, id) => {
 const extension = (elem, type, id) => {
   log.trace('Making markers for ', id);
   elem
-    .append('defs')
     .append('marker')
     .attr('id', id + '_' + type + '-extensionStart')
     .attr('class', 'marker extension ' + type)
@@ -20,21 +19,27 @@ const extension = (elem, type, id) => {
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
-    .attr('d', 'M 1,7 L18,13 V 1 Z');
+    .attr('d', 'M 10,7 L18,13 V 1 Z')
+    .style('stroke-width', 2)
+    .style('stroke-dasharray', '1,0');
 
   elem
     .append('defs')
     .append('marker')
     .attr('id', id + '_' + type + '-extensionEnd')
     .attr('class', 'marker extension ' + type)
-    .attr('refX', 1)
+    .attr('refX', 9.5)
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 28)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
-    .attr('d', 'M 1,1 V 13 L18,7 Z'); // this is actual shape for arrowhead
+    .attr('d', 'M 10,1 V 13 L18,7 Z')
+    .style('stroke-width', 2)
+    .style('stroke-dasharray', '1,0'); // this is actual shape for arrowhead
 };
 
 const composition = (elem, type, id) => {
@@ -43,12 +48,15 @@ const composition = (elem, type, id) => {
     .append('marker')
     .attr('id', id + '_' + type + '-compositionStart')
     .attr('class', 'marker composition ' + type)
-    .attr('refX', 18)
+    .attr('refX', 17)
     .attr('refY', 7)
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
+    .style('stroke-width', 0)
+    .attr('viewBox', '0 0 15 15')
     .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
 
   elem
@@ -56,12 +64,14 @@ const composition = (elem, type, id) => {
     .append('marker')
     .attr('id', id + '_' + type + '-compositionEnd')
     .attr('class', 'marker composition ' + type)
-    .attr('refX', 1)
+    .attr('refX', 3.5)
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 28)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
+    .style('stroke-width', 0)
     .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
 };
 const aggregation = (elem, type, id) => {
@@ -75,7 +85,9 @@ const aggregation = (elem, type, id) => {
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
+    .style('stroke-width', 2)
     .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
 
   elem
@@ -88,7 +100,9 @@ const aggregation = (elem, type, id) => {
     .attr('markerWidth', 20)
     .attr('markerHeight', 28)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
+    .style('stroke-width', 2)
     .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
 };
 const dependency = (elem, type, id) => {
@@ -97,12 +111,14 @@ const dependency = (elem, type, id) => {
     .append('marker')
     .attr('id', id + '_' + type + '-dependencyStart')
     .attr('class', 'marker dependency ' + type)
-    .attr('refX', 6)
+    .attr('refX', 4)
     .attr('refY', 7)
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
+    .style('stroke-width', 0)
     .attr('d', 'M 5,7 L9,13 L1,7 L9,1 Z');
 
   elem
@@ -110,12 +126,14 @@ const dependency = (elem, type, id) => {
     .append('marker')
     .attr('id', id + '_' + type + '-dependencyEnd')
     .attr('class', 'marker dependency ' + type)
-    .attr('refX', 13)
+    .attr('refX', 15)
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 28)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
+    .style('stroke-width', 0)
     .attr('d', 'M 18,7 L9,13 L14,7 L9,1 Z');
 };
 const lollipop = (elem, type, id) => {
@@ -129,12 +147,14 @@ const lollipop = (elem, type, id) => {
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('circle')
     .attr('stroke', 'black')
     .attr('fill', 'transparent')
     .attr('cx', 7)
     .attr('cy', 7)
-    .attr('r', 6);
+    .attr('r', 6)
+    .attr('stroke-width', 2);
 
   elem
     .append('defs')
@@ -146,12 +166,14 @@ const lollipop = (elem, type, id) => {
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('circle')
     .attr('stroke', 'black')
     .attr('fill', 'transparent')
     .attr('cx', 7)
     .attr('cy', 7)
-    .attr('r', 6);
+    .attr('r', 6)
+    .attr('stroke-width', 2);
 };
 const point = (elem, type, id) => {
   elem
@@ -188,7 +210,7 @@ const point = (elem, type, id) => {
     .style('stroke-dasharray', '1,0');
   elem
     .append('marker')
-    .attr('id', id + '_' + type + '-pointEnd-margin')
+    .attr('id', id + '_' + type + '-pointEnd-margin') //arrows with gap(offset)
     .attr('class', 'marker ' + type)
     .attr('viewBox', '0 0 11.5 14')
     .attr('refX', 11.5) // Adjust to position the arrowhead relative to the line
