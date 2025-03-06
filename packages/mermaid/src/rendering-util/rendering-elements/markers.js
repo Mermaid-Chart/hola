@@ -23,7 +23,7 @@ const extension = (elem, type, id) => {
     .append('path')
     .attr('d', 'M 10,7 L18,13 V 1 Z')
     .style('stroke-width', 2)
-    .style('stroke-dasharray', '1,0');
+    .style('stroke-dasharray', '0,0');
 
   elem
     .append('defs')
@@ -39,7 +39,7 @@ const extension = (elem, type, id) => {
     .append('path')
     .attr('d', 'M 10,1 V 13 L18,7 Z')
     .style('stroke-width', 2)
-    .style('stroke-dasharray', '1,0'); // this is actual shape for arrowhead
+    .style('stroke-dasharray', '0');
 };
 
 const composition = (elem, type, id) => {

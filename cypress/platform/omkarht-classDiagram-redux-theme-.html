@@ -5,15 +5,88 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Class diagrams Mermaid Quick Test Page</title>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Recursive:wght@300..1000&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      div.mermaid {
-        /* font-family: 'trebuchet ms', verdana, arial; */
-        font-family: 'Courier New', Courier, monospace !important;
+      .recursive-500 {
+        font-family: 'Recursive', serif;
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-style: normal;
+        font-variation-settings:
+          'slnt' 0,
+          'CASL' 0,
+          'CRSV' 0.5,
+          'MONO' 0;
+      }
+      body {
+        /* background: rgb(221, 208, 208); */
+        /* background: #333; */
+        /* font-family: 'Arial'; */
+        font-family: 'Recursive', serif;
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-style: normal;
+        font-variation-settings:
+          'slnt' 0,
+          'CASL' 0,
+          'CRSV' 0.5,
+          'MONO' 0;
+        /* color: white; */
+        /* font-size: 18px !important; */
+      }
+      .gridify.tiny {
+        background-image: linear-gradient(
+            transparent 11px,
+            rgba(220, 220, 200, 0.8) 12px,
+            transparent 12px
+          ),
+          linear-gradient(90deg, transparent 11px, rgba(220, 220, 200, 0.8) 12px, transparent 12px);
+        background-size:
+          100% 12px,
+          12px 100%;
+      }
+
+      .gridify.dots {
+        background-image: radial-gradient(
+          circle at center,
+          rgba(220, 220, 200, 0.8) 1px,
+          transparent 1px
+        );
+        background-size: 24px 24px;
+      }
+
+      h1 {
+        color: grey;
+      }
+
+      .mermaid2 {
+        display: none;
+      }
+
+      .mermaid svg {
+        font-size: 16px !important;
+        font-family: 'Recursive', serif;
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-style: normal;
+        font-variation-settings:
+          'slnt' 0,
+          'CASL' 0,
+          'CRSV' 0.5,
+          'MONO' 0;
+      }
+
+      pre {
+        width: 100%;
+        /*box-shadow: 4px 4px 0px 0px #0000000F;*/
       }
     </style>
   </head>
 
-  <body>
+  <body class="gridify dots">
     <h1>Class diagram demos</h1>
 
     <pre class="mermaid">
@@ -26,9 +99,9 @@
       accTitle: Demo Class Diagram
       accDescr: This class diagram show the abstract Animal class, and 3 classes that inherit from it: Duck, Fish, and Zebra.
 
-      Animal <|-- Duck
-      Animal <|-- Fish
-      Animal <|-- Zebra
+      Animal <|--|> Duck
+      Animal <|--|> Fish
+      Animal <|--|> Zebra
       Animal : +int age
       Animal : +String gender
       Animal: +isMammal()
@@ -253,6 +326,7 @@
         flowchart: { curve: 'basis' },
         gantt: { axisFormat: '%m/%d/%Y' },
         sequence: { actorMargin: 50 },
+        fontFamily: 'Recursive',
         // sequenceDiagram: { actorMargin: 300 } // deprecated
       });
     </script>

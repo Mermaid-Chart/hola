@@ -38,11 +38,7 @@ const getStyles = (options) =>
   .node path {
     fill: ${options.mainBkg};
     stroke: ${options.nodeBorder};
-    stroke-width: 1px;
-  }
-
-    [data-look="neo"].node path:nth-of-type(1) {
-    filter: ${options.dropShadow};
+    stroke-width: ${options.strokeWidth};
   }
 
 .divider {
