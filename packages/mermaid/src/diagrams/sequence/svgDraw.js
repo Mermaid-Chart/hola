@@ -9,9 +9,14 @@ const TOP_ACTOR_CLASS = 'actor-top';
 const BOTTOM_ACTOR_CLASS = 'actor-bottom';
 const ACTOR_BOX_CLASS = 'actor-box';
 const ACTOR_MAN_FIGURE_CLASS = 'actor-man';
+const config = configApi.getConfig();
 
 export const drawRect = function (elem, rectData) {
-  return svgDrawCommon.drawRect(elem, rectData);
+  const rectElement = svgDrawCommon.drawRect(elem, rectData);
+  if (config.look === 'neo') {
+    rectElement.attr('data-look', 'neo');
+  }
+  return rectElement;
 };
 
 export const drawPopup = function (elem, actor, minMenuWidth, textAttrs, forceMenus) {
@@ -313,7 +318,8 @@ export const fixLifeLineHeights = (diagram, actors, actorKeys, conf) => {
     if (!conf.mirrorActors && actor.stopy) {
       actorDOM.attr('y2', actor.stopy + actor.height / 2);
     } else if (conf.mirrorActors) {
-      actorDOM.attr('y2', actor.stopy);
+      const offset = actor.type === 'actor' && config.look === 'neo' ? 20 : 0;
+      actorDOM.attr('y2', actor.stopy - offset);
     }
   });
 };
@@ -330,6 +336,7 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
+  const { look, theme } = conf;
 
   const boxplusLineGroup = elem.append('g').lower();
   var g = boxplusLineGroup;
@@ -357,6 +364,9 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
 
     if (actor.links != null) {
       g.attr('id', 'root-' + actorCnt);
+    }
+    if (look === 'neo') {
+      g.attr('data-look', 'neo');
     }
   }
 
@@ -395,6 +405,19 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
   if (!isFooter) {
     g.attr('data-et', 'participant');
     g.attr('data-id', actor.name);
+    if (look === 'neo') {
+      g.append('defs')
+        .append('filter')
+        .attr('id', 'drop-shadow')
+        .attr('height', '130%')
+        .attr('width', '130%')
+        .append('feDropShadow')
+        .attr('dx', '4')
+        .attr('dy', '4')
+        .attr('stdDeviation', 0)
+        .attr('flood-opacity', '0.06')
+        .attr('flood-color', `${theme === 'redux' ? '#000000' : '#FFFFFF'}`);
+    }
   }
 
   _drawTextCandidateFunc(conf, hasKatex(actor.description))(
@@ -424,6 +447,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter) {
   const centerY = actorY + 80;
 
   const line = elem.append('g').lower();
+  const offset = actor.type === 'actor' && config.look === 'neo' ? 20 : 0;
 
   if (!isFooter) {
     actorCnt++;
@@ -431,7 +455,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter) {
       .append('line')
       .attr('id', 'actor' + actorCnt)
       .attr('x1', center)
-      .attr('y1', centerY)
+      .attr('y1', centerY + offset)
       .attr('x2', center)
       .attr('y2', 2000)
       .attr('class', 'actor-line 200')

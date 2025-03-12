@@ -45,6 +45,9 @@ class Theme {
     this.archEdgeWidth = '3';
     this.archGroupBorderColor = this.primaryBorderColor;
     this.archGroupBorderWidth = '2px';
+
+    /* Sequence Diagram variables */
+    this.actorBorder = '#28253D';
   }
   updateColors() {
     // The || is to make sure that if the variable has been defined by a user override that value is to be used

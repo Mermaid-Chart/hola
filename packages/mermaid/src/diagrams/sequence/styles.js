@@ -2,6 +2,11 @@ const getStyles = (options) =>
   `.actor {
     stroke: ${options.actorBorder};
     fill: ${options.actorBkg};
+    stroke-width: ${options.strokeWidth};
+  }
+
+  rect.actor.outer-path[data-look="neo"] {
+      filter: ${options.dropShadow};
   }
 
   text.actor > tspan {
@@ -14,13 +19,13 @@ const getStyles = (options) =>
   }
 
   .messageLine0 {
-    stroke-width: 1.5;
+    stroke-width: ${options.strokeWidth};
     stroke-dasharray: none;
     stroke: ${options.signalColor};
   }
 
   .messageLine1 {
-    stroke-width: 1.5;
+    stroke-width: ${options.strokeWidth};
     stroke-dasharray: 2, 2;
     stroke: ${options.signalColor};
   }

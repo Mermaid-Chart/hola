@@ -368,6 +368,7 @@ async function boundMessage(_diagram, msgModel): Promise<number> {
  * @param diagObj - The diagram object.
  */
 const drawMessage = async function (diagram, msgModel, lineStartY: number, diagObj: Diagram) {
+  const { look } = getConfig();
   const { startx, stopx, starty, message, type, sequenceIndex, sequenceVisible } = msgModel;
   const textDims = utils.calculateTextDimensions(message, messageFont(conf));
   const textObj = svgDrawCommon.getTextObj();
@@ -394,6 +395,8 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   const textWidth = textDims.width;
 
   let line;
+  const offset = look === 'neo' ? 2.5 : 0;
+
   if (startx === stopx) {
     if (conf.rightAngles) {
       line = diagram
@@ -471,6 +474,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   line.style('fill', 'none'); // remove any fill colour
   if (type === diagObj.db.LINETYPE.SOLID || type === diagObj.db.LINETYPE.DOTTED) {
     line.attr('marker-end', 'url(' + url + '#arrowhead)');
+    line.attr('x2', stopx - offset);
   }
   if (
     type === diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID ||
@@ -478,13 +482,18 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   ) {
     line.attr('marker-start', 'url(' + url + '#arrowhead)');
     line.attr('marker-end', 'url(' + url + '#arrowhead)');
+    line.attr('x1', startx + offset);
+    line.attr('x2', stopx - offset);
   }
   if (type === diagObj.db.LINETYPE.SOLID_POINT || type === diagObj.db.LINETYPE.DOTTED_POINT) {
     line.attr('marker-end', 'url(' + url + '#filled-head)');
+    line.attr('x1', startx + offset);
+    line.attr('x2', stopx - offset);
   }
 
   if (type === diagObj.db.LINETYPE.SOLID_CROSS || type === diagObj.db.LINETYPE.DOTTED_CROSS) {
     line.attr('marker-end', 'url(' + url + '#crosshead)');
+    line.attr('x2', stopx - offset);
   }
 
   // add node number
