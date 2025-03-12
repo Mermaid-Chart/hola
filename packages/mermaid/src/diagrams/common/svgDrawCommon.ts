@@ -42,11 +42,10 @@ export const drawRect = (element: SVG | SVGGroup, rectData: RectData): D3RectEle
 
   if (rectData.class) {
     rectElement.attr('class', rectData.class);
-  }
-
-  if (look === 'neo') {
-    rectElement.classed('outer-path', true);
-    rectElement.attr('data-look', 'neo');
+    if (look === 'neo') {
+      rectElement.attr('class', rectData.class).classed('outer-path', true);
+      rectElement.attr('data-look', 'neo');
+    }
   }
 
   return rectElement;
