@@ -419,7 +419,7 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
       curve = curveCardinal;
       break;
     default:
-      curve = curveLinear;
+      curve = curveBasis;
   }
 
   // if (edge.curve) {
@@ -462,6 +462,8 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
       ? generateRoundedPath(applyMarkerOffsetsToPoints(lineData, edge), 5)
       : lineFunction(lineData);
   const edgeStyles = Array.isArray(edge.style) ? edge.style : [edge.style];
+  let strokeColor = edgeStyles.find((style) => style?.startsWith('stroke:'));
+
   let animatedEdge = false;
   if (edge.look === 'handDrawn') {
     const rc = rough.svg(elem);
@@ -492,24 +494,24 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
     if (edge.animation) {
       animationClass = ' edge-animation-' + edge.animation;
     }
+
+    const pathStyle =
+      (stylesFromClasses ? stylesFromClasses + ';' + styles + ';' : styles) +
+      ';' +
+      (edgeStyles ? edgeStyles.reduce((acc, style) => acc + ';' + style, '') : '');
     svgPath = elem
       .append('path')
       .attr('d', linePath)
       .attr('id', edge.id)
       .attr(
         'class',
-        ' ' +
-          strokeClasses +
-          (edge.classes ? ' ' + edge.classes : '') +
-          (animationClass ? animationClass : '')
+        ' ' + strokeClasses + (edge.classes ? ' ' + edge.classes : '') + (animationClass ?? '')
       )
+      .attr('style', pathStyle);
 
-      .attr(
-        'style',
-        (stylesFromClasses ? stylesFromClasses + ';' + styles + ';' : styles) +
-          ';' +
-          (edgeStyles ? edgeStyles.reduce((acc, style) => acc + ';' + style, '') : '')
-      );
+    strokeColor = pathStyle.match(/stroke:([^;]+)/)?.[1];
+
+    //strokeColor = /stroke:([^;]+)/.exec(pathStyle)?.[1];
 
     animatedEdge =
       edge.animate === true || !!edge.animation || stylesFromClasses.includes('animation');
@@ -571,8 +573,7 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
   log.info('arrowTypeEnd', edge.arrowTypeEnd);
 
   const useMargin = !animatedEdge && edge?.look === 'neo';
-
-  addEdgeMarkers(svgPath, edge, url, id, diagramType, useMargin);
+  addEdgeMarkers(svgPath, edge, url, id, diagramType, useMargin, strokeColor);
 
   let paths = {};
   if (pointsHasChanged) {
