@@ -67,7 +67,7 @@ const addEdgeMarker = (
   strokeColor?: string
 ) => {
   const arrowTypeInfo = arrowTypesMap[arrowType as keyof typeof arrowTypesMap];
-  const marginSupport = arrowTypesWithMarginSupport.includes(arrowTypeInfo.type);
+  const marginSupport = arrowTypeInfo && arrowTypesWithMarginSupport.includes(arrowTypeInfo.type);
 
   if (!arrowTypeInfo) {
     log.warn(`Unknown arrow type: ${arrowType}`);
