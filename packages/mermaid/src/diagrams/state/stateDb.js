@@ -294,7 +294,8 @@ export class StateDB {
       this.edges,
       true,
       look,
-      this.classes
+      this.classes,
+      config
     );
     this.nodes.forEach((node) => {
       if (Array.isArray(node.label)) {
