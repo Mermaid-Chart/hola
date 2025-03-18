@@ -9,6 +9,12 @@ const getStyles = (options) =>
       filter: ${options.dropShadow};
   }
 
+  rect.note[data-look="neo"] {
+      stroke:${options.noteBorderColor};
+      fill:${options.noteBkgColor};
+      filter: ${options.dropShadow};
+  }
+
   text.actor > tspan {
     fill: ${options.actorTextColor};
     stroke: none;
@@ -56,6 +62,7 @@ const getStyles = (options) =>
   .labelBox {
     stroke: ${options.labelBoxBorderColor};
     fill: ${options.labelBoxBkgColor};
+    filter: ${options.dropShadow};
   }
 
   .labelText, .labelText > tspan {

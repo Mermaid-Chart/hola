@@ -368,7 +368,6 @@ async function boundMessage(_diagram, msgModel): Promise<number> {
  * @param diagObj - The diagram object.
  */
 const drawMessage = async function (diagram, msgModel, lineStartY: number, diagObj: Diagram) {
-  const { look } = getConfig();
   const { startx, stopx, starty, message, type, sequenceIndex, sequenceVisible } = msgModel;
   const textDims = utils.calculateTextDimensions(message, messageFont(conf));
   const textObj = svgDrawCommon.getTextObj();
@@ -395,7 +394,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   const textWidth = textDims.width;
 
   let line;
-  const offset = look === 'neo' ? 2.5 : 0;
+  // const offset = look === 'neo' ? 25 : 0;
 
   if (startx === stopx) {
     if (conf.rightAngles) {
@@ -474,7 +473,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   line.style('fill', 'none'); // remove any fill colour
   if (type === diagObj.db.LINETYPE.SOLID || type === diagObj.db.LINETYPE.DOTTED) {
     line.attr('marker-end', 'url(' + url + '#arrowhead)');
-    line.attr('x2', stopx - offset);
+    // line.attr('x2', stopx - offset);
   }
   if (
     type === diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID ||
@@ -482,23 +481,21 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   ) {
     line.attr('marker-start', 'url(' + url + '#arrowhead)');
     line.attr('marker-end', 'url(' + url + '#arrowhead)');
-    line.attr('x1', startx + offset);
-    line.attr('x2', stopx - offset);
   }
   if (type === diagObj.db.LINETYPE.SOLID_POINT || type === diagObj.db.LINETYPE.DOTTED_POINT) {
     line.attr('marker-end', 'url(' + url + '#filled-head)');
-    line.attr('x1', startx + offset);
-    line.attr('x2', stopx - offset);
+    // line.attr('x2', stopx - offset);
   }
 
   if (type === diagObj.db.LINETYPE.SOLID_CROSS || type === diagObj.db.LINETYPE.DOTTED_CROSS) {
     line.attr('marker-end', 'url(' + url + '#crosshead)');
-    line.attr('x2', stopx - offset);
+    // line.attr('x2', stopx - offset);
   }
 
   // add node number
   if (sequenceVisible || conf.showSequenceNumbers) {
     line.attr('marker-start', 'url(' + url + '#sequencenumber)');
+    // line.attr('x1', startx + offset);
     diagram
       .append('text')
       .attr('x', startx)
@@ -547,7 +544,7 @@ const addActorRenderingData = function (
     }
 
     // Add some rendering data to the object
-    actor.width = actor.width || conf.width;
+    actor.width = common.getMax(actor.width || conf.width, conf.width);
     actor.height = common.getMax(actor.height || conf.height, conf.height);
     actor.margin = actor.margin || conf.actorMargin;
 
@@ -862,7 +859,8 @@ export const draw = async function (_text: string, id: string, _version: string,
       activationData,
       verticalPos,
       conf,
-      actorActivations(msg.from).length
+      actorActivations(msg.from).length,
+      diagObj
     );
 
     bounds.insert(activationData.startx, verticalPos - 10, activationData.stopx, verticalPos);
@@ -874,6 +872,7 @@ export const draw = async function (_text: string, id: string, _version: string,
   const messagesToDraw = [];
   const backgrounds = [];
   let index = 0;
+  await drawActors(diagram, actors, actorKeys, false);
   for (const msg of messages) {
     let loopModel, noteModel, msgModel;
 
@@ -1076,9 +1075,9 @@ export const draw = async function (_text: string, id: string, _version: string,
 
   log.debug('createdActors', createdActors);
   log.debug('destroyedActors', destroyedActors);
-  await drawActors(diagram, actors, actorKeys, false);
 
   for (const e of messagesToDraw) {
+    // debugger
     await drawMessage(diagram, e.messageModel, e.lineStartY, diagObj);
   }
   if (conf.mirrorActors) {
@@ -1462,6 +1461,7 @@ const buildNoteModel = async function (msg, actors, diagObj) {
 };
 
 const buildMessageModel = function (msg, actors, diagObj) {
+  const { look } = getConfig();
   if (
     ![
       diagObj.db.LINETYPE.SOLID_OPEN,
@@ -1483,6 +1483,17 @@ const buildMessageModel = function (msg, actors, diagObj) {
   const isArrowToRight = fromLeft <= toLeft;
   let startx = isArrowToRight ? fromRight : fromLeft;
   let stopx = isArrowToRight ? toLeft : toRight;
+
+  if (look === 'neo') {
+    const offset = 3;
+    stopx += isArrowToRight ? -offset : offset;
+    if (
+      msg.type === diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID ||
+      msg.type === diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED
+    ) {
+      startx += isArrowToRight ? offset : -offset;
+    }
+  }
 
   // As the line width is considered, the left and right values will be off by 2.
   const isArrowToActivation = Math.abs(toLeft - toRight) > 2;
@@ -1561,6 +1572,13 @@ const buildMessageModel = function (msg, actors, diagObj) {
     fromBounds: Math.min.apply(null, allBounds),
     toBounds: Math.max.apply(null, allBounds),
   };
+};
+
+export const adjustValueByDirection = (msg, actors, value) => {
+  const [fromLeft] = activationBounds(msg.from, actors);
+  const [toLeft] = activationBounds(msg.to, actors);
+  const isArrowToRight = fromLeft <= toLeft;
+  return isArrowToRight ? -value : value;
 };
 
 const calculateLoopBounds = async function (messages, actors, _maxWidthPerActor, diagObj) {

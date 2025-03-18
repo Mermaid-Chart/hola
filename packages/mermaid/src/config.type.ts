@@ -71,6 +71,7 @@ export interface MermaidConfig {
     | 'neo-dark'
     | 'redux'
     | 'redux-dark'
+    | 'redux-mono'
     | 'mc'
     | 'null';
   themeVariables?: any;

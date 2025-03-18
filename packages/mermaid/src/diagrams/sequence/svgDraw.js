@@ -336,7 +336,8 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
-  const { look, theme } = conf;
+  const { look, theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
 
   const boxplusLineGroup = elem.append('g').lower();
   var g = boxplusLineGroup;
@@ -390,7 +391,22 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
   rect.rx = 3;
   rect.ry = 3;
   rect.name = actor.name;
+
+  if (look === 'neo') {
+    rect.rx = 6;
+    rect.ry = 6;
+  }
   const rectElem = drawRect(g, rect);
+
+  // rectElem.attr('transform', `translate(${look === 'neo' ? rect.width / 2 : 0}, 0)`);
+  if (theme === 'redux-mono') {
+    rectElem.style('stroke', borderColorArray[actor.actorCnt % borderColorArray.length]);
+    rectElem.style('fill', bkgColorArray[actor.actorCnt % bkgColorArray.length]);
+  }
+  if (look === 'neo') {
+    rectElem.attr('filter', 'url(#drop-shadow)');
+  }
+
   actor.rectData = rect;
 
   if (actor.properties?.icon) {
@@ -416,7 +432,10 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
         .attr('dy', '4')
         .attr('stdDeviation', 0)
         .attr('flood-opacity', '0.06')
-        .attr('flood-color', `${theme === 'redux' ? '#000000' : '#FFFFFF'}`);
+        .attr(
+          'flood-color',
+          `${theme === 'redux' || theme === 'redux-mono' ? '#000000' : '#FFFFFF'}`
+        );
     }
   }
 
@@ -447,7 +466,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter) {
   const centerY = actorY + 80;
 
   const line = elem.append('g').lower();
-  const offset = actor.type === 'actor' && config.look === 'neo' ? 20 : 0;
+  const offset = actor.type === 'actor' && config.look === 'neo' ? 1 : 0;
 
   if (!isFooter) {
     actorCnt++;
@@ -584,15 +603,31 @@ export const anchorElement = function (elem) {
  * @param {any} conf - Sequence diagram config object.
  * @param {any} actorActivations - Number of activations on the actor.
  */
-export const drawActivation = function (elem, bounds, verticalPos, conf, actorActivations) {
+export const drawActivation = function (
+  elem,
+  bounds,
+  verticalPos,
+  conf,
+  actorActivations,
+  diagObj
+) {
+  const { theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
   const rect = svgDrawCommon.getNoteRect();
   const g = bounds.anchored;
+  const actor = bounds.actor;
   rect.x = bounds.startx;
   rect.y = bounds.starty;
   rect.class = 'activation' + (actorActivations % 3); // Will evaluate to 0, 1 or 2
   rect.width = bounds.stopx - bounds.startx;
   rect.height = verticalPos - bounds.starty;
-  drawRect(g, rect);
+
+  const rectElem = drawRect(g, rect);
+  let actorCount = diagObj.db.getActor(actor).actorCnt;
+  if (theme === 'redux-mono') {
+    rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  }
 };
 
 /**
@@ -650,8 +685,8 @@ export const drawLoop = async function (elem, loopModel, labelText, conf, msg) {
   txt.anchor = 'middle';
   txt.valign = 'middle';
   txt.tspan = false;
-  txt.width = labelBoxWidth || 50;
-  txt.height = labelBoxHeight || 20;
+  txt.width = Math.max(labelBoxWidth ?? 0, 50);
+  txt.height = labelBoxHeight + (conf.look === 'neo' ? 15 : 0) || 20;
   txt.textMargin = boxTextMargin;
   txt.class = 'labelText';
 

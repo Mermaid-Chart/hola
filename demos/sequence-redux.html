@@ -84,38 +84,18 @@
 
   <body class="gridify dots">
     <pre class="mermaid">
-    ---
-      config:
-      theme: redux
-    ---
-    sequenceDiagram
-    participant Alice as Alice
-    participant John as John
-    participant OK as OK
-    actor A1 as New Actor
-    Alice <<->> John: Hello John, how are you?
-    Alice <<->> John: John, can you hear me?
-    John <<->> Alice: Hi Alice, I can hear you!
-    John <<->> Alice: I feel great!
-    John <<->> OK:No issues mate
+      sequenceDiagram
+      critical Establish a connection to the DB
+          Service-->DB: connect
+      option Network timeout
+          Service-->Service: Log error
+      option Credentials rejected
+          Service-->Service: Log different error
+      end
+  
     </pre>
 
     <hr />
-
-    <pre class="mermaid">
-    ---
-    config:
-    theme: redux
-    ---
-    sequenceDiagram
-    participant Alice as Alice
-    participant John as John
-    actor A1 as New Actor
-    Alice ->>+ John: Hello John, how are you?
-    Alice ->>+ John: John, can you hear me?
-    John -->>- Alice: Hi Alice, I can hear you!
-    John -->>- Alice: I feel great!
-    </pre>
     <script type="module">
       import mermaid from './mermaid.esm.mjs';
       window.callback = function () {
@@ -126,7 +106,7 @@
       }
       await mermaid.initialize({
         startOnLoad: false,
-        theme: 'redux',
+        theme: 'redux-mono',
         // theme: 'default',
         // theme: 'forest',
         // handDrawnSeed: 12,

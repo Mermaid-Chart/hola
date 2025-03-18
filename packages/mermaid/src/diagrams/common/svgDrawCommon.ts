@@ -1,7 +1,6 @@
 import { sanitizeUrl } from '@braintree/sanitize-url';
 import type { SVG, SVGGroup } from '../../diagram-api/types.js';
 import { lineBreakRegex } from './common.js';
-import * as configApi from '../../config.js';
 import type {
   Bound,
   D3ImageElement,
@@ -13,8 +12,6 @@ import type {
   TextData,
   TextObject,
 } from './commonTypes.js';
-
-const { look } = configApi.getConfig();
 
 export const drawRect = (element: SVG | SVGGroup, rectData: RectData): D3RectElement => {
   const rectElement: D3RectElement = element.append('rect');
@@ -42,10 +39,6 @@ export const drawRect = (element: SVG | SVGGroup, rectData: RectData): D3RectEle
 
   if (rectData.class) {
     rectElement.attr('class', rectData.class);
-    if (look === 'neo') {
-      rectElement.attr('class', rectData.class).classed('outer-path', true);
-      rectElement.attr('data-look', 'neo');
-    }
   }
 
   return rectElement;
