@@ -38,7 +38,16 @@ const arrowTypesMap = {
   lollipop: 'lollipop',
 } as const;
 
-const arrowTypesWithMarginSupport = ['cross', 'point', 'circle'];
+const arrowTypesWithMarginSupport = [
+  'cross',
+  'point',
+  'circle',
+  'lollipop',
+  'aggregation',
+  'extension',
+  'composition',
+  'dependency',
+];
 
 const addEdgeMarker = (
   svgPath: SVG,

@@ -4,11 +4,11 @@ import type { EdgeData, Point } from '../types.js';
 // under any transparent markers.
 // The offsets are calculated from the markers' dimensions.
 export const markerOffsets = {
-  aggregation: 22,
-  extension: 13,
-  composition: 19,
+  aggregation: 18,
+  extension: 18,
+  composition: 18,
   dependency: 6,
-  lollipop: 16,
+  lollipop: 13.5,
   arrow_point: 4,
   //arrow_cross: 24,
 } as const;

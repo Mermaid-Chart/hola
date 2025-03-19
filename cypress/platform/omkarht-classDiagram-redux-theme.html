@@ -90,39 +90,27 @@
     <h1>Class diagram demos</h1>
 
     <pre class="mermaid">
-    ---
-    config:
-      theme: redux
-      layout: dagre
-    ---
-    classDiagram
-      accTitle: Demo Class Diagram
-      accDescr: This class diagram show the abstract Animal class, and 3 classes that inherit from it: Duck, Fish, and Zebra.
-
-      Animal <|--|> Duck
-      Animal <|--|> Fish
-      Animal <|--|> Zebra
-      Animal : +int age
-      Animal : +String gender
-      Animal: +isMammal()
-      Animal: +mate()
-
-      class Duck{
-        +String beakColor
-        +swim()
-        +quack()
-      }
-      class Fish{
-        -Listint sizeInFeet
-        -canEat()
-      }
-      class Zebra{
-        +bool is_wild
-        +run(List~T~, List~OT~)
-        %% +run-composite(List~T, K~)
-        +run-nested(List~List~OT~~)
-      }
-
+      classDiagram
+          Animal <|-- Duck
+          Animal <|-- Fish
+          Animal <|-- Zebra
+          Animal : +int age
+          Animal : +String gender
+          Animal: +isMammal()
+          Animal: +mate()
+          class Duck{
+            +String beakColor
+            +swim()
+            +quack()
+          }
+          class Fish{
+            -int sizeInFeet
+            -canEat()
+          }
+          class Zebra{
+            +bool is_wild
+            +run()
+          }
     </pre>
     <hr />
 
@@ -318,8 +306,10 @@
     <script type="module">
       import mermaid from './mermaid.esm.mjs';
       mermaid.initialize({
-        theme: 'redux',
+        // look: 'classic',
+        // theme: 'default',
         look: 'neo',
+        theme: 'redux',
         // themeCSS: '.node rect { fill: red; }',
         logLevel: 3,
         securityLevel: 'loose',

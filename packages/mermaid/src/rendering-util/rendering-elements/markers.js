@@ -11,6 +11,7 @@ const insertMarkers = (elem, markerArray, type, id) => {
 const extension = (elem, type, id) => {
   log.trace('Making markers for ', id);
   elem
+    .append('defs')
     .append('marker')
     .attr('id', id + '_' + type + '-extensionStart')
     .attr('class', 'marker extension ' + type)
@@ -21,16 +22,42 @@ const extension = (elem, type, id) => {
     .attr('orient', 'auto')
     .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
-    .attr('d', 'M 10,7 L18,13 V 1 Z')
-    .style('stroke-width', 2)
-    .style('stroke-dasharray', '0,0');
+    .attr('d', 'M 1,7 L18,13 V 1 Z');
 
   elem
     .append('defs')
     .append('marker')
     .attr('id', id + '_' + type + '-extensionEnd')
     .attr('class', 'marker extension ' + type)
-    .attr('refX', 9.5)
+    .attr('refX', 1)
+    .attr('refY', 7)
+    .attr('markerWidth', 20)
+    .attr('markerHeight', 28)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 1,1 V 13 L18,7 Z'); // this is actual shape for arrowhead
+
+  elem
+    .append('marker')
+    .attr('id', id + '_' + type + '-extensionStart-margin')
+    .attr('class', 'marker extension ' + type)
+    .attr('refX', 18)
+    .attr('refY', 7)
+    .attr('markerWidth', 20)
+    .attr('markerHeight', 28)
+    .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
+    .append('path')
+    .attr('d', 'M 10,7 L18,13 V 1 Z')
+    .style('stroke-width', 2)
+    .style('stroke-dasharray', '0');
+
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-extensionEnd-margin')
+    .attr('class', 'marker extension ' + type)
+    .attr('refX', 9)
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 28)
@@ -48,7 +75,33 @@ const composition = (elem, type, id) => {
     .append('marker')
     .attr('id', id + '_' + type + '-compositionStart')
     .attr('class', 'marker composition ' + type)
-    .attr('refX', 17)
+    .attr('refX', 18)
+    .attr('refY', 7)
+    .attr('markerWidth', 190)
+    .attr('markerHeight', 240)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
+
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-compositionEnd')
+    .attr('class', 'marker composition ' + type)
+    .attr('refX', 1)
+    .attr('refY', 7)
+    .attr('markerWidth', 20)
+    .attr('markerHeight', 28)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
+
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-compositionStart-margin')
+    .attr('class', 'marker composition ' + type)
+    .attr('refX', 15)
     .attr('refY', 7)
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
@@ -62,7 +115,7 @@ const composition = (elem, type, id) => {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', id + '_' + type + '-compositionEnd')
+    .attr('id', id + '_' + type + '-compositionEnd-margin')
     .attr('class', 'marker composition ' + type)
     .attr('refX', 3.5)
     .attr('refY', 7)
@@ -85,6 +138,32 @@ const aggregation = (elem, type, id) => {
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
+
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-aggregationEnd')
+    .attr('class', 'marker aggregation ' + type)
+    .attr('refX', 1)
+    .attr('refY', 7)
+    .attr('markerWidth', 20)
+    .attr('markerHeight', 28)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 18,7 L9,13 L1,7 L9,1 Z');
+
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-aggregationStart-margin')
+    .attr('class', 'marker aggregation ' + type)
+    .attr('refX', 15)
+    .attr('refY', 7)
+    .attr('markerWidth', 190)
+    .attr('markerHeight', 240)
+    .attr('orient', 'auto')
     .attr('markerUnits', 'userSpaceOnUse')
     .append('path')
     .style('stroke-width', 2)
@@ -93,7 +172,7 @@ const aggregation = (elem, type, id) => {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', id + '_' + type + '-aggregationEnd')
+    .attr('id', id + '_' + type + '-aggregationEnd-margin')
     .attr('class', 'marker aggregation ' + type)
     .attr('refX', 1)
     .attr('refY', 7)
@@ -111,6 +190,31 @@ const dependency = (elem, type, id) => {
     .append('marker')
     .attr('id', id + '_' + type + '-dependencyStart')
     .attr('class', 'marker dependency ' + type)
+    .attr('refX', 6)
+    .attr('refY', 7)
+    .attr('markerWidth', 190)
+    .attr('markerHeight', 240)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 5,7 L9,13 L1,7 L9,1 Z');
+
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-dependencyEnd')
+    .attr('class', 'marker dependency ' + type)
+    .attr('refX', 13)
+    .attr('refY', 7)
+    .attr('markerWidth', 20)
+    .attr('markerHeight', 28)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 18,7 L9,13 L14,7 L9,1 Z');
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-dependencyStart-margin')
+    .attr('class', 'marker dependency ' + type)
     .attr('refX', 4)
     .attr('refY', 7)
     .attr('markerWidth', 190)
@@ -124,9 +228,9 @@ const dependency = (elem, type, id) => {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', id + '_' + type + '-dependencyEnd')
+    .attr('id', id + '_' + type + '-dependencyEnd-margin')
     .attr('class', 'marker dependency ' + type)
-    .attr('refX', 15)
+    .attr('refX', 16)
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 28)
@@ -147,6 +251,39 @@ const lollipop = (elem, type, id) => {
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)
     .attr('orient', 'auto')
+    .append('circle')
+    .attr('stroke', 'black')
+    .attr('fill', 'transparent')
+    .attr('cx', 7)
+    .attr('cy', 7)
+    .attr('r', 6);
+
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-lollipopEnd')
+    .attr('class', 'marker lollipop ' + type)
+    .attr('refX', 1)
+    .attr('refY', 7)
+    .attr('markerWidth', 190)
+    .attr('markerHeight', 240)
+    .attr('orient', 'auto')
+    .append('circle')
+    .attr('stroke', 'black')
+    .attr('fill', 'transparent')
+    .attr('cx', 7)
+    .attr('cy', 7)
+    .attr('r', 6);
+  elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-lollipopStart-margin')
+    .attr('class', 'marker lollipop ' + type)
+    .attr('refX', 13)
+    .attr('refY', 7)
+    .attr('markerWidth', 190)
+    .attr('markerHeight', 240)
+    .attr('orient', 'auto')
     .attr('markerUnits', 'userSpaceOnUse')
     .append('circle')
     .attr('stroke', 'black')
@@ -159,7 +296,7 @@ const lollipop = (elem, type, id) => {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', id + '_' + type + '-lollipopEnd')
+    .attr('id', id + '_' + type + '-lollipopEnd-margin')
     .attr('class', 'marker lollipop ' + type)
     .attr('refX', 1)
     .attr('refY', 7)
