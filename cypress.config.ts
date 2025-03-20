@@ -23,16 +23,10 @@ export default eyesPlugin(
         });
         // copy any needed variables from process.env to config.env
         config.env.useAppli = process.env.USE_APPLI ? true : false;
-        // only use Argos on CI in the mermaid-js/mermaid repository
-        config.env.useArgos =
-          !!process.env.CI &&
-          process.env.GITHUB_REPOSITORY === 'mermaid-js/mermaid' &&
-          !!process.env.ARGOS_TOKEN;
+        config.env.useArgos = process.env.RUN_VISUAL_TEST === 'true';
 
         if (config.env.useArgos) {
-          registerArgosTask(on, config, {
-            token: 'fc3a35cf5200db928d65b2047861582d9444032b',
-          });
+          registerArgosTask(on, config);
         } else {
           addMatchImageSnapshotPlugin(on, config);
         }
