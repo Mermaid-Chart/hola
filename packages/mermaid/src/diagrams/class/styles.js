@@ -14,6 +14,10 @@ const getStyles = (options) =>
 .nodeLabel, .edgeLabel {
   color: ${options.classText};
 }
+
+.noteLabel .nodeLabel, .noteLabel .edgeLabel {
+  color: ${options.noteTextColor};
+}
 .edgeLabel .label rect {
   fill: ${options.mainBkg};
 }

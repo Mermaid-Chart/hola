@@ -17,7 +17,7 @@ export async function note<T extends SVGGraphicsElement>(
   if (!useHtmlLabels) {
     node.centerLabel = true;
   }
-  const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
+  const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
   const totalWidth = Math.max(bbox.width + (node.padding ?? 0) * 2, node?.width ?? 0);
   const totalHeight = Math.max(bbox.height + (node.padding ?? 0) * 2, node?.height ?? 0);
   const x = -totalWidth / 2;
@@ -41,6 +41,7 @@ export async function note<T extends SVGGraphicsElement>(
 
   const rect = shapeSvg.insert(() => noteShapeNode, ':first-child');
   rect.attr('class', 'basic label-container outer-path');
+  label.attr('class', 'label noteLabel');
 
   if (cssStyles && node.look !== 'handDrawn') {
     rect.selectAll('path').attr('style', cssStyles);
