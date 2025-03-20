@@ -47,8 +47,9 @@ const extension = (elem, type, id) => {
     .attr('markerHeight', 28)
     .attr('orient', 'auto')
     .attr('markerUnits', 'userSpaceOnUse')
-    .append('path')
-    .attr('d', 'M 10,7 L18,13 V 1 Z')
+    .attr('viewBox', '0 0 20 14')
+    .append('polygon')
+    .attr('points', '10,7 18,13 18,1')
     .style('stroke-width', 2)
     .style('stroke-dasharray', '0');
 
@@ -63,8 +64,9 @@ const extension = (elem, type, id) => {
     .attr('markerHeight', 28)
     .attr('orient', 'auto')
     .attr('markerUnits', 'userSpaceOnUse')
-    .append('path')
-    .attr('d', 'M 10,1 V 13 L18,7 Z')
+    .attr('viewBox', '0 0 20 14')
+    .append('polygon')
+    .attr('points', '10,1 10,13 18,7')
     .style('stroke-width', 2)
     .style('stroke-dasharray', '0');
 };

@@ -156,6 +156,19 @@ g.classGroup line {
   font-size: 18px;
   fill: ${options.textColor};
 }
+
+.edgeLabel {
+  background-color: ${options.edgeLabelBackground};
+  p {
+    background-color: ${options.edgeLabelBackground};
+  }
+  rect {
+    opacity: 0.5;
+    background-color: ${options.edgeLabelBackground};
+    fill: ${options.edgeLabelBackground};
+  }
+  text-align: center;
+}
 `;
 
 export default getStyles;
