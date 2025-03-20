@@ -93,7 +93,7 @@ const rect = async (parent, node) => {
       .attr('y', y)
       .attr('width', width)
       .attr('height', height)
-      .attr('style', `stroke:${clusterBorder};fill:${clusterBkg}`);
+      .attr('style', `fill:${clusterBkg}`);
   }
   const { subGraphTitleTopMargin } = getSubGraphTitleMargins(siteConfig);
   labelEl.attr(
