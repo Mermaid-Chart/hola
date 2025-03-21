@@ -120,7 +120,7 @@ const getStyles = (
   }
 
   [data-look="neo"].node .neo-line path {
-    stroke: ${options.primaryBorderColor};
+    stroke: ${options.nodeBorder};
     filter: none;
   }
 

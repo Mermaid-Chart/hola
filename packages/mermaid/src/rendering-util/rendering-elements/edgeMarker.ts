@@ -54,7 +54,16 @@ const arrowTypesMap = {
   requirement_contains: { type: 'requirement_contains', fill: false },
 } as const;
 
-const arrowTypesWithMarginSupport = ['cross', 'point', 'circle'];
+const arrowTypesWithMarginSupport = [
+  'cross',
+  'point',
+  'circle',
+  'lollipop',
+  'aggregation',
+  'extension',
+  'composition',
+  'dependency',
+];
 
 const addEdgeMarker = (
   svgPath: SVG,

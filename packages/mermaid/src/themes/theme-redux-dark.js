@@ -38,8 +38,8 @@ class Theme {
     this.radius = 12;
     this.strokeWidth = 2;
 
-    this.noteBkgColor = '#fff5ad';
-    this.noteTextColor = '#FFFFFF';
+    this.noteBkgColor = this.noteBkgColor ?? '#FEF9C3';
+    this.noteTextColor = this.noteTextColor ?? '#28253D';
 
     this.THEME_COLOR_LIMIT = 12;
     // dark
@@ -61,6 +61,11 @@ class Theme {
     this.archEdgeWidth = '3';
     this.archGroupBorderColor = this.primaryBorderColor;
     this.archGroupBorderWidth = '2px';
+
+    /* Class Diagram variables */
+    this.clusterBkg = '#1E1A2E';
+    this.clusterBorder = '#BDBCCC';
+    this.noteBorderColor = '#FACC15';
   }
   updateColors() {
     // The || is to make sure that if the variable has been defined by a user override that value is to be used

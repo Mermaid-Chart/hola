@@ -24,7 +24,7 @@ class Theme {
     this.radius = 12;
     this.strokeWidth = 2;
 
-    this.primaryBorderColor = mkBorder(this.primaryColor, this.darkMode);
+    this.primaryBorderColor = mkBorder('#28253D', this.darkMode);
     // dark
 
     this.fontFamily = '"Recursive Variable", arial, sans-serif';
@@ -38,6 +38,9 @@ class Theme {
     this.gradientStop = '#eb0042';
     this.dropShadow = 'url(#drop-shadow)';
     this.tertiaryColor = '#ffffff';
+    this.clusterBkg = '#F9F9FB';
+    this.clusterBorder = '#BDBCCC';
+    this.noteBorderColor = '#FACC15';
 
     /* Architecture Diagram variables */
     this.archEdgeColor = 'calculated';
@@ -63,7 +66,7 @@ class Theme {
     this.tertiaryBorderColor =
       this.tertiaryBorderColor || mkBorder(this.tertiaryColor, this.darkMode);
     this.noteBorderColor = this.noteBorderColor || mkBorder(this.noteBkgColor, this.darkMode);
-    this.noteBkgColor = this.noteBkgColor || '#fff5ad';
+    this.noteBkgColor = this.noteBkgColor || '#FEF9C3';
     this.noteTextColor = this.noteTextColor || '#28253D';
 
     this.secondaryTextColor = this.secondaryTextColor || invert(this.secondaryColor);
