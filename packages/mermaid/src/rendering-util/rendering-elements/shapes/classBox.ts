@@ -89,7 +89,7 @@ export async function classBox<T extends SVGGraphicsElement>(parent: D3Selection
   );
 
   const rect = shapeSvg.insert(() => roughRect, ':first-child');
-  rect.attr('class', 'basic label-container');
+  rect.attr('class', 'basic label-container outer-path');
   const rectBBox = rect.node()!.getBBox();
 
   // Rect is centered so now adjust labels.
