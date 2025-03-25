@@ -9,7 +9,23 @@ import {
   markerOffsets2,
 } from '../../utils/lineWithOffset.js';
 import { getSubGraphTitleMargins } from '../../utils/subGraphTitleMargins.js';
-import { curveBasis, curveLinear, curveCardinal, line, select } from 'd3';
+
+import {
+  curveBasis,
+  curveLinear,
+  curveCardinal,
+  curveBumpX,
+  curveBumpY,
+  curveCatmullRom,
+  curveMonotoneX,
+  curveMonotoneY,
+  curveNatural,
+  curveStep,
+  curveStepAfter,
+  curveStepBefore,
+  line,
+  select,
+} from 'd3';
 import rough from 'roughjs';
 import createLabel from './createLabel.js';
 import { addEdgeMarkers } from './edgeMarker.ts';
@@ -418,6 +434,33 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
     case 'cardinal':
       curve = curveCardinal;
       break;
+    case 'bumpX':
+      curve = curveBumpX;
+      break;
+    case 'bumpY':
+      curve = curveBumpY;
+      break;
+    case 'catmullRom':
+      curve = curveCatmullRom;
+      break;
+    case 'monotoneX':
+      curve = curveMonotoneX;
+      break;
+    case 'monotoneY':
+      curve = curveMonotoneY;
+      break;
+    case 'natural':
+      curve = curveNatural;
+      break;
+    case 'step':
+      curve = curveStep;
+      break;
+    case 'stepAfter':
+      curve = curveStepAfter;
+      break;
+    case 'stepBefore':
+      curve = curveStepBefore;
+      break;
     default:
       curve = curveBasis;
   }
@@ -509,8 +552,10 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
       )
       .attr('style', pathStyle);
 
+    //eslint-disable-next-line @typescript-eslint/prefer-regexp-exec
     strokeColor = pathStyle.match(/stroke:([^;]+)/)?.[1];
 
+    // Possible fix to remove eslint-disable-next-line
     //strokeColor = /stroke:([^;]+)/.exec(pathStyle)?.[1];
 
     animatedEdge =
