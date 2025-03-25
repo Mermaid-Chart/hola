@@ -1125,7 +1125,6 @@ You have to call mermaid.initialize.`
         style: styles,
         pattern: rawEdge.stroke,
         look: config.look,
-        curve: config.flowchart?.curve,
         showPoints: config.flowchart?.edgeDebug,
         animate: rawEdge.animate,
         animation: rawEdge.animation,
