@@ -66,6 +66,9 @@ class Theme {
     this.clusterBkg = '#1E1A2E';
     this.clusterBorder = '#BDBCCC';
     this.noteBorderColor = '#FACC15';
+
+    /* Sequence Diagram variables */
+    this.noteFontWeight = 600;
   }
   updateColors() {
     // The || is to make sure that if the variable has been defined by a user override that value is to be used

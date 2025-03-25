@@ -473,7 +473,6 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   line.style('fill', 'none'); // remove any fill colour
   if (type === diagObj.db.LINETYPE.SOLID || type === diagObj.db.LINETYPE.DOTTED) {
     line.attr('marker-end', 'url(' + url + '#arrowhead)');
-    // line.attr('x2', stopx - offset);
   }
   if (
     type === diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID ||
@@ -484,18 +483,15 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   }
   if (type === diagObj.db.LINETYPE.SOLID_POINT || type === diagObj.db.LINETYPE.DOTTED_POINT) {
     line.attr('marker-end', 'url(' + url + '#filled-head)');
-    // line.attr('x2', stopx - offset);
   }
 
   if (type === diagObj.db.LINETYPE.SOLID_CROSS || type === diagObj.db.LINETYPE.DOTTED_CROSS) {
     line.attr('marker-end', 'url(' + url + '#crosshead)');
-    // line.attr('x2', stopx - offset);
   }
 
   // add node number
   if (sequenceVisible || conf.showSequenceNumbers) {
     line.attr('marker-start', 'url(' + url + '#sequencenumber)');
-    // line.attr('x1', startx + offset);
     diagram
       .append('text')
       .attr('x', startx)
@@ -578,12 +574,12 @@ const addActorRenderingData = function (
   bounds.bumpVerticalPos(maxHeight);
 };
 
-export const drawActors = async function (diagram, actors, actorKeys, isFooter) {
+export const drawActors = async function (diagram, actors, actorKeys, isFooter, diagObj) {
   if (!isFooter) {
     for (const actorKey of actorKeys) {
       const actor = actors.get(actorKey);
       // Draw the box with the attached line
-      await svgDraw.drawActor(diagram, actor, conf, false);
+      await svgDraw.drawActor(diagram, actor, conf, false, diagObj);
     }
   } else {
     let maxHeight = 0;
@@ -593,7 +589,7 @@ export const drawActors = async function (diagram, actors, actorKeys, isFooter) 
       if (!actor.stopy) {
         actor.stopy = bounds.getVerticalPos();
       }
-      const height = await svgDraw.drawActor(diagram, actor, conf, true);
+      const height = await svgDraw.drawActor(diagram, actor, conf, true, diagObj);
       maxHeight = common.getMax(maxHeight, height);
     }
     bounds.bumpVerticalPos(maxHeight + conf.boxMargin);
@@ -872,7 +868,6 @@ export const draw = async function (_text: string, id: string, _version: string,
   const messagesToDraw = [];
   const backgrounds = [];
   let index = 0;
-  await drawActors(diagram, actors, actorKeys, false);
   for (const msg of messages) {
     let loopModel, noteModel, msgModel;
 
@@ -1075,13 +1070,13 @@ export const draw = async function (_text: string, id: string, _version: string,
 
   log.debug('createdActors', createdActors);
   log.debug('destroyedActors', destroyedActors);
+  await drawActors(diagram, actors, actorKeys, false, diagObj);
 
   for (const e of messagesToDraw) {
-    // debugger
     await drawMessage(diagram, e.messageModel, e.lineStartY, diagObj);
   }
   if (conf.mirrorActors) {
-    await drawActors(diagram, actors, actorKeys, true);
+    await drawActors(diagram, actors, actorKeys, true, diagObj);
   }
   backgrounds.forEach((e) => svgDraw.drawBackgroundRect(diagram, e));
   fixLifeLineHeights(diagram, actors, actorKeys, conf);
@@ -1486,7 +1481,9 @@ const buildMessageModel = function (msg, actors, diagObj) {
 
   if (look === 'neo') {
     const offset = 3;
-    stopx += isArrowToRight ? -offset : offset;
+    if (msg.type !== diagObj.db.LINETYPE.SOLID_OPEN) {
+      stopx += isArrowToRight ? -offset : offset;
+    }
     if (
       msg.type === diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID ||
       msg.type === diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED

@@ -13,6 +13,7 @@ const getStyles = (options) =>
       stroke:${options.noteBorderColor};
       fill:${options.noteBkgColor};
       filter: ${options.dropShadow};
+      stroke-width: ${options.strokeWidth};
   }
 
   text.actor > tspan {
@@ -91,6 +92,7 @@ const getStyles = (options) =>
   .noteText, .noteText > tspan {
     fill: ${options.noteTextColor};
     stroke: none;
+    ${options.noteFontWeight ? `font-weight: ${options.noteFontWeight};` : ''}
   }
 
   .activation0 {
@@ -118,12 +120,7 @@ const getStyles = (options) =>
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     filter: drop-shadow(3px 5px 2px rgb(0 0 0 / 0.4));
 }
-  .actor-man line {
-    stroke: ${options.actorBorder};
-    fill: ${options.actorBkg};
-  }
   .actor-man circle, line {
-    stroke: ${options.actorBorder};
     fill: ${options.actorBkg};
     stroke-width: 2px;
   }

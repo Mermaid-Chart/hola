@@ -318,8 +318,7 @@ export const fixLifeLineHeights = (diagram, actors, actorKeys, conf) => {
     if (!conf.mirrorActors && actor.stopy) {
       actorDOM.attr('y2', actor.stopy + actor.height / 2);
     } else if (conf.mirrorActors) {
-      const offset = actor.type === 'actor' && config.look === 'neo' ? 20 : 0;
-      actorDOM.attr('y2', actor.stopy - offset);
+      actorDOM.attr('y2', actor.stopy);
     }
   });
 };
@@ -332,7 +331,7 @@ export const fixLifeLineHeights = (diagram, actors, actorKeys, conf) => {
  * @param {any} conf - DrawText implementation discriminator object
  * @param {boolean} isFooter - If the actor is the footer one
  */
-const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
+const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
@@ -398,10 +397,10 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
   }
   const rectElem = drawRect(g, rect);
 
-  // rectElem.attr('transform', `translate(${look === 'neo' ? rect.width / 2 : 0}, 0)`);
-  if (theme === 'redux-mono') {
-    rectElem.style('stroke', borderColorArray[actor.actorCnt % borderColorArray.length]);
-    rectElem.style('fill', bkgColorArray[actor.actorCnt % bkgColorArray.length]);
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme === 'redux-color') {
+    rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
   }
   if (look === 'neo') {
     rectElem.attr('filter', 'url(#drop-shadow)');
@@ -421,7 +420,7 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
   if (!isFooter) {
     g.attr('data-et', 'participant');
     g.attr('data-id', actor.name);
-    if (look === 'neo') {
+    if (look === 'neo' && theme?.includes('redux')) {
       g.append('defs')
         .append('filter')
         .attr('id', 'drop-shadow')
@@ -434,7 +433,7 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
         .attr('flood-opacity', '0.06')
         .attr(
           'flood-color',
-          `${theme === 'redux' || theme === 'redux-mono' ? '#000000' : '#FFFFFF'}`
+          `${theme === 'redux' || theme === 'redux-color' ? '#000000' : '#FFFFFF'}`
         );
     }
   }
@@ -460,13 +459,14 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter) {
   return height;
 };
 
-const drawActorTypeActor = function (elem, actor, conf, isFooter) {
+const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 80;
+  const { look, theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray, actorBorder } = themeVariables;
 
   const line = elem.append('g').lower();
-  const offset = actor.type === 'actor' && config.look === 'neo' ? 1 : 0;
 
   if (!isFooter) {
     actorCnt++;
@@ -474,7 +474,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter) {
       .append('line')
       .attr('id', 'actor' + actorCnt)
       .attr('x1', center)
-      .attr('y1', centerY + offset)
+      .attr('y1', centerY)
       .attr('x2', center)
       .attr('y2', 2000)
       .attr('class', 'actor-line 200')
@@ -500,59 +500,75 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter) {
     actElem.attr('data-et', 'participant').attr('data-id', actor.name);
   }
 
-  const rect = svgDrawCommon.getNoteRect();
-  rect.x = actor.x;
-  rect.y = actorY;
-  rect.fill = '#eaeaea';
-  rect.width = actor.width;
-  rect.height = actor.height;
-  rect.class = 'actor';
-  rect.rx = 3;
-  rect.ry = 3;
+  // Scaling the stickman
+  const scale = look === 'neo' ? 0.5 : 1;
+
+  // Adjusting stickman to maintain the same position
+  const adjustedActorY = look === 'neo' ? actorY + (1 - scale) * 30 : actorY; // Adjust for the torso and head shift
 
   actElem
     .append('line')
     .attr('id', 'actor-man-torso' + actorCnt)
     .attr('x1', center)
-    .attr('y1', actorY + 25)
+    .attr('y1', adjustedActorY + 25 * scale)
     .attr('x2', center)
-    .attr('y2', actorY + 45);
+    .attr('y2', adjustedActorY + 45 * scale);
 
   actElem
     .append('line')
     .attr('id', 'actor-man-arms' + actorCnt)
-    .attr('x1', center - ACTOR_TYPE_WIDTH / 2)
-    .attr('y1', actorY + 33)
-    .attr('x2', center + ACTOR_TYPE_WIDTH / 2)
-    .attr('y2', actorY + 33);
+    .attr('x1', center - (ACTOR_TYPE_WIDTH / 2) * scale)
+    .attr('y1', adjustedActorY + 33 * scale)
+    .attr('x2', center + (ACTOR_TYPE_WIDTH / 2) * scale)
+    .attr('y2', adjustedActorY + 33 * scale);
   actElem
     .append('line')
-    .attr('x1', center - ACTOR_TYPE_WIDTH / 2)
-    .attr('y1', actorY + 60)
+    .attr('x1', center - (ACTOR_TYPE_WIDTH / 2) * scale)
+    .attr('y1', adjustedActorY + 60 * scale)
     .attr('x2', center)
-    .attr('y2', actorY + 45);
+    .attr('y2', adjustedActorY + 45 * scale);
   actElem
     .append('line')
     .attr('x1', center)
-    .attr('y1', actorY + 45)
-    .attr('x2', center + ACTOR_TYPE_WIDTH / 2 - 2)
-    .attr('y2', actorY + 60);
+    .attr('y1', adjustedActorY + 45 * scale)
+    .attr('x2', center + (ACTOR_TYPE_WIDTH / 2 - 2) * scale)
+    .attr('y2', adjustedActorY + 60 * scale);
 
   const circle = actElem.append('circle');
   circle.attr('cx', actor.x + actor.width / 2);
-  circle.attr('cy', actorY + 10);
-  circle.attr('r', 15);
-  circle.attr('width', actor.width);
-  circle.attr('height', actor.height);
+  circle.attr('cy', adjustedActorY + 10 * scale);
+  circle.attr('r', 15 * scale);
+  circle.attr('width', actor.width * scale);
+  circle.attr('height', actor.height * scale);
 
+  // Get the bounds of the stickman after scaling
   const bounds = actElem.node().getBBox();
   actor.height = bounds.height;
+
+  // // Adjust the rect to match the scaled stickman
+  const rect = svgDrawCommon.getNoteRect();
+  rect.x = actor.x;
+  rect.y = adjustedActorY; // Use adjustedActorY for proper alignment
+  rect.fill = '#eaeaea';
+  rect.width = actor.width; // Scale the width
+  rect.height = actor.height / scale; // Use the updated height from bounds
+  rect.class = 'actor';
+  rect.rx = 3;
+  rect.ry = 3;
+
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme === 'redux-color') {
+    actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  } else {
+    actElem.style('stroke', actorBorder);
+  }
 
   _drawTextCandidateFunc(conf, hasKatex(actor.description))(
     actor.description,
     actElem,
     rect.x,
-    rect.y + 35,
+    adjustedActorY + 35 * scale - 10,
     rect.width,
     rect.height,
     { class: `actor ${ACTOR_MAN_FIGURE_CLASS}` },
@@ -562,12 +578,12 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter) {
   return actor.height;
 };
 
-export const drawActor = async function (elem, actor, conf, isFooter) {
+export const drawActor = async function (elem, actor, conf, isFooter, diagObj) {
   switch (actor.type) {
     case 'actor':
-      return await drawActorTypeActor(elem, actor, conf, isFooter);
+      return await drawActorTypeActor(elem, actor, conf, isFooter, diagObj);
     case 'participant':
-      return await drawActorTypeParticipant(elem, actor, conf, isFooter);
+      return await drawActorTypeParticipant(elem, actor, conf, isFooter, diagObj);
   }
 };
 
@@ -623,8 +639,8 @@ export const drawActivation = function (
   rect.height = verticalPos - bounds.starty;
 
   const rectElem = drawRect(g, rect);
-  let actorCount = diagObj.db.getActor(actor).actorCnt;
-  if (theme === 'redux-mono') {
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor);
+  if (theme === 'redux-color') {
     rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
   }
