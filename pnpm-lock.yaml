@@ -224,8 +224,8 @@ importers:
         specifier: ^2.1.33
         version: 2.3.0
       '@mermaid-js/parser':
-        specifier: ^0.3.1-rc.1
-        version: 0.3.1-rc.1
+        specifier: ^0.4.0
+        version: 0.4.0
       '@types/d3':
         specifier: ^7.4.3
         version: 7.4.3
@@ -2862,8 +2862,8 @@ packages:
   '@mermaid-js/parser@0.3.0':
     resolution: {integrity: sha512-HsvL6zgE5sUPGgkIDlmAWR1HTNHz2Iy11BAWPTa4Jjabkpguy4Ze2gzfLrg6pdRuBvFwgUYyxiaNqZwrEEXepA==}
 
-  '@mermaid-js/parser@0.3.1-rc.1':
-    resolution: {integrity: sha512-gYXEGLui3Cfp+P37TBz2no4LuoEY2fEnK1MTh9YPbuAta7kVbZXPpTeay9ahtV7Zi6GkfW3yAUGM9fJ1KkoiWA==}
+  '@mermaid-js/parser@0.4.0':
+    resolution: {integrity: sha512-wla8XOWvQAwuqy+gxiZqY+c7FokraOTHRWMsbB4AgRx9Sy7zKslNyejy7E+a77qHfey5GXw/ik3IXv/NHMJgaA==}
 
   '@microsoft/tsdoc-config@0.17.1':
     resolution: {integrity: sha512-UtjIFe0C6oYgTnad4q1QP4qXwLhe6tIpNTRStJ2RZEPIkqQPREAwE5spzVxsdn9UaEMUqhh0AqSx3X4nWAKXWw==}
@@ -13074,9 +13074,9 @@ snapshots:
     dependencies:
       langium: 3.0.0
 
-  '@mermaid-js/parser@0.3.1-rc.1':
+  '@mermaid-js/parser@0.4.0':
     dependencies:
-      langium: 3.0.0
+      langium: 3.3.1
 
   '@microsoft/tsdoc-config@0.17.1':
     dependencies:
