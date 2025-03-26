@@ -68,6 +68,7 @@ class Theme {
     this.activationBorderColor = '#666';
     this.activationBkgColor = '#f4f4f4';
     this.sequenceNumberColor = 'white';
+    this.clusterBkg = '#FBFBFF';
 
     /* Gantt chart variables */
 

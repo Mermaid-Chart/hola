@@ -15,7 +15,7 @@ const extension = (elem, type, id) => {
     .append('marker')
     .attr('id', id + '_' + type + '-extensionStart')
     .attr('class', 'marker extension ' + type)
-    .attr('refX', 18)
+    .attr('refX', 17.5)
     .attr('refY', 7)
     .attr('markerWidth', 190)
     .attr('markerHeight', 240)

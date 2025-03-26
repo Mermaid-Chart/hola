@@ -124,6 +124,12 @@ const getStyles = (options) =>
     fill: ${options.actorBkg};
     stroke-width: 2px;
   }
+
+  g rect.rect {
+    filter: ${options.dropShadow};
+    stroke: ${options.nodeBorder};
+    stroke-width: ${options.strokeWidth};
+  }
 `;
 
 export default getStyles;

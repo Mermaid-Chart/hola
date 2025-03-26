@@ -48,6 +48,8 @@ class Theme {
 
     /* Sequence Diagram variables */
     this.actorBorder = '#28253D';
+    this.noteBorderColor = '#FACC15';
+    this.noteFontWeight = 600;
 
     this.borderColorArray = [
       '#E879F9', //Fuchsia-400

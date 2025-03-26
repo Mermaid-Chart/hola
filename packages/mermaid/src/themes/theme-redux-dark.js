@@ -108,9 +108,12 @@ class Theme {
       this.edgeLabelBackground ||
       (this.darkMode ? darken(this.secondaryColor, 30) : this.secondaryColor);
     this.nodeTextColor = this.nodeTextColor || this.primaryTextColor;
+
     /* Sequence Diagram variables */
 
-    // this.actorBorder = lighten(this.border1, 0.5);
+    this.actorBorder = '#FFFFFF';
+    this.signalColor = '#FFFFFF';
+    this.labelBoxBorderColor = '#BDBCCC';
     this.actorBorder = this.actorBorder || this.primaryBorderColor;
     this.actorBkg = this.actorBkg || this.mainBkg;
     this.actorTextColor = this.actorTextColor || this.primaryTextColor;

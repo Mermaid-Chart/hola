@@ -334,21 +334,24 @@ export class SequenceDB implements DiagramDB {
   // The color can be rgb,rgba,hsl,hsla, or css code names  #hex codes are not supported for now because of the way the char # is handled
   // We extract first segment as color, the rest of the line is considered as text
   public parseBoxData(str: string) {
+    const config = getConfig();
+    const { themeVariables } = config;
+    const { clusterBkg } = themeVariables;
     const match = /^((?:rgba?|hsla?)\s*\(.*\)|\w*)(.*)$/.exec(str);
-    let color = match?.[1] ? match[1].trim() : 'transparent';
+    let color = match?.[1] ? match[1].trim() : (clusterBkg ?? 'transparent');
     let title = match?.[2] ? match[2].trim() : undefined;
 
     // check that the string is a color
     if (window?.CSS) {
       if (!window.CSS.supports('color', color)) {
-        color = 'transparent';
+        color = clusterBkg ?? 'transparent';
         title = str.trim();
       }
     } else {
       const style = new Option().style;
       style.color = color;
       if (style.color !== color) {
-        color = 'transparent';
+        color = clusterBkg ?? 'transparent';
         title = str.trim();
       }
     }

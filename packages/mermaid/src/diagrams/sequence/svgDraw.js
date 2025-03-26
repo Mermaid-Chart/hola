@@ -398,7 +398,7 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj)
   const rectElem = drawRect(g, rect);
 
   let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme === 'redux-color') {
+  if (theme?.includes('color')) {
     rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
   }
@@ -557,7 +557,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   rect.ry = 3;
 
   let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme === 'redux-color') {
+  if (theme?.includes('color')) {
     actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
   } else {
@@ -568,7 +568,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
     actor.description,
     actElem,
     rect.x,
-    adjustedActorY + 35 * scale - 10,
+    adjustedActorY + 35 * scale - (look === 'neo' ? 10 : 0),
     rect.width,
     rect.height,
     { class: `actor ${ACTOR_MAN_FIGURE_CLASS}` },
@@ -628,7 +628,7 @@ export const drawActivation = function (
   diagObj
 ) {
   const { theme, themeVariables } = conf;
-  const { bkgColorArray, borderColorArray } = themeVariables;
+  const { bkgColorArray, borderColorArray, mainBkg } = themeVariables;
   const rect = svgDrawCommon.getNoteRect();
   const g = bounds.anchored;
   const actor = bounds.actor;
@@ -640,9 +640,9 @@ export const drawActivation = function (
 
   const rectElem = drawRect(g, rect);
   let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor);
-  if (theme === 'redux-color') {
+  if (theme?.includes('color')) {
     rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
-    rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+    rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length] ?? mainBkg);
   }
 };
 
