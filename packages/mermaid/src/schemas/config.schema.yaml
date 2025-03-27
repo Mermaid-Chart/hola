@@ -72,6 +72,8 @@ properties:
       - neo-dark
       - redux
       - redux-dark
+      - redux-color
+      - redux-dark-color
       - mc
       - 'null' # should this be a `null`-type?
     meta:enum:
