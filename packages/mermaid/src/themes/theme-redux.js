@@ -48,6 +48,9 @@ class Theme {
     this.archEdgeWidth = '3';
     this.archGroupBorderColor = this.primaryBorderColor;
     this.archGroupBorderWidth = '2px';
+
+    /* Sequence Diagram variables */
+    this.actorBorder = '#28253D';
   }
   updateColors() {
     // The || is to make sure that if the variable has been defined by a user override that value is to be used
@@ -88,6 +91,7 @@ class Theme {
       (this.darkMode ? darken(this.secondaryColor, 30) : this.secondaryColor);
     this.nodeTextColor = this.nodeTextColor || this.primaryTextColor;
     /* Sequence Diagram variables */
+    this.noteFontWeight = 600;
 
     // this.actorBorder = lighten(this.border1, 0.5);
     this.actorBorder = this.actorBorder || this.primaryBorderColor;

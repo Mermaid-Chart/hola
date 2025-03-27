@@ -566,7 +566,7 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
 
     if (edge.look === 'neo' && !animatedEdge) {
       const dashArray =
-        edge.pattern === 'dotted'
+        edge.pattern === 'dotted' || edge.pattern === 'dashed'
           ? generateDashArray(len, oValueS, oValueE)
           : `0 ${oValueS} ${len - oValueS - oValueE} ${oValueE}`;
 

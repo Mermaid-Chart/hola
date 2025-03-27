@@ -6,6 +6,8 @@ import { getThemeVariables as neutralThemeVariables } from './theme-neutral.js';
 import { getThemeVariables as neoThemeVariables } from './theme-neo.js';
 import { getThemeVariables as reduxThemeVariables } from './theme-redux.js';
 import { getThemeVariables as reduxDarkThemeVariables } from './theme-redux-dark.js';
+import { getThemeVariables as reduxColorThemeVariables } from './theme-redux-color.js';
+import { getThemeVariables as reduxDarkColorThemeVariables } from './theme-redux-dark-color.js';
 import { getThemeVariables as neoDarkThemeVariables } from './theme-neo-dark.js';
 import { getThemeVariables as mcThemeVariables } from './theme-mc.js';
 
@@ -36,6 +38,12 @@ export default {
   },
   'redux-dark': {
     getThemeVariables: reduxDarkThemeVariables,
+  },
+  'redux-color': {
+    getThemeVariables: reduxColorThemeVariables,
+  },
+  'redux-dark-color': {
+    getThemeVariables: reduxDarkColorThemeVariables,
   },
   mc: {
     getThemeVariables: mcThemeVariables,

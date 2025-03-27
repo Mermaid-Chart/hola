@@ -394,6 +394,8 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   const textWidth = textDims.width;
 
   let line;
+  // const offset = look === 'neo' ? 25 : 0;
+
   if (startx === stopx) {
     if (conf.rightAngles) {
       line = diagram
@@ -538,7 +540,7 @@ const addActorRenderingData = function (
     }
 
     // Add some rendering data to the object
-    actor.width = actor.width || conf.width;
+    actor.width = common.getMax(actor.width || conf.width, conf.width);
     actor.height = common.getMax(actor.height || conf.height, conf.height);
     actor.margin = actor.margin || conf.actorMargin;
 
@@ -572,12 +574,12 @@ const addActorRenderingData = function (
   bounds.bumpVerticalPos(maxHeight);
 };
 
-export const drawActors = async function (diagram, actors, actorKeys, isFooter) {
+export const drawActors = async function (diagram, actors, actorKeys, isFooter, diagObj) {
   if (!isFooter) {
     for (const actorKey of actorKeys) {
       const actor = actors.get(actorKey);
       // Draw the box with the attached line
-      await svgDraw.drawActor(diagram, actor, conf, false);
+      await svgDraw.drawActor(diagram, actor, conf, false, diagObj);
     }
   } else {
     let maxHeight = 0;
@@ -587,7 +589,7 @@ export const drawActors = async function (diagram, actors, actorKeys, isFooter) 
       if (!actor.stopy) {
         actor.stopy = bounds.getVerticalPos();
       }
-      const height = await svgDraw.drawActor(diagram, actor, conf, true);
+      const height = await svgDraw.drawActor(diagram, actor, conf, true, diagObj);
       maxHeight = common.getMax(maxHeight, height);
     }
     bounds.bumpVerticalPos(maxHeight + conf.boxMargin);
@@ -853,7 +855,8 @@ export const draw = async function (_text: string, id: string, _version: string,
       activationData,
       verticalPos,
       conf,
-      actorActivations(msg.from).length
+      actorActivations(msg.from).length,
+      diagObj
     );
 
     bounds.insert(activationData.startx, verticalPos - 10, activationData.stopx, verticalPos);
@@ -1067,13 +1070,13 @@ export const draw = async function (_text: string, id: string, _version: string,
 
   log.debug('createdActors', createdActors);
   log.debug('destroyedActors', destroyedActors);
-  await drawActors(diagram, actors, actorKeys, false);
+  await drawActors(diagram, actors, actorKeys, false, diagObj);
 
   for (const e of messagesToDraw) {
     await drawMessage(diagram, e.messageModel, e.lineStartY, diagObj);
   }
   if (conf.mirrorActors) {
-    await drawActors(diagram, actors, actorKeys, true);
+    await drawActors(diagram, actors, actorKeys, true, diagObj);
   }
   backgrounds.forEach((e) => svgDraw.drawBackgroundRect(diagram, e));
   fixLifeLineHeights(diagram, actors, actorKeys, conf);
@@ -1081,10 +1084,14 @@ export const draw = async function (_text: string, id: string, _version: string,
   for (const box of bounds.models.boxes) {
     box.height = bounds.getVerticalPos() - box.y;
     bounds.insert(box.x, box.y, box.x + box.width, box.height);
-    box.startx = box.x;
-    box.starty = box.y;
-    box.stopx = box.startx + box.width;
-    box.stopy = box.starty + box.height;
+
+    const boxPadding = conf.boxMargin * 2;
+    box.startx = box.x - boxPadding;
+    box.starty = box.y - boxPadding * 0.25;
+
+    box.stopx = box.startx + box.width + 2 * boxPadding;
+    box.stopy = box.starty + box.height + boxPadding * 0.75;
+
     box.stroke = 'rgb(0,0,0, 0.5)';
     svgDraw.drawBox(diagram, box, conf);
   }
@@ -1361,6 +1368,9 @@ async function calculateActorMargins(
       return (total += actors.get(aKey).width + (actors.get(aKey).margin || 0));
     }, 0);
 
+    const standardBoxPadding = conf.boxMargin * 8;
+    totalWidth += standardBoxPadding;
+
     totalWidth -= 2 * conf.boxTextMargin;
     if (box.wrap) {
       box.name = utils.wrapLabel(box.name, totalWidth - 2 * conf.wrapPadding, textFont);
@@ -1453,6 +1463,7 @@ const buildNoteModel = async function (msg, actors, diagObj) {
 };
 
 const buildMessageModel = function (msg, actors, diagObj) {
+  const { look } = getConfig();
   if (
     ![
       diagObj.db.LINETYPE.SOLID_OPEN,
@@ -1474,6 +1485,19 @@ const buildMessageModel = function (msg, actors, diagObj) {
   const isArrowToRight = fromLeft <= toLeft;
   let startx = isArrowToRight ? fromRight : fromLeft;
   let stopx = isArrowToRight ? toLeft : toRight;
+
+  if (look === 'neo') {
+    const offset = 3;
+    if (msg.type !== diagObj.db.LINETYPE.SOLID_OPEN) {
+      stopx += isArrowToRight ? -offset : offset;
+    }
+    if (
+      msg.type === diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID ||
+      msg.type === diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED
+    ) {
+      startx += isArrowToRight ? offset : -offset;
+    }
+  }
 
   // As the line width is considered, the left and right values will be off by 2.
   const isArrowToActivation = Math.abs(toLeft - toRight) > 2;
@@ -1552,6 +1576,13 @@ const buildMessageModel = function (msg, actors, diagObj) {
     fromBounds: Math.min.apply(null, allBounds),
     toBounds: Math.max.apply(null, allBounds),
   };
+};
+
+export const adjustValueByDirection = (msg, actors, value) => {
+  const [fromLeft] = activationBounds(msg.from, actors);
+  const [toLeft] = activationBounds(msg.to, actors);
+  const isArrowToRight = fromLeft <= toLeft;
+  return isArrowToRight ? -value : value;
 };
 
 const calculateLoopBounds = async function (messages, actors, _maxWidthPerActor, diagObj) {
