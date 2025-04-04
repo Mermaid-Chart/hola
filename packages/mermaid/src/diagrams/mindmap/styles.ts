@@ -1,6 +1,10 @@
 // @ts-expect-error Incorrect khroma types
 import { darken, lighten, isDark } from 'khroma';
 import type { DiagramStylesProvider } from '../../diagram-api/types.js';
+import * as configApi from '../../config.js';
+
+const config = configApi.getConfig();
+const { theme } = config;
 
 const genSections: DiagramStylesProvider = (options) => {
   let sections = '';
@@ -15,7 +19,8 @@ const genSections: DiagramStylesProvider = (options) => {
   }
 
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-    const sw = '' + (17 - 3 * i);
+    const m = theme?.includes('redux') ? 1.5 : 1;
+    const sw = '' + (17 - 3 * (i * m));
     sections += `
     .section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${
       i - 1
@@ -45,6 +50,17 @@ const genSections: DiagramStylesProvider = (options) => {
     }
     .disabled text {
       fill: #efefef;
+    }
+    [data-look="neo"].section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${i - 1} polygon, .section-${i - 1} path {
+      fill: ${theme === 'redux' || theme === 'redux-dark' ? options.mainBkg : options['cScale' + i]};
+      stroke: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScale' + i]};
+      stroke-width:${options.strokeWidth};
+    }
+    [data-look="neo"].section-edge-${i - 1}{
+      stroke: ${theme?.includes('redux') ? options.nodeBorder : options['cScale' + i]};
+    }
+    [data-look="neo"].section-${i - 1} text {
+     fill: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + i]};
     }
     `;
   }
@@ -79,6 +95,15 @@ const getStyles: DiagramStylesProvider = (options) =>
     text-anchor: middle;
     dominant-baseline: middle;
     text-align: center;
+  }
+  [data-look="neo"].mindmap-node  {
+    filter: ${options.dropShadow};
+  }
+  [data-look="neo"].section-root rect, .section-root path, .section-root circle, .section-root polygon  {
+    fill: ${theme?.includes('redux') ? options.mainBkg : options.git0};
+  }
+  [data-look="neo"].section-root .text-inner-tspan {
+    fill:  ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + 0]};
   }
 `;
 export default getStyles;

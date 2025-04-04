@@ -12,6 +12,10 @@ import { setupGraphViewbox } from '../../setupGraphViewbox.js';
 import type { FilledMindMapNode, MindmapDB, MindmapNode } from './mindmapTypes.js';
 import { drawNode, positionNode } from './svgDraw.js';
 import defaultConfig from '../../defaultConfig.js';
+import * as configApi from '../../config.js';
+
+const config = configApi.getConfig();
+const { look } = config;
 
 // Inject the layout algorithm into cytoscape
 cytoscape.use(coseBilkent);
@@ -61,7 +65,8 @@ function drawEdges(edgesEl: D3Element, cy: cytoscape.Core) {
           'd',
           `M ${bounds.startX},${bounds.startY} L ${bounds.midX},${bounds.midY} L${bounds.endX},${bounds.endY} `
         )
-        .attr('class', 'edge section-edge-' + data.section + ' edge-depth-' + data.depth);
+        .attr('class', 'edge section-edge-' + data.section + ' edge-depth-' + data.depth)
+        .attr('data-look', `${look}`);
     }
   });
 }

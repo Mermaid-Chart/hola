@@ -593,7 +593,7 @@ You have to call mermaid.initialize.`
           return;
         }
         const rect = (e.currentTarget as Element)?.getBoundingClientRect();
-
+        // @ts-ignore - transition is not part of the d3 type definition
         tooltipElem.transition().duration(200).style('opacity', '.9');
         tooltipElem
           .text(el.attr('title'))
@@ -603,6 +603,7 @@ You have to call mermaid.initialize.`
         el.classed('hover', true);
       })
       .on('mouseout', (e: MouseEvent) => {
+        // @ts-ignore - transition is not part of the d3 type definition
         tooltipElem.transition().duration(500).style('opacity', 0);
         const el = select(e.currentTarget as Element);
         el.classed('hover', false);

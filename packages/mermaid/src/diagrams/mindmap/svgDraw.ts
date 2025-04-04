@@ -3,8 +3,11 @@ import type { FilledMindMapNode, MindmapDB } from './mindmapTypes.js';
 import type { Point, D3Element } from '../../types.js';
 import { parseFontSize } from '../../utils.js';
 import type { MermaidConfig } from '../../config.type.js';
+import * as configApi from '../../config.js';
 
 const MAX_SECTIONS = 12;
+const config = configApi.getConfig();
+const { look, theme, themeVariables } = config;
 
 type ShapeFunction = (
   db: MindmapDB,
@@ -156,13 +159,18 @@ const hexagonBkg: ShapeFunction = function (
 };
 
 const roundedRectBkg: ShapeFunction = function (db, elem, node) {
+  const { radius } = themeVariables;
+  let rx = 0;
+  let ry = 0;
+
+  rx = ry = look === 'neo' ? radius : node.padding;
   elem
     .append('rect')
     .attr('id', 'node-' + node.id)
     .attr('class', 'node-bkg node-' + db.type2Str(node.type))
     .attr('height', node.height)
-    .attr('rx', node.padding)
-    .attr('ry', node.padding)
+    .attr('rx', rx)
+    .attr('ry', ry)
     .attr('width', node.width);
 };
 
@@ -189,6 +197,28 @@ export const drawNode = async function (
   if (section < 0) {
     sectionClass += ' section-root';
   }
+
+  if (look === 'neo') {
+    nodeElem.attr('data-look', `neo`);
+    if (theme?.includes('redux')) {
+      nodeElem
+        .append('defs')
+        .append('filter')
+        .attr('id', 'drop-shadow')
+        .attr('height', '130%')
+        .attr('width', '130%')
+        .append('feDropShadow')
+        .attr('dx', '4')
+        .attr('dy', '4')
+        .attr('stdDeviation', 0)
+        .attr('flood-opacity', '0.06')
+        .attr(
+          'flood-color',
+          `${theme === 'redux' || theme === 'redux-color' ? '#000000' : '#FFFFFF'}`
+        );
+    }
+  }
+
   nodeElem.attr('class', (node.class ? node.class + ' ' : '') + 'mindmap-node ' + sectionClass);
   const bkgElem = nodeElem.append('g');
 
@@ -271,7 +301,11 @@ export const drawNode = async function (
 
   switch (node.type) {
     case db.nodeType.DEFAULT:
-      defaultBkg(db, bkgElem, node, section);
+      if (theme?.includes('redux')) {
+        roundedRectBkg(db, bkgElem, node, section);
+      } else {
+        defaultBkg(db, bkgElem, node, section);
+      }
       break;
     case db.nodeType.ROUNDED_RECT:
       roundedRectBkg(db, bkgElem, node, section);

@@ -497,7 +497,7 @@ export class ClassDB implements DiagramDB {
         }
         // @ts-ignore - getBoundingClientRect is not part of the d3 type definition
         const rect = this.getBoundingClientRect();
-
+        // @ts-ignore - transition is not part of the d3 type definition
         tooltipElem.transition().duration(200).style('opacity', '.9');
         tooltipElem
           .text(el.attr('title'))
@@ -507,6 +507,7 @@ export class ClassDB implements DiagramDB {
         el.classed('hover', true);
       })
       .on('mouseout', (event: MouseEvent) => {
+        // @ts-ignore - transition is not part of the d3 type definition
         tooltipElem.transition().duration(500).style('opacity', 0);
         const el = select(event.currentTarget as HTMLElement);
         el.classed('hover', false);

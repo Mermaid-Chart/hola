@@ -145,6 +145,9 @@ class Theme {
     this.activationBkgColor = this.activationBkgColor || this.secondaryColor;
     this.sequenceNumberColor = this.sequenceNumberColor || invert(this.lineColor);
 
+    /* Mindmap Diagram variables */
+    this.rootLabelColor = '#FFFFFF';
+
     /* Gantt chart variables */
 
     this.sectionBkgColor = this.sectionBkgColor || this.tertiaryColor;
@@ -198,27 +201,28 @@ class Theme {
 
     /* Color Scale */
     /* Each color-set will have a background, a foreground and a border color */
-    this.cScale0 = this.cScale0 || this.primaryColor;
-    this.cScale1 = this.cScale1 || this.secondaryColor;
-    this.cScale2 = this.cScale2 || this.tertiaryColor;
-    this.cScale3 = this.cScale3 || adjust(this.primaryColor, { h: 30 });
-    this.cScale4 = this.cScale4 || adjust(this.primaryColor, { h: 60 });
-    this.cScale5 = this.cScale5 || adjust(this.primaryColor, { h: 90 });
-    this.cScale6 = this.cScale6 || adjust(this.primaryColor, { h: 120 });
-    this.cScale7 = this.cScale7 || adjust(this.primaryColor, { h: 150 });
-    this.cScale8 = this.cScale8 || adjust(this.primaryColor, { h: 210, l: 150 });
-    this.cScale9 = this.cScale9 || adjust(this.primaryColor, { h: 270 });
-    this.cScale10 = this.cScale10 || adjust(this.primaryColor, { h: 300 });
-    this.cScale11 = this.cScale11 || adjust(this.primaryColor, { h: 330 });
-    if (this.darkMode) {
-      for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
-        this['cScale' + i] = darken(this['cScale' + i], 75);
-      }
-    } else {
-      for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
-        this['cScale' + i] = darken(this['cScale' + i], 25);
-      }
-    }
+    this.cScale0 = this.cScale0 || '#E879F9'; // Fuchsia-400
+    this.cScale1 = this.cScale1 || '#2DD4BF'; // Teal-400
+    this.cScale2 = this.cScale2 || '#FB923C'; // Orange-400
+    this.cScale3 = this.cScale3 || '#22D3EE'; // Cyan-400
+    this.cScale4 = this.cScale4 || '#4ADE80'; // Green-400
+    this.cScale5 = this.cScale5 || '#A78BFA'; // Violet-400
+    this.cScale6 = this.cScale6 || '#F87171'; // Red-400
+    this.cScale7 = this.cScale7 || '#FACC15'; // Yellow-400
+    this.cScale8 = this.cScale8 || '#818CF8'; // Indigo-400
+    this.cScale9 = this.cScale9 || '#A3E635'; // Lime-400
+    this.cScale10 = this.cScale10 || '#38BDF8'; // Sky-400
+    this.cScale11 = this.cScale11 || '#FB7185'; // Rose-400
+
+    // if (this.darkMode) {
+    //   for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
+    //     this['cScale' + i] = darken(this['cScale' + i], 75);
+    //   }
+    // } else {
+    //   for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
+    //     this['cScale' + i] = darken(this['cScale' + i], 25);
+    //   }
+    // }
 
     // Setup the inverted color for the set
     for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
@@ -237,7 +241,7 @@ class Theme {
     this.scaleLabelColor = this.scaleLabelColor || this.labelTextColor;
 
     for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
-      this['cScaleLabel' + i] = this['cScaleLabel' + i] || this.scaleLabelColor;
+      this['cScaleLabel' + i] = darken(this['cScale' + i], 75);
     }
 
     const multiplier = this.darkMode ? -4 : -1;
