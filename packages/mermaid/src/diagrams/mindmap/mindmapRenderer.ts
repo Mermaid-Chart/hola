@@ -15,7 +15,8 @@ import defaultConfig from '../../defaultConfig.js';
 import * as configApi from '../../config.js';
 
 const config = configApi.getConfig();
-const { look } = config;
+const { look, themeVariables } = config;
+const { useGradient, gradientStart, gradientStop } = themeVariables;
 
 // Inject the layout algorithm into cytoscape
 cytoscape.use(coseBilkent);
@@ -201,6 +202,29 @@ export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
     conf.mindmap?.padding ?? defaultConfig.mindmap.padding,
     conf.mindmap?.useMaxWidth ?? defaultConfig.mindmap.useMaxWidth
   );
+
+  if (useGradient && look === 'neo') {
+    const gradient = svg
+      .append('linearGradient')
+      .attr('id', svg.attr('id') + '-gradient')
+      .attr('gradientUnits', 'objectBoundingBox')
+      .attr('x1', '0%')
+      .attr('y1', '0%')
+      .attr('x2', '100%')
+      .attr('y2', '0%');
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '0%')
+      .attr('stop-color', gradientStart)
+      .attr('stop-opacity', 1);
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '100%')
+      .attr('stop-color', gradientStop)
+      .attr('stop-opacity', 1);
+  }
 };
 
 export default {

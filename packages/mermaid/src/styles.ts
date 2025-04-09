@@ -18,6 +18,7 @@ const getStyles = (
     dropShadow: string;
     primaryBorderColor: string;
     compositeTitleBackground: string;
+    THEME_COLOR_LIMIT: number;
   } & FlowChartStyleOptions,
   svgId: string
 ) => {
@@ -148,9 +149,32 @@ const getStyles = (
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
     filter: ${options.dropShadow};
   }
+  ${type === 'mindmap' ? genGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
 
   ${userStyles}
 `;
+};
+
+const genGradient = (
+  useGradient: boolean,
+  THEME_COLOR_LIMIT: number,
+  svgId: string,
+  mainBkg: string
+) => {
+  let sections = '';
+  if (useGradient) {
+    for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+      sections += `
+      [data-look="neo"].section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${i - 1} polygon, .section-${i - 1} path {
+        stroke: ${'url(' + svgId + '-gradient)'};
+        fill: ${mainBkg}
+        }
+      .section-${i - 1} line {
+      stroke-width: 0;
+    }`;
+    }
+  }
+  return sections;
 };
 
 export const addStylesForDiagram = (type: string, diagramTheme?: DiagramStylesProvider): void => {

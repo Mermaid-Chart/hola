@@ -4,7 +4,7 @@ import type { DiagramStylesProvider } from '../../diagram-api/types.js';
 import * as configApi from '../../config.js';
 
 const config = configApi.getConfig();
-const { theme } = config;
+const { theme, look } = config;
 
 const genSections: DiagramStylesProvider = (options) => {
   let sections = '';
@@ -19,7 +19,7 @@ const genSections: DiagramStylesProvider = (options) => {
   }
 
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-    const m = theme?.includes('redux') ? 1.5 : 1;
+    const m = look === 'neo' ? 1.5 : 1;
     const sw = '' + (17 - 3 * (i * m));
     sections += `
     .section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${
