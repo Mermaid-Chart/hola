@@ -14,10 +14,6 @@ import { drawNode, positionNode } from './svgDraw.js';
 import defaultConfig from '../../defaultConfig.js';
 import * as configApi from '../../config.js';
 
-const config = configApi.getConfig();
-const { look, themeVariables } = config;
-const { useGradient, gradientStart, gradientStop } = themeVariables;
-
 // Inject the layout algorithm into cytoscape
 cytoscape.use(coseBilkent);
 
@@ -55,6 +51,8 @@ declare module 'cytoscape' {
 }
 
 function drawEdges(edgesEl: D3Element, cy: cytoscape.Core) {
+  const config = configApi.getConfig();
+  const { look } = config;
   cy.edges().map((edge, id) => {
     const data = edge.data();
     if (edge[0]._private.bodyBounds) {
@@ -166,7 +164,9 @@ function positionNodes(db: MindmapDB, cy: cytoscape.Core) {
 
 export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
   log.debug('Rendering mindmap diagram\n' + text);
-
+  const config = configApi.getConfig();
+  const { look, themeVariables } = config;
+  const { useGradient, gradientStart, gradientStop } = themeVariables;
   const db = diagObj.db as MindmapDB;
   const mm = db.getMindmap();
   if (!mm) {
@@ -203,7 +203,7 @@ export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
     conf.mindmap?.useMaxWidth ?? defaultConfig.mindmap.useMaxWidth
   );
 
-  if (useGradient && look === 'neo') {
+  if (look === 'neo' && useGradient) {
     const gradient = svg
       .append('linearGradient')
       .attr('id', svg.attr('id') + '-gradient')

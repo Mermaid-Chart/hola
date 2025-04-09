@@ -3,10 +3,10 @@ import { darken, lighten, isDark } from 'khroma';
 import type { DiagramStylesProvider } from '../../diagram-api/types.js';
 import * as configApi from '../../config.js';
 
-const config = configApi.getConfig();
-const { theme, look } = config;
-
 const genSections: DiagramStylesProvider = (options) => {
+  const config = configApi.getConfig();
+  const { theme, look } = config;
+
   let sections = '';
 
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
@@ -19,8 +19,7 @@ const genSections: DiagramStylesProvider = (options) => {
   }
 
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-    const m = look === 'neo' ? 1.5 : 1;
-    const sw = '' + (17 - 3 * (i * m));
+    const sw = '' + (look === 'neo') ? Math.max(10 - i * 2, 2) : 17 - 3 * i;
     sections += `
     .section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${
       i - 1
@@ -68,8 +67,10 @@ const genSections: DiagramStylesProvider = (options) => {
 };
 
 // TODO: These options seem incorrect.
-const getStyles: DiagramStylesProvider = (options) =>
-  `
+const getStyles: DiagramStylesProvider = (options) => {
+  const config = configApi.getConfig();
+  const { theme } = config;
+  return `
   .edge {
     stroke-width: 3;
   }
@@ -106,4 +107,5 @@ const getStyles: DiagramStylesProvider = (options) =>
     fill:  ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + 0]};
   }
 `;
+};
 export default getStyles;

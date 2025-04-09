@@ -7,7 +7,7 @@ import * as configApi from '../../config.js';
 
 const MAX_SECTIONS = 12;
 const config = configApi.getConfig();
-const { look, theme, themeVariables } = config;
+const { look, themeVariables } = config;
 
 type ShapeFunction = (
   db: MindmapDB,
@@ -189,6 +189,8 @@ export const drawNode = async function (
   fullSection: number,
   conf: MermaidConfig
 ): Promise<number> {
+  const config = configApi.getConfig();
+  const { look, theme } = config;
   const htmlLabels = conf.htmlLabels;
   const section = fullSection % (MAX_SECTIONS - 1);
   const nodeElem = elem.append('g');
