@@ -192,18 +192,18 @@ class Theme {
     /* Color Scale */
     /* Each color-set will have a background, a foreground and a border color */
 
-    this.cScale0 = this.cScale0 || '#E879F9'; // Fuchsia-400
-    this.cScale1 = this.cScale1 || '#2DD4BF'; // Teal-400
-    this.cScale2 = this.cScale2 || '#FB923C'; // Orange-400
-    this.cScale3 = this.cScale3 || '#22D3EE'; // Cyan-400
-    this.cScale4 = this.cScale4 || '#4ADE80'; // Green-400
-    this.cScale5 = this.cScale5 || '#A78BFA'; // Violet-400
-    this.cScale6 = this.cScale6 || '#F87171'; // Red-400
-    this.cScale7 = this.cScale7 || '#FACC15'; // Yellow-400
-    this.cScale8 = this.cScale8 || '#818CF8'; // Indigo-400
-    this.cScale9 = this.cScale9 || '#A3E635'; // Lime-400
-    this.cScale10 = this.cScale10 || '#38BDF8'; // Sky-400
-    this.cScale11 = this.cScale11 || '#FB7185'; // Rose-400
+    this.cScale0 = this.cScale0 || '#f4a8ff'; // Fuchsia-300
+    this.cScale1 = this.cScale1 || '#46ecd5'; // Teal-300
+    this.cScale2 = this.cScale2 || '#ffb86a'; // Orange-300
+    this.cScale3 = this.cScale3 || '#dab2ff'; // Purple-300
+    this.cScale4 = this.cScale4 || '#7bf1a8'; // Green-300
+    this.cScale5 = this.cScale5 || '#c4b4ff'; // Violet-300
+    this.cScale6 = this.cScale6 || '#ffa2a2'; // Red-300
+    this.cScale7 = this.cScale7 || '#ffdf20'; // Yellow-300
+    this.cScale8 = this.cScale8 || '#a3b3ff'; // Indigo-300
+    this.cScale9 = this.cScale9 || '#bbf451'; // Lime-300
+    this.cScale10 = this.cScale10 || '#74d4ff'; // Sky-300
+    this.cScale11 = this.cScale11 || '#ffa1ad'; // Rose-300
 
     // if (this.darkMode) {
     //   for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
