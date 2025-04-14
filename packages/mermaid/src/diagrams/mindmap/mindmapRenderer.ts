@@ -12,6 +12,7 @@ import { setupGraphViewbox } from '../../setupGraphViewbox.js';
 import type { FilledMindMapNode, MindmapDB, MindmapNode } from './mindmapTypes.js';
 import { drawNode, positionNode } from './svgDraw.js';
 import defaultConfig from '../../defaultConfig.js';
+import * as configApi from '../../config.js';
 
 // Inject the layout algorithm into cytoscape
 cytoscape.use(coseBilkent);
@@ -50,6 +51,8 @@ declare module 'cytoscape' {
 }
 
 function drawEdges(edgesEl: D3Element, cy: cytoscape.Core) {
+  const config = configApi.getConfig();
+  const { look } = config;
   cy.edges().map((edge, id) => {
     const data = edge.data();
     if (edge[0]._private.bodyBounds) {
@@ -61,7 +64,8 @@ function drawEdges(edgesEl: D3Element, cy: cytoscape.Core) {
           'd',
           `M ${bounds.startX},${bounds.startY} L ${bounds.midX},${bounds.midY} L${bounds.endX},${bounds.endY} `
         )
-        .attr('class', 'edge section-edge-' + data.section + ' edge-depth-' + data.depth);
+        .attr('class', 'edge section-edge-' + data.section + ' edge-depth-' + data.depth)
+        .attr('data-look', `${look}`);
     }
   });
 }
@@ -160,7 +164,9 @@ function positionNodes(db: MindmapDB, cy: cytoscape.Core) {
 
 export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
   log.debug('Rendering mindmap diagram\n' + text);
-
+  const config = configApi.getConfig();
+  const { look, themeVariables } = config;
+  const { useGradient, gradientStart, gradientStop } = themeVariables;
   const db = diagObj.db as MindmapDB;
   const mm = db.getMindmap();
   if (!mm) {
@@ -196,6 +202,29 @@ export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
     conf.mindmap?.padding ?? defaultConfig.mindmap.padding,
     conf.mindmap?.useMaxWidth ?? defaultConfig.mindmap.useMaxWidth
   );
+
+  if (look === 'neo' && useGradient) {
+    const gradient = svg
+      .append('linearGradient')
+      .attr('id', svg.attr('id') + '-gradient')
+      .attr('gradientUnits', 'objectBoundingBox')
+      .attr('x1', '0%')
+      .attr('y1', '0%')
+      .attr('x2', '100%')
+      .attr('y2', '0%');
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '0%')
+      .attr('stop-color', gradientStart)
+      .attr('stop-opacity', 1);
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '100%')
+      .attr('stop-color', gradientStop)
+      .attr('stop-opacity', 1);
+  }
 };
 
 export default {

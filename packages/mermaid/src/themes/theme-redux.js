@@ -164,18 +164,9 @@ class Theme {
     /* Color Scale */
     /* Each color-set will have a background, a foreground and a border color */
 
-    this.cScale0 = this.cScale0 || primaryColor;
-    this.cScale1 = this.cScale1 || secondaryColor;
-    this.cScale2 = this.cScale2 || tertiaryColor;
-    this.cScale3 = this.cScale3 || adjust(primaryColor, { h: 30 });
-    this.cScale4 = this.cScale4 || adjust(primaryColor, { h: 60 });
-    this.cScale5 = this.cScale5 || adjust(primaryColor, { h: 90 });
-    this.cScale6 = this.cScale6 || adjust(primaryColor, { h: 120 });
-    this.cScale7 = this.cScale7 || adjust(primaryColor, { h: 150 });
-    this.cScale8 = this.cScale8 || adjust(primaryColor, { h: 210, l: 150 });
-    this.cScale9 = this.cScale9 || adjust(primaryColor, { h: 270 });
-    this.cScale10 = this.cScale10 || adjust(primaryColor, { h: 300 });
-    this.cScale11 = this.cScale11 || adjust(primaryColor, { h: 330 });
+    for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
+      this['cScale' + i] = this.mainBkg;
+    }
     if (this.darkMode) {
       for (let i = 0; i < this.THEME_COLOR_LIMIT; i++) {
         this['cScale' + i] = darken(this['cScale' + i], 75);
