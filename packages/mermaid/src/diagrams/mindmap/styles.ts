@@ -19,7 +19,7 @@ const genSections: DiagramStylesProvider = (options) => {
   }
 
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-    const sw = '' + (look === 'neo') ? Math.max(10 - i * 2, 2) : 17 - 3 * i;
+    const sw = '' + (look === 'neo' ? Math.max(10 - i * 2, 2) : 17 - 3 * i);
     sections += `
     .section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${
       i - 1
@@ -51,15 +51,15 @@ const genSections: DiagramStylesProvider = (options) => {
       fill: #efefef;
     }
     [data-look="neo"].section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${i - 1} polygon, .section-${i - 1} path {
-      fill: ${theme === 'redux' || theme === 'redux-dark' ? options.mainBkg : options['cScale' + i]};
+      fill: ${theme === 'redux' || theme === 'redux-dark' || theme === 'neutral' ? options.mainBkg : options['cScale' + i]};
       stroke: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScale' + i]};
       stroke-width:${options.strokeWidth};
     }
     [data-look="neo"].section-edge-${i - 1}{
-      stroke: ${theme?.includes('redux') ? options.nodeBorder : options['cScale' + i]};
+      stroke: ${theme?.includes('redux') || theme === 'neo-dark' ? options.nodeBorder : options['cScale' + i]};
     }
     [data-look="neo"].section-${i - 1} text {
-     fill: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + i]};
+     fill: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
     }
     `;
   }
@@ -104,7 +104,7 @@ const getStyles: DiagramStylesProvider = (options) => {
     fill: ${theme?.includes('redux') ? options.mainBkg : options.git0};
   }
   [data-look="neo"].section-root .text-inner-tspan {
-    fill:  ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + 0]};
+    fill:  ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : 0)]};
   }
 `;
 };

@@ -6,8 +6,6 @@ import type { MermaidConfig } from '../../config.type.js';
 import * as configApi from '../../config.js';
 
 const MAX_SECTIONS = 12;
-const config = configApi.getConfig();
-const { look, themeVariables } = config;
 
 type ShapeFunction = (
   db: MindmapDB,
@@ -159,6 +157,8 @@ const hexagonBkg: ShapeFunction = function (
 };
 
 const roundedRectBkg: ShapeFunction = function (db, elem, node) {
+  const config = configApi.getConfig();
+  const { look, themeVariables } = config;
   const { radius } = themeVariables;
   let rx = 0;
   let ry = 0;
