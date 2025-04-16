@@ -114,6 +114,7 @@ const getStyles = (
 
   [data-look="neo"].node path {
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
+    stroke-width: ${options.strokeWidth};
   }
 
   [data-look="neo"].node .outer-path {
@@ -137,7 +138,7 @@ const getStyles = (
   [data-look="neo"].statediagram-cluster rect {
     fill: ${options.compositeTitleBackground};
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    stroke-width: 1px;
+    stroke-width: ${options.strokeWidth};
   }
 
   [data-look="neo"].icon-shape .icon {

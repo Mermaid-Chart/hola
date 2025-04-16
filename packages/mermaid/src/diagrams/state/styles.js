@@ -32,7 +32,7 @@ g.stateGroup line {
 
 .transition {
   stroke: ${options.transitionColor};
-  stroke-width: 1;
+  stroke-width: ${options.strokeWidth};
   fill: none;
 }
 
@@ -124,7 +124,7 @@ g.stateGroup line {
 .node rect {
   fill: ${options.stateBkg || options.mainBkg};
   stroke: ${options.stateBorder || options.nodeBorder};
-  stroke-width: 1px;
+  stroke-width: ${options.strokeWidth};
 }
 
 .node-rect-neo {
@@ -145,7 +145,7 @@ g.stateGroup line {
 .statediagram-cluster rect {
   fill: ${options.compositeTitleBackground};
   stroke: ${options.stateBorder || options.nodeBorder};
-  stroke-width: 1px;
+  stroke-width: ${options.strokeWidth};
 }
 
 .cluster-label, .nodeLabel {
@@ -238,6 +238,12 @@ g.stateGroup line {
   text-anchor: middle;
   font-size: 18px;
   fill: ${options.textColor};
+}
+
+[data-look="neo"].statediagram-cluster rect.outer {
+  rx: ${options.radius}px;
+  ry: ${options.radius}px;
+  filter: ${options.dropShadow}
 }
 `;
 
