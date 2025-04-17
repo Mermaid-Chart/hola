@@ -69,14 +69,14 @@ g.stateGroup line {
   opacity: 0.5;
 }
 .edgeLabel {
-  background-color: ${options.edgeLabelBackground};
+  background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
   p {
-    background-color: ${options.edgeLabelBackground};
+    background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
   }
   rect {
     opacity: 0.5;
-    background-color: ${options.edgeLabelBackground};
-    fill: ${options.edgeLabelBackground};
+    background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
+    fill: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
   }
   text-align: center;
 }

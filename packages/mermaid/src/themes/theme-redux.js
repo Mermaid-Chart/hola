@@ -150,6 +150,7 @@ class Theme {
     this.stateLabelColor = this.stateLabelColor || this.stateBkg || this.primaryTextColor;
     this.compositeTitleBackground = '#F9F9FB';
     this.altBackground = '#F9F9FB';
+    this.stateEdgeLabelBackground = '#FFFFFF';
     this.fontWeight = 600;
     this.stateBkg = this.stateBkg || this.mainBkg;
     this.labelBackgroundColor = this.labelBackgroundColor || this.stateBkg;

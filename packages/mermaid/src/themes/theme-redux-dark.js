@@ -169,6 +169,7 @@ class Theme {
     this.compositeBackground = '#16141F';
     this.altBackground = '#16141F';
     this.compositeTitleBackground = '#16141F';
+    this.stateEdgeLabelBackground = '#16141F';
     this.fontWeight = 600;
     this.stateBkg = this.stateBkg || this.mainBkg;
     this.labelBackgroundColor = this.labelBackgroundColor || this.stateBkg;
