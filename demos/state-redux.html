@@ -113,29 +113,23 @@
 
   <body class="gridify dots">
     <div class="w-full h-64">
-      <pre id="diagram4" class="mermaid" style="background: rgb(0, 0, 0)">
-      stateDiagram
-      direction TB
-   
-      accTitle: This is the accessible title
-      accDescr: This is an accessible description
-   
-      classDef notMoving 
-      classDef movement font-style:italic
-      classDef badBadEvent fill:#f00,color:white,font-weight:bold,stroke-width:2px,stroke:yellow
-   
-      [*]--> Still
-      Still --> [*]
-      Still --> Moving
-      Moving --> Still
-      Moving --> Crash
-      Crash --> [*]
-   
-      class Still notMoving
-      class Moving, Crash movement
-      class Crash badBadEvent
-      class end badBadEvent
-   </pre
+      <pre id="diagram4" class="mermaid" style="background: rgb(255, 255, 255)">
+        stateDiagram-v2
+        [*] --> First
+        state First {
+            [*] --> second
+            second --> [*]
+        }
+    
+        [*] --> NamedComposite
+        NamedComposite: Another Composite
+        state NamedComposite {
+            [*] --> namedSimple
+            namedSimple --> [*]
+            namedSimple: Another simple
+        }
+    
+</pre
       >
     </div>
 
@@ -179,7 +173,7 @@
       await mermaid.initialize({
         startOnLoad: false,
 
-        theme: 'redux-dark',
+        theme: 'redux',
         look: 'neo',
 
         // theme: 'default',
