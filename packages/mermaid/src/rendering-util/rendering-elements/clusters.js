@@ -214,7 +214,7 @@ const roundedWithTitle = async (parent, node) => {
 
   const height = node.height + padding;
   // const height = node.height + padding;
-  const offsetValue = theme.includes('redux') ? 6 : 6; // offset for padding
+  const offsetValue = 6; // offset for padding
   const innerHeight = node.height + padding - bbox.height - offsetValue;
   const x = node.x - width / 2;
   const y = node.y - height / 2;
