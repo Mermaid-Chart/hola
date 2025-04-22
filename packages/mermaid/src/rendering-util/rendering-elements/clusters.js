@@ -277,7 +277,10 @@ const roundedWithTitle = async (parent, node) => {
         .attr('fill', altBackground)
         .attr('stroke', nodeBorder)
         .attr('stroke-width', strokeWidth)
-        .attr('transform', `translate(0, ${offsetValue})`);
+        .attr(
+          'transform',
+          `translate(0, ${offsetValue - (evaluate(siteConfig.flowchart.htmlLabels) ? 1.5 : 2)})`
+        );
     } else {
       innerRect
         .attr('class', 'inner')

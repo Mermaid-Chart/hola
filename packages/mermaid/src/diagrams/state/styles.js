@@ -246,6 +246,10 @@ g.stateGroup line {
   ry: ${options.radius}px;
   filter: ${options.dropShadow}
 }
+[data-look="neo"].statediagram-cluster .inner {
+  rx: ${options.radius}px;
+  ry: ${options.radius}px;
+}
 `;
 
 // todo: change composit to composite
