@@ -32,7 +32,7 @@ g.stateGroup line {
 
 .transition {
   stroke: ${options.transitionColor};
-  stroke-width: 1;
+  stroke-width: ${options.strokeWidth};
   fill: none;
 }
 
@@ -69,14 +69,14 @@ g.stateGroup line {
   opacity: 0.5;
 }
 .edgeLabel {
-  background-color: ${options.edgeLabelBackground};
+  background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
   p {
-    background-color: ${options.edgeLabelBackground};
+    background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
   }
   rect {
     opacity: 0.5;
-    background-color: ${options.edgeLabelBackground};
-    fill: ${options.edgeLabelBackground};
+    background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
+    fill: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
   }
   text-align: center;
 }
@@ -124,7 +124,7 @@ g.stateGroup line {
 .node rect {
   fill: ${options.stateBkg || options.mainBkg};
   stroke: ${options.stateBorder || options.nodeBorder};
-  stroke-width: 1px;
+  stroke-width: ${options.strokeWidth};
 }
 
 .node-rect-neo {
@@ -145,12 +145,13 @@ g.stateGroup line {
 .statediagram-cluster rect {
   fill: ${options.compositeTitleBackground};
   stroke: ${options.stateBorder || options.nodeBorder};
-  stroke-width: 1px;
+  stroke-width: ${options.strokeWidth};
 }
 
 .cluster-label, .nodeLabel {
   color: ${options.stateLabelColor};
   line-height: 1.0;
+  font-weight: ${options.fontWeight}
 }
 
 .statediagram-cluster rect.outer {
@@ -238,6 +239,16 @@ g.stateGroup line {
   text-anchor: middle;
   font-size: 18px;
   fill: ${options.textColor};
+}
+
+[data-look="neo"].statediagram-cluster rect.outer {
+  rx: ${options.radius}px;
+  ry: ${options.radius}px;
+  filter: ${options.dropShadow}
+}
+[data-look="neo"].statediagram-cluster .inner {
+  rx: ${options.radius}px;
+  ry: ${options.radius}px;
 }
 `;
 

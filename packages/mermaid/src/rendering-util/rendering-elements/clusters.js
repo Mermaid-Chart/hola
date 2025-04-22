@@ -165,8 +165,8 @@ const noteGroup = (parent, node) => {
 const roundedWithTitle = async (parent, node) => {
   const siteConfig = getConfig();
 
-  const { themeVariables, handDrawnSeed } = siteConfig;
-  const { altBackground, compositeBackground, compositeTitleBackground, nodeBorder } =
+  const { themeVariables, handDrawnSeed, theme } = siteConfig;
+  const { altBackground, compositeBackground, compositeTitleBackground, nodeBorder, strokeWidth } =
     themeVariables;
 
   // Add outer g element
@@ -214,7 +214,8 @@ const roundedWithTitle = async (parent, node) => {
 
   const height = node.height + padding;
   // const height = node.height + padding;
-  const innerHeight = node.height + padding - bbox.height - 6;
+  const offsetValue = 6; // offset for padding
+  const innerHeight = node.height + padding - bbox.height - offsetValue;
   const x = node.x - width / 2;
   const y = node.y - height / 2;
   node.width = width;
@@ -258,17 +259,41 @@ const roundedWithTitle = async (parent, node) => {
       .attr('width', width)
       .attr('height', height)
       .attr('data-look', node.look);
-    innerRect
-      .attr('class', 'inner')
-      .attr('x', x)
-      .attr('y', innerY)
-      .attr('width', width)
-      .attr('height', innerHeight);
+
+    if (theme.includes('redux')) {
+      const innerRadius = node.rx;
+      const innerPathD = `
+        M ${x},${innerY}
+        H ${x + width}
+        V ${innerY + innerHeight - innerRadius}
+        Q ${x + width},${innerY + innerHeight} ${x + width - innerRadius},${innerY + innerHeight}
+        H ${x + innerRadius}
+        Q ${x},${innerY + innerHeight} ${x},${innerY + innerHeight - innerRadius}
+        Z`;
+      outerRectG
+        .insert('path')
+        .attr('class', 'inner')
+        .attr('d', innerPathD)
+        .attr('fill', altBackground)
+        .attr('stroke', nodeBorder)
+        .attr('stroke-width', strokeWidth)
+        .attr(
+          'transform',
+          `translate(0, ${offsetValue - (evaluate(siteConfig.flowchart.htmlLabels) ? 1.5 : 2)})`
+        );
+    } else {
+      innerRect
+        .attr('class', 'inner')
+        .attr('x', x)
+        .attr('y', innerY)
+        .attr('width', width)
+        .attr('height', innerHeight);
+    }
   }
 
   label.attr(
     'transform',
-    `translate(${node.x - bbox.width / 2}, ${y + 1 - (evaluate(siteConfig.flowchart.htmlLabels) ? 0 : 3)})`
+    `translate(${node.x - bbox.width / 2}, ${y + 1 - (evaluate(siteConfig.flowchart.htmlLabels) ? 0 : 3) + (theme.includes('redux') ? offsetValue / 2 : 0)})`
   );
 
   const rectBox = rect.node().getBBox();

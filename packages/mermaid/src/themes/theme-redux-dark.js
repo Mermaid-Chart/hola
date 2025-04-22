@@ -166,7 +166,11 @@ class Theme {
     this.transitionLabelColor = this.transitionLabelColor || this.textColor;
     /* The color of the text tables of the states*/
     this.stateLabelColor = this.stateLabelColor || this.stateBkg || this.primaryTextColor;
-
+    this.compositeBackground = '#16141F';
+    this.altBackground = '#16141F';
+    this.compositeTitleBackground = '#16141F';
+    this.stateEdgeLabelBackground = '#16141F';
+    this.fontWeight = 600;
     this.stateBkg = this.stateBkg || this.mainBkg;
     this.labelBackgroundColor = this.labelBackgroundColor || this.stateBkg;
     this.compositeBackground = this.compositeBackground || this.background || this.tertiaryColor;

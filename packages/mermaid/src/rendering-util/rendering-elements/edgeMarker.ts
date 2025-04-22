@@ -63,6 +63,7 @@ const arrowTypesWithMarginSupport = [
   'extension',
   'composition',
   'dependency',
+  'barb',
 ];
 
 const addEdgeMarker = (
