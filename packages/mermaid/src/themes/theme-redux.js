@@ -358,7 +358,7 @@ class Theme {
 
     /* -------------------------------------------------- */
     /* EntityRelationship diagrams                        */
-
+    this.erEdgeLabelBackground = '#FFFFFF';
     this.attributeBackgroundColorOdd =
       this.attributeBackgroundColorOdd || oldAttributeBackgroundColorOdd;
     this.attributeBackgroundColorEven =
