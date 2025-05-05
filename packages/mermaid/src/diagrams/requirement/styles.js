@@ -1,4 +1,10 @@
-const getStyles = (options) => `
+import * as configApi from '../../config.js';
+
+const getStyles = (options) => {
+  const config = configApi.getConfig();
+  const { look, theme, themeVariables } = config;
+  const { requirementEdgeLabelBackground } = themeVariables;
+  return `
 
   marker {
     fill: ${options.relationColor};
@@ -35,7 +41,7 @@ const getStyles = (options) => `
   }
   .relationshipLine {
     stroke: ${options.relationColor};
-    stroke-width: 1;
+    stroke-width: ${look === 'neo' ? options.strokeWidth : '1px'};
   }
   .relationshipLabel {
     fill: ${options.relationLabelColor};
@@ -53,9 +59,10 @@ const getStyles = (options) => `
     color: ${options.nodeTextColor || options.textColor};
   }
   .labelBkg {
-    background-color: ${options.edgeLabelBackground};
+    background-color: ${theme?.includes('redux') && requirementEdgeLabelBackground ? requirementEdgeLabelBackground : options.edgeLabelBackground};
   }
 
 `;
+};
 // fill', conf.rect_fill)
 export default getStyles;

@@ -116,7 +116,7 @@ export async function requirementBox<T extends SVGGraphicsElement>(
   const roughRect = rc.rectangle(x, y, totalWidth, totalHeight, options);
 
   const rect = shapeSvg.insert(() => roughRect, ':first-child');
-  rect.attr('class', 'basic label-container').attr('style', nodeStyles);
+  rect.attr('class', 'basic label-container outer-path').attr('style', nodeStyles);
 
   // Re-translate labels now that rect is centered
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
