@@ -1,0 +1,38 @@
+---
+query: "Please visualize the start of mermaid execution as a sequence diagram
+  #file:mermaid.ts #file:mermaidAPI.ts "
+references:
+  - "File: /packages/mermaid/src/mermaidAPI.ts"
+  - "File: /packages/mermaid/src/mermaid.ts"
+generationTime: 2025-05-05T12:21:18.538Z
+---
+sequenceDiagram
+    participant User as User
+    participant Mermaid as Mermaid
+    participant MermaidAPI as MermaidAPI
+    participant Config as Config
+    participant Diagram as Diagram
+    participant Logger as Logger
+
+    User->>Mermaid: Call initialize(config)
+    activate Mermaid
+    Mermaid->>MermaidAPI: Initialize with config
+    MermaidAPI->>Config: Save configuration
+    Config-->>MermaidAPI: Configuration saved
+    MermaidAPI-->>Mermaid: Initialization complete
+    deactivate Mermaid
+
+    User->>Mermaid: Call run(options)
+    activate Mermaid
+    Mermaid->>MermaidAPI: Get configuration
+    MermaidAPI-->>Mermaid: Return configuration
+    Mermaid->>Logger: Log "Found diagrams"
+    Mermaid->>Diagram: Detect and render diagrams
+    activate Diagram
+    Diagram->>MermaidAPI: Parse diagram text
+    MermaidAPI-->>Diagram: Parsed diagram
+    Diagram->>MermaidAPI: Render diagram
+    MermaidAPI-->>Diagram: Rendered SVG
+    deactivate Diagram
+    Mermaid-->>User: Diagrams rendered
+    deactivate Mermaid
