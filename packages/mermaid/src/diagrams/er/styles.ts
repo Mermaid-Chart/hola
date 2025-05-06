@@ -18,7 +18,7 @@ const fade = (color: string, opacity: number) => {
 const genColor: DiagramStylesProvider = (options) => {
   const config = configApi.getConfig();
 
-  const { theme, themeVariables } = config;
+  const { theme, themeVariables, look } = config;
   const { bkgColorArray, borderColorArray } = themeVariables;
   if (!theme?.includes('color')) {
     return '';
@@ -28,12 +28,12 @@ const genColor: DiagramStylesProvider = (options) => {
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
     sections += `
  
-    [data-look="neo"][data-color-id="color-${i}"].node path {
+    [data-look="${look}"][data-color-id="color-${i}"].node path {
     stroke: ${borderColorArray[i]};  
     fill: ${theme === 'redux-color' ? bkgColorArray[i] : ''};
     }  
     
-    [data-look="neo"][data-color-id="color-${i}"].node  rect {
+    [data-look="${look}"][data-color-id="color-${i}"].node  rect {
     stroke: ${borderColorArray[i]};  
     fill: ${theme === 'redux-color' ? bkgColorArray[i] : ''};
      }
