@@ -34,11 +34,8 @@
           'MONO' 0;
       }
       .gridify.tiny {
-        background-image: linear-gradient(
-            transparent 11px,
-            rgba(220, 220, 200, 0.8) 12px,
-            transparent 12px
-          ),
+        background-image:
+          linear-gradient(transparent 11px, rgba(220, 220, 200, 0.8) 12px, transparent 12px),
           linear-gradient(90deg, transparent 11px, rgba(220, 220, 200, 0.8) 12px, transparent 12px);
         background-size:
           100% 12px,
@@ -85,6 +82,14 @@
   <body class="gridify dots">
     <pre class="mermaid">
       sequenceDiagram
+      actor Alice
+      actor Bob
+      Alice->>Bob: Hi Bob
+      Bob->>Alice: Hi Alice  
+    </pre>
+    <hr />
+    <pre class="mermaid">
+      sequenceDiagram
       critical Establish a connection to the DB
           Service-->DB: connect
       option Network timeout
@@ -94,7 +99,20 @@
       end
   
     </pre>
-
+    <hr />
+    <pre class="mermaid">
+      sequenceDiagram
+      Alice->>Bob: Hello Bob, how are you ?
+      Bob->>Alice: Fine, thank you. And you?
+      create participant Carl
+      Alice->>Carl: Hi Carl!
+      create actor D as Donald
+      Carl->>D: Hi!
+      destroy Carl
+      Alice-xCarl: We are too many
+      destroy Bob
+      Bob->>Alice: I agree
+    </pre>
     <hr />
     <script type="module">
       import mermaid from './mermaid.esm.mjs';
