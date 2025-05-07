@@ -49,6 +49,7 @@
           'CRSV' 0.5,
           'MONO' 0;
       }
+
       body {
         /* background: rgb(221, 208, 208); */
         /* background: #333; */
@@ -65,6 +66,7 @@
         /* color: white; */
         /* font-size: 18px !important; */
       }
+
       .gridify.tiny {
         background-image:
           linear-gradient(transparent 11px, rgba(220, 220, 200, 0.8) 12px, transparent 12px),
@@ -148,6 +150,69 @@
                   int _age_
                   }
                 </pre>
+
+      <pre class="mermaid">
+                  erDiagram
+                  direction TB
+                  CAR:::someclass {
+                  string registrationNumber
+                  string make
+                  string model
+                  }
+                  PERSON:::someclass {
+                  string firstName
+                  string lastName
+                  int age
+                  }
+                  HOUSE:::someclass
+                  
+                  classDef someclass fill:#f96
+
+                  </pre
+      >
+
+      <pre class="mermaid">
+                                  erDiagram
+                                  CAR {
+                                  string registrationNumber
+                                  string make
+                                  string model
+                                  }
+                                  PERSON {
+                                  string firstName
+                                  string lastName
+                                  int age
+                                  }
+                                  PERSON:::foo ||--|| CAR : owns
+                                  PERSON o{--|| HOUSE:::bar : has
+                                  
+                                  classDef foo stroke:#f00
+                                  classDef bar stroke:#0f0
+                                  classDef foobar stroke:#00f
+
+                                    </pre
+      >
+      <pre class="mermaid">
+      erDiagram
+      CAR {
+      string registrationNumber
+      string make
+      string model
+      }
+      PERSON {
+      string firstName
+      string lastName
+      int age
+      }
+      PERSON:::foo ||--|| CAR : owns
+      PERSON o{--|| HOUSE:::bar : has
+      
+      classDef default fill:#f9f,stroke-width:4px
+      classDef foo stroke:#f00
+      classDef bar stroke:#0f0
+      classDef foobar stroke:#00f
+</pre
+      >
     </div>
 
     <script type="module">
@@ -190,12 +255,12 @@
       await mermaid.initialize({
         startOnLoad: false,
 
-        theme: 'forest',
-        look: 'classic',
+        // theme: 'redux-color',
+        // look: 'classic',
         layout: 'dagre',
 
-        // theme: 'default',
-        // look: 'classic',
+        theme: 'default',
+        look: 'classic',
         flowchart: { titleTopMargin: 10 },
         fontFamily: 'Recursive',
         sequence: {
