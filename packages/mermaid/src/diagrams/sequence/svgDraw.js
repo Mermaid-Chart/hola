@@ -866,10 +866,11 @@ export const insertSequenceNumber = function (elem) {
     .attr('markerWidth', 60)
     .attr('markerHeight', 40)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('circle')
     .attr('cx', 15)
     .attr('cy', 15)
-    .attr('r', 6);
+    .attr('r', 10);
   // .style("fill", '#f00');
 };
 

@@ -90,13 +90,16 @@
     <hr />
     <pre class="mermaid">
       sequenceDiagram
-      critical Establish a connection to the DB
-          Service-->DB: connect
-      option Network timeout
-          Service-->Service: Log error
-      option Credentials rejected
-          Service-->Service: Log different error
+      autonumber
+      Alice->>John: Hello John, how are you?
+      loop HealthCheck
+          John->>John: Fight against hypochondria
       end
+      Note right of John: Rational thoughts!
+      John-->>Alice: Great!
+      John->>Bob: How about you?
+      Bob-->>John: Jolly good!
+  
   
     </pre>
     <hr />
