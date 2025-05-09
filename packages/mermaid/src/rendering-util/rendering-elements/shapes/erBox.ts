@@ -316,7 +316,19 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
   updateNodeBounds(node, rect);
 
   if (nodeStyles && node.look !== 'handDrawn') {
-    shapeSvg.selectAll('path').attr('style', nodeStyles);
+    if (theme?.includes('redux')) {
+      shapeSvg.selectAll('path').attr('style', nodeStyles);
+    } else {
+      const allStyle = nodeStyles.split(';');
+      const strokeStyles = allStyle
+        ?.filter((e) => {
+          return e.includes('stroke');
+        })
+        ?.map((s) => `${s}`)
+        .join('; ');
+      shapeSvg.selectAll('path').attr('style', strokeStyles ?? '');
+      shapeSvg.selectAll('.row-rect-even path').attr('style', nodeStyles);
+    }
   }
 
   node.intersect = function (point) {
