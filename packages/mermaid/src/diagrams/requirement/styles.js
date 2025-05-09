@@ -1,11 +1,38 @@
 import * as configApi from '../../config.js';
 
+const genColor = (options) => {
+  const config = configApi.getConfig();
+
+  const { theme, themeVariables, look } = config;
+  const { bkgColorArray, borderColorArray } = themeVariables;
+  if (!theme?.includes('color')) {
+    return '';
+  }
+  let sections = '';
+
+  for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
+    sections += `
+ 
+    [data-look="${look}"][data-color-id="color-${i}"].node path {
+    stroke: ${borderColorArray[i]};  
+    fill: ${theme === 'redux-color' ? bkgColorArray[i] : ''};
+    }  
+    
+    [data-look="${look}"][data-color-id="color-${i}"].node  rect {
+    stroke: ${borderColorArray[i]};  
+    fill: ${theme === 'redux-color' ? bkgColorArray[i] : ''};
+     }
+    `;
+  }
+  return sections;
+};
+
 const getStyles = (options) => {
   const config = configApi.getConfig();
   const { look, theme, themeVariables } = config;
   const { requirementEdgeLabelBackground } = themeVariables;
   return `
-
+  ${genColor(options)}
   marker {
     fill: ${options.relationColor};
     stroke: ${options.relationColor};

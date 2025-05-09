@@ -22,6 +22,8 @@ export async function requirementBox<T extends SVGGraphicsElement>(
   const gap = 20;
   const isRequirementNode = 'verifyMethod' in node;
   const classes = getNodeClasses(node);
+  const { theme, themeVariables } = getConfig();
+  const { borderColorArray } = themeVariables;
 
   // Add outer g element
   const shapeSvg = parent
@@ -117,6 +119,13 @@ export async function requirementBox<T extends SVGGraphicsElement>(
 
   const rect = shapeSvg.insert(() => roughRect, ':first-child');
   rect.attr('class', 'basic label-container outer-path').attr('style', nodeStyles);
+
+  if (theme?.includes('color')) {
+    const nodes = document.querySelectorAll('g.node.default');
+    // eslint-disable-next-line unicorn/prefer-spread
+    const nodeIndex = Array.from(nodes).findIndex((n) => n.id === node.id);
+    shapeSvg.attr('data-color-id', `color-${nodeIndex % borderColorArray.length}`);
+  }
 
   // Re-translate labels now that rect is centered
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
