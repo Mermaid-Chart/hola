@@ -71,7 +71,7 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: any)
     .attr('dy', '4')
     .attr('stdDeviation', 0)
     .attr('flood-opacity', '0.06')
-    .attr('flood-color', `${theme === 'redux' ? '#000000' : '#FFFFFF'}`);
+    .attr('flood-color', `${theme === 'redux' || theme === 'redux-color' ? '#000000' : '#FFFFFF'}`);
 
   svg
     .append('defs')
