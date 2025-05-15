@@ -389,6 +389,7 @@ class Theme {
     this.tagLabelFontSize = this.tagLabelFontSize || '10px';
     this.commitLabelColor = this.commitLabelColor || this.secondaryTextColor;
     this.commitLabelBackground = this.commitLabelBackground || this.secondaryColor;
+    this.commitLineColor = this.commitLineColor ?? '#BDBCCC';
     this.commitLabelFontSize = this.commitLabelFontSize || '10px';
 
     /* -------------------------------------------------- */
