@@ -434,15 +434,15 @@ const drawCommitTags = (
         ${commitPosition.x + LAYOUT_OFFSET + maxTagBboxWidth + 4},${yOrigin + h2 + 2}
         ${commitPosition.x + LAYOUT_OFFSET},${yOrigin + h2 + 2}`
           )
-          .attr('transform', 'translate(12,12) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(7,17) rotate(45, ${commitPosition.x} ,${pos})`);
         hole
           .attr('cx', commitPosition.x + PX / 2)
           .attr('cy', yOrigin)
-          .attr('transform', 'translate(12,12) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(8,18) rotate(45, ${commitPosition.x} ,${pos})`);
         tag
           .attr('x', commitPosition.x + 5)
           .attr('y', yOrigin + 3)
-          .attr('transform', 'translate(14,14) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(9,19) rotate(45, ${commitPosition.x} ,${pos})`);
       }
     }
   }
@@ -819,10 +819,16 @@ const drawBranches = (
   branches: { name: string }[]
 ) => {
   const { look, theme, themeVariables } = getConfig();
-  const { dropShadow } = themeVariables;
+  const { dropShadow, THEME_COLOR_LIMIT: themeColorLimit } = themeVariables;
+  const isReduxTheme = theme?.includes('redux');
   const g = svg.append('g');
   branches.forEach((branch, index) => {
-    const adjustIndexForTheme = index % THEME_COLOR_LIMIT;
+    let adjustIndexForTheme;
+    if (isReduxTheme) {
+      adjustIndexForTheme = index === 0 ? 0 : (index % themeColorLimit) + 1;
+    } else {
+      adjustIndexForTheme = index % THEME_COLOR_LIMIT;
+    }
 
     const pos = branchPos.get(branch.name)?.pos;
     if (pos === undefined) {
@@ -861,7 +867,6 @@ const drawBranches = (
 
     label.node()!.appendChild(labelElement);
     const bbox = labelElement.getBBox();
-    const isReduxTheme = theme?.includes('redux');
     const borderRadius = isReduxTheme ? 0 : 4;
     const labelPaddingX = isReduxTheme ? 16 : 0;
     const labelPaddingY = isReduxTheme ? 12 : 0;

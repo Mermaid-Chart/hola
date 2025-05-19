@@ -34,12 +34,13 @@ const genColor = (options) => {
         .commit-bullets { fill: ${options.nodeBorder}; }
         `;
       } else {
+        const colorIndex = i % borderColorArray.length;
         sections += `
         .branch-label${i} { fill: ${options.nodeBorder}; ${isReduxTheme ? `font-weight:${options.noteFontWeight}` : ''} }  
-        .commit${i} { stroke: ${borderColorArray[i]}; fill: ${borderColorArray[i]}; }
-        .commit-highlight${i} { stroke: ${borderColorArray[i]}; fill: ${borderColorArray[i]}; }
-        .label${i}  { fill: ${theme?.includes('dar') ? options.mainBkg : borderColorArray[i]}; stroke: ${borderColorArray[i]};  stroke-width: ${options.strokeWidth}; }
-        .arrow${i} { stroke: ${borderColorArray[i]}; }
+        .commit${i} { stroke: ${borderColorArray[colorIndex]}; fill: ${borderColorArray[colorIndex]}; }
+        .commit-highlight${i} { stroke: ${borderColorArray[colorIndex]}; fill: ${borderColorArray[colorIndex]}; }
+        .label${i}  { fill: ${theme?.includes('dar') ? options.mainBkg : borderColorArray[colorIndex]}; stroke: ${borderColorArray[colorIndex]};  stroke-width: ${options.strokeWidth}; }
+        .arrow${i} { stroke: ${borderColorArray[colorIndex]}; }
         `;
       }
     }
@@ -84,7 +85,7 @@ const getStyles = (options) => {
     stroke-dasharray:  ${isReduxTheme ? '4 2' : '2'};
   }
   .commit-label { font-size: ${options.commitLabelFontSize}; fill: ${isReduxTheme ? options.nodeBorder : options.commitLabelColor}; ${isReduxTheme ? `font-weight:${options.noteFontWeight};` : ''}}
-  .commit-label-bkg { font-size: ${options.commitLabelFontSize}; fill: ${isReduxTheme ? options.mainBkg : options.commitLabelBackground}; opacity: ${isReduxTheme ? '' : 0.5};  }
+  .commit-label-bkg { font-size: ${options.commitLabelFontSize}; fill: ${isReduxTheme ? 'transparent' : options.commitLabelBackground}; opacity: ${isReduxTheme ? '' : 0.5};  }
   .tag-label { font-size: ${options.tagLabelFontSize}; fill: ${options.tagLabelColor};}
   .tag-label-bkg { fill: ${isReduxTheme ? options.mainBkg : options.tagLabelBackground}; stroke: ${isReduxTheme ? options.nodeBorder : options.tagLabelBorder}; ${isReduxTheme ? `filter:${options.dropShadow}` : ''}  }
   .tag-hole { fill: ${options.textColor}; }
