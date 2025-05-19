@@ -173,6 +173,11 @@ g.classGroup line {
   }
   text-align: center;
 }
+  .cluster rect {
+  fill: ${options.clusterBkg};
+  stroke: ${options.clusterBorder};
+  stroke-width: ${options.strokeWidth}px;
+}
 `;
 
 export default getStyles;

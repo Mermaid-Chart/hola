@@ -394,7 +394,6 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   const textWidth = textDims.width;
 
   let line;
-  // const offset = look === 'neo' ? 25 : 0;
 
   if (startx === stopx) {
     if (conf.rightAngles) {
@@ -779,7 +778,7 @@ function adjustCreatedDestroyedData(
  * @param diagObj - A standard diagram containing the db and the text and type etc of the diagram
  */
 export const draw = async function (_text: string, id: string, _version: string, diagObj: Diagram) {
-  const { securityLevel, sequence } = getConfig();
+  const { securityLevel, sequence, look } = getConfig();
   conf = sequence;
   // Handle root and Document for when rendering in sandbox mode
   let sandboxElement;
@@ -1159,6 +1158,7 @@ export const draw = async function (_text: string, id: string, _version: string,
   configureSvgSize(diagram, height, width, conf.useMaxWidth);
 
   const extraVertForTitle = title ? 40 : 0;
+  const extraHeightForNeoActors = actors.size && look === 'neo' ? 30 : 0;
   diagram.attr(
     'viewBox',
     box.startx -
@@ -1168,7 +1168,7 @@ export const draw = async function (_text: string, id: string, _version: string,
       ' ' +
       width +
       ' ' +
-      (height + extraVertForTitle)
+      (height + extraVertForTitle + extraHeightForNeoActors)
   );
 
   log.debug(`models:`, bounds.models);

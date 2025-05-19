@@ -19,6 +19,8 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
   if (entityNode.alias) {
     node.label = entityNode.alias;
   }
+  const { theme, themeVariables } = getConfig();
+  const { rowEven, rowOdd, nodeBorder, borderColorArray } = themeVariables;
 
   // Background shapes are drawn to fill in the background color and cover up the ER diagram edge markers.
   // Draw background shape once.
@@ -40,7 +42,7 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
   let TEXT_PADDING = config.er?.entityPadding ?? 6;
 
   const { cssStyles } = node;
-  const { labelStyles } = styles2String(node);
+  const { labelStyles, nodeStyles } = styles2String(node);
 
   // Draw rect if no attributes are found
   if (entityNode.attributes.length === 0 && node.label) {
@@ -57,9 +59,15 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
       config.er!.minEntityWidth!
     ) {
       node.width = config.er!.minEntityWidth;
+      node.height = (config.er!.minEntityHeight ?? 0) + PADDING / 2;
     }
     const shapeSvg = await drawRect(parent, node, options);
-
+    if (theme?.includes('color')) {
+      const nodes = document.querySelectorAll('g.node.default');
+      // eslint-disable-next-line unicorn/prefer-spread
+      const nodeIndex = Array.from(nodes).findIndex((n) => n.id === node.id);
+      shapeSvg.attr('data-color-id', `color-${nodeIndex % borderColorArray.length}`);
+    }
     // drawRect doesn't center non-htmlLabels correctly as of now, so translate label
     if (!evaluate(config.htmlLabels)) {
       const textElement = shapeSvg.select('text');
@@ -89,6 +97,7 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
   nameBBox.height += TEXT_PADDING;
   let yOffset = 0;
   const yOffsets = [];
+  const rows = [];
   let maxTypeWidth = 0;
   let maxNameWidth = 0;
   let maxKeysWidth = 0;
@@ -137,12 +146,12 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
     );
     maxCommentWidth = Math.max(maxCommentWidth, commentBBox.width + PADDING);
 
-    yOffset +=
+    const rowHeight =
       Math.max(typeBBox.height, nameBBox.height, keysBBox.height, commentBBox.height) +
       TEXT_PADDING;
-    yOffsets.push(yOffset);
+    rows.push({ yOffset, rowHeight });
+    yOffset += rowHeight;
   }
-  yOffsets.pop();
   let totalWidthSections = 4;
 
   if (maxKeysWidth <= PADDING) {
@@ -184,9 +193,12 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
     options.roughness = 0;
     options.fillStyle = 'solid';
   }
-
+  let totalShapeBBoxHeight = 0;
+  if (rows.length > 0) {
+    totalShapeBBoxHeight = rows.reduce((sum, row) => sum + (row?.rowHeight ?? 0), 0);
+  }
   const w = Math.max(shapeBBox.width + PADDING * 2, node?.width || 0, maxWidth);
-  const h = Math.max(shapeBBox.height + (yOffsets[0] || yOffset) + TEXT_PADDING, node?.height || 0);
+  const h = Math.max((totalShapeBBoxHeight ?? 0) + nameBBox.height, node?.height || 0);
   const x = -w / 2;
   const y = -h / 2;
 
@@ -223,22 +235,25 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
     .select('.name')
     .attr('transform', 'translate(' + -nameBBox.width / 2 + ', ' + (y + TEXT_PADDING / 2) + ')');
 
+  if (theme?.includes('color')) {
+    const nodes = document.querySelectorAll('g.node.default');
+    // eslint-disable-next-line unicorn/prefer-spread
+    const nodeIndex = Array.from(nodes).findIndex((n) => n.id === node.id);
+    shapeSvg.attr('data-color-id', `color-${nodeIndex % borderColorArray.length}`);
+  }
   // Draw shape
   const roughRect = rc.rectangle(x, y, w, h, options);
-  const rect = shapeSvg.insert(() => roughRect, ':first-child').attr('style', cssStyles!.join(''));
-
-  const { themeVariables } = getConfig();
-  const { rowEven, rowOdd, nodeBorder } = themeVariables;
+  const rect = shapeSvg
+    .insert(() => roughRect, ':first-child')
+    .attr('class', 'outer-path')
+    .attr('style', cssStyles!.join(''));
 
   yOffsets.push(0);
   // Draw row rects
-  for (const [i, yOffset] of yOffsets.entries()) {
-    if (i === 0 && yOffsets.length > 1) {
-      continue;
-      // Skip first row
-    }
-    const isEven = i % 2 === 0 && yOffset !== 0;
-    const roughRect = rc.rectangle(x, nameBBox.height + y + yOffset, w, nameBBox.height, {
+  for (const [i, row] of rows.entries()) {
+    const contentRowIndex = i + 1; // Adjusted index to skip the header (name) row
+    const isEven = contentRowIndex % 2 === 0 && row.yOffset !== 0;
+    const roughRect = rc.rectangle(x, nameBBox.height + y + row?.yOffset, w, row?.rowHeight, {
       ...options,
       fill: isEven ? rowEven : rowOdd,
       stroke: nodeBorder,
@@ -246,34 +261,43 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
     shapeSvg
       .insert(() => roughRect, 'g.label')
       .attr('style', cssStyles!.join(''))
-      .attr('class', `row-rect-${i % 2 === 0 ? 'even' : 'odd'}`);
+      .attr('class', `row-rect-${isEven ? 'even' : 'odd'}`);
   }
 
   // Draw divider lines
   // Name line
-  let roughLine = rc.line(x, nameBBox.height + y, w + x, nameBBox.height + y, options);
+  const thickness = 0.0001;
+
+  // 1. Top horizontal line
+  let points = lineToPolygon(x, nameBBox.height + y, w + x, nameBBox.height + y, thickness);
+  let roughLine = rc.polygon(
+    points.map((p) => [p.x, p.y]),
+    options
+  );
   shapeSvg.insert(() => roughLine).attr('class', 'divider');
   // First line
-  roughLine = rc.line(maxTypeWidth + x, nameBBox.height + y, maxTypeWidth + x, h + y, options);
+  points = lineToPolygon(maxTypeWidth + x, nameBBox.height + y, maxTypeWidth + x, h + y, thickness);
+  roughLine = rc.polygon(
+    points.map((p) => [p.x, p.y]),
+    options
+  );
   shapeSvg.insert(() => roughLine).attr('class', 'divider');
   // Second line
   if (keysPresent) {
-    roughLine = rc.line(
-      maxTypeWidth + maxNameWidth + x,
-      nameBBox.height + y,
-      maxTypeWidth + maxNameWidth + x,
-      h + y,
+    const xCoord = maxTypeWidth + maxNameWidth + x;
+    points = lineToPolygon(xCoord, nameBBox.height + y, xCoord, h + y, thickness);
+    roughLine = rc.polygon(
+      points.map((p) => [p.x, p.y]),
       options
     );
     shapeSvg.insert(() => roughLine).attr('class', 'divider');
   }
   // Third line
   if (commentPresent) {
-    roughLine = rc.line(
-      maxTypeWidth + maxNameWidth + maxKeysWidth + x,
-      nameBBox.height + y,
-      maxTypeWidth + maxNameWidth + maxKeysWidth + x,
-      h + y,
+    const xCoord = maxTypeWidth + maxNameWidth + maxKeysWidth + x;
+    points = lineToPolygon(xCoord, nameBBox.height + y, xCoord, h + y, thickness);
+    roughLine = rc.polygon(
+      points.map((p) => [p.x, p.y]),
       options
     );
     shapeSvg.insert(() => roughLine).attr('class', 'divider');
@@ -281,11 +305,10 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
 
   // Attribute divider lines
   for (const yOffset of yOffsets) {
-    roughLine = rc.line(
-      x,
-      nameBBox.height + y + yOffset,
-      w + x,
-      nameBBox.height + y + yOffset,
+    const yCoord = nameBBox.height + y + yOffset;
+    points = lineToPolygon(x, yCoord, w + x, yCoord, thickness);
+    roughLine = rc.polygon(
+      points.map((p) => [p.x, p.y]),
       options
     );
     shapeSvg.insert(() => roughLine).attr('class', 'divider');
@@ -293,10 +316,65 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
 
   updateNodeBounds(node, rect);
 
+  if (nodeStyles && node.look !== 'handDrawn') {
+    if (theme?.includes('redux')) {
+      shapeSvg.selectAll('path').attr('style', nodeStyles);
+    } else {
+      const allStyle = nodeStyles.split(';');
+      const strokeStyles = allStyle
+        ?.filter((e) => {
+          return e.includes('stroke');
+        })
+        ?.map((s) => `${s}`)
+        .join('; ');
+      shapeSvg.selectAll('path').attr('style', strokeStyles ?? '');
+      shapeSvg.selectAll('.row-rect-even path').attr('style', nodeStyles);
+    }
+  }
+
   node.intersect = function (point) {
     return intersect.rect(node, point);
   };
   return shapeSvg;
+}
+
+function lineToPolygon(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  thickness: number
+): { x: number; y: number }[] {
+  if (x1 === x2) {
+    // Vertical line
+    return [
+      { x: x1 - thickness / 2, y: y1 },
+      { x: x1 + thickness / 2, y: y1 },
+      { x: x2 + thickness / 2, y: y2 },
+      { x: x2 - thickness / 2, y: y2 },
+    ];
+  } else if (y1 === y2) {
+    // Horizontal line
+    return [
+      { x: x1, y: y1 - thickness / 2 },
+      { x: x1, y: y1 + thickness / 2 },
+      { x: x2, y: y2 + thickness / 2 },
+      { x: x2, y: y2 - thickness / 2 },
+    ];
+  } else {
+    // Diagonal or angled line (general case)
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const offsetX = (dy / len) * (thickness / 2);
+    const offsetY = -(dx / len) * (thickness / 2);
+    return [
+      { x: x1 - offsetX, y: y1 - offsetY },
+      { x: x1 + offsetX, y: y1 + offsetY },
+      { x: x2 + offsetX, y: y2 + offsetY },
+      { x: x2 - offsetX, y: y2 - offsetY },
+    ];
+  }
 }
 
 // Helper function to add label text g with translate position and style

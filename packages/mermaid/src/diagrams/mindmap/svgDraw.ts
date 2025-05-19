@@ -222,6 +222,9 @@ export const drawNode = async function (
   }
 
   nodeElem.attr('class', (node.class ? node.class + ' ' : '') + 'mindmap-node ' + sectionClass);
+  nodeElem.attr('data-id', node.nodeId);
+  nodeElem.attr('data-node', true);
+  nodeElem.attr('data-et', 'node');
   const bkgElem = nodeElem.append('g');
 
   // Create the wrapped text element
