@@ -158,13 +158,15 @@ export async function requirementBox<T extends SVGGraphicsElement>(
 
   // Insert divider line if there is body text
   if (accumulativeHeight > typeHeight + nameHeight + gap) {
-    const roughLine = rc.line(
-      x,
-      y + typeHeight + nameHeight + gap,
-      x + totalWidth,
-      y + typeHeight + nameHeight + gap,
-      options
-    );
+    const lineY = y + typeHeight + nameHeight + gap;
+    const thickness = 0.001;
+    const polygonPoints: [number, number][] = [
+      [x, lineY],
+      [x + totalWidth, lineY],
+      [x + totalWidth, lineY + thickness],
+      [x, lineY + thickness],
+    ];
+    const roughLine = rc.polygon(polygonPoints, options);
     const dividerLine = shapeSvg.insert(() => roughLine);
     dividerLine.attr('style', nodeStyles);
   }
