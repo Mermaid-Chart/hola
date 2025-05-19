@@ -80,7 +80,6 @@ const getStyles = (options) => {
   .label {
     font-family: ${options.fontFamily};
     color: ${options.nodeTextColor || options.textColor};
-    ${options.fontWeight ? `font-weight:` + options.fontWeight : ''};
   }
   .label text,span {
     fill: ${options.nodeTextColor || options.textColor};

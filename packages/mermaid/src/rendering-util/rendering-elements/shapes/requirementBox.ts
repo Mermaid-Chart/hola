@@ -175,6 +175,10 @@ export async function requirementBox<T extends SVGGraphicsElement>(
     return intersect.rect(node, point);
   };
 
+  if (nodeStyles && node.look !== 'handDrawn' && theme?.includes('redux')) {
+    shapeSvg.selectAll('path').attr('style', nodeStyles);
+  }
+
   return shapeSvg;
 }
 
