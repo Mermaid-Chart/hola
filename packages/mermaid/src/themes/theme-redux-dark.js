@@ -327,6 +327,7 @@ class Theme {
       this.relationLabelBackground ||
       (this.darkMode ? darken(this.secondaryColor, 30) : this.secondaryColor);
     this.relationLabelColor = this.relationLabelColor || this.actorTextColor;
+    this.requirementEdgeLabelBackground = '#16141F';
 
     /* git */
     this.git0 = this.git0 || this.primaryColor;
