@@ -391,6 +391,7 @@ class Theme {
     this.commitLabelBackground = this.commitLabelBackground || this.secondaryColor;
     this.commitLineColor = this.commitLineColor ?? '#BDBCCC';
     this.commitLabelFontSize = this.commitLabelFontSize || '10px';
+    this.fontWeight = 600;
 
     /* -------------------------------------------------- */
     /* EntityRelationship diagrams                        */
