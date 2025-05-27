@@ -1,6 +1,7 @@
 import type { FlowChartStyleOptions } from './diagrams/flowchart/styles.js';
 import { log } from './logger.js';
 import type { DiagramStylesProvider } from './diagram-api/types.js';
+import * as configApi from '../../mermaid/src/config.js';
 
 const themes: Record<string, DiagramStylesProvider> = {};
 
@@ -22,6 +23,8 @@ const getStyles = (
   } & FlowChartStyleOptions,
   svgId: string
 ) => {
+  const config = configApi.getConfig();
+  const { theme, look } = config;
   let diagramStyles = '';
   if (type in themes && themes[type]) {
     diagramStyles = themes[type](options);
@@ -151,6 +154,7 @@ const getStyles = (
     filter: ${options.dropShadow};
   }
   ${type === 'mindmap' ? genGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
+  ${type === 'timeline' && theme === 'neo' && look === 'neo' ? genTimelineGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
 
   ${userStyles}
 `;
@@ -172,6 +176,32 @@ const genGradient = (
         }
       .section-${i - 1} line {
       stroke-width: 0;
+    }`;
+    }
+  }
+  return sections;
+};
+
+const genTimelineGradient = (
+  useGradient: boolean,
+  THEME_COLOR_LIMIT: number,
+  svgId: string,
+  mainBkg: string
+) => {
+  let sections = '';
+  if (useGradient) {
+    for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+      sections += `
+     .section-${i - 1} rect,
+    .section-${i - 1} path,
+    .section-${i - 1} circle {
+      fill: ${mainBkg};
+      stroke: ${'url(' + svgId + '-gradient)'};
+       stroke-width: 2;
+    }
+    .section-${i - 1} line {
+     stroke: ${'url(' + svgId + '-gradient)'};
+      stroke-width: 2;
     }`;
     }
   }
