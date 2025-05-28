@@ -154,7 +154,7 @@ const getStyles = (
     filter: ${options.dropShadow};
   }
   ${type === 'mindmap' ? genGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
-  ${type === 'timeline' && theme === 'neo' && look === 'neo' ? genTimelineGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
+  ${type === 'timeline' && theme?.includes('neo') && look === 'neo' ? genTimelineGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
 
   ${userStyles}
 `;
