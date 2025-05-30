@@ -5,7 +5,30 @@ const genColor = (options) => {
   const { theme, themeVariables } = config;
   const { borderColorArray } = themeVariables;
   const isReduxTheme = theme.includes('redux');
-  if (!theme?.includes('color')) {
+  if (theme?.includes('neo')) {
+    let sections = '';
+
+    for (let i = 0; i <= 7; i++) {
+      if (i === 0) {
+        sections += `
+        .branch-label${i} { fill: ${options.nodeBorder};}
+        .commit${i} { stroke: ${options.nodeBorder};   }
+        .commit-highlight${i} { stroke: ${options.nodeBorder}; fill: ${options.nodeBorder}; }
+        .arrow${i} { stroke: ${options.nodeBorder}; }
+        .commit-bullets { fill: ${options.nodeBorder}; }
+        .commit-cherry-pick${i} { stroke: ${options.nodeBorder}; }
+        `;
+      } else {
+        sections += `
+        .branch-label${i} { fill: ${options['gitBranchLabel' + i]}; }
+        .commit${i} { stroke: ${options['git' + i]}; fill: ${options['git' + i]}; }
+        .commit-highlight${i} { stroke: ${options['gitInv' + i]}; fill: ${options['gitInv' + i]}; }
+        .arrow${i} { stroke: ${options['git' + i]}; }
+        `;
+      }
+    }
+    return sections;
+  } else if (!theme?.includes('color')) {
     let sections = '';
 
     for (let i = 0; i <= options.THEME_COLOR_LIMIT; i++) {
@@ -65,7 +88,7 @@ const normalTheme = (options) => {
 const getStyles = (options) => {
   const config = configApi.getConfig();
   const { theme } = config;
-  const isReduxTheme = theme.includes('redux');
+  const isReduxTheme = theme.includes('redux') || theme.includes('neo');
 
   return `
   .commit-id,

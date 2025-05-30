@@ -6,6 +6,7 @@ import type { DrawDefinition } from '../../diagram-api/types.js';
 import type d3 from 'd3';
 import type { Commit, GitGraphDBRenderProvider, DiagramOrientation } from './gitGraphTypes.js';
 import { commitType } from './gitGraphTypes.js';
+import * as configApi from '../../config.js';
 
 interface BranchPosition {
   pos: number;
@@ -959,6 +960,8 @@ const setBranchPosition = function (
 
 export const draw: DrawDefinition = function (txt, id, ver, diagObj) {
   clear();
+  const { look, themeVariables } = configApi.getConfig();
+  const { useGradient, gradientStart, gradientStop } = themeVariables;
 
   log.debug('in gitgraph renderer', txt + '\n', 'id:', id, ver);
   if (!DEFAULT_GITGRAPH_CONFIG) {
@@ -1007,6 +1010,29 @@ export const draw: DrawDefinition = function (txt, id, ver, diagObj) {
     DEFAULT_GITGRAPH_CONFIG.diagramPadding,
     DEFAULT_GITGRAPH_CONFIG.useMaxWidth
   );
+
+  if (look === 'neo' && useGradient) {
+    const gradient = diagram
+      .append('linearGradient')
+      .attr('id', diagram.attr('id') + '-gradient')
+      .attr('gradientUnits', 'objectBoundingBox')
+      .attr('x1', '0%')
+      .attr('y1', '0%')
+      .attr('x2', '100%')
+      .attr('y2', '0%');
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '0%')
+      .attr('stop-color', gradientStart)
+      .attr('stop-opacity', 1);
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '100%')
+      .attr('stop-color', gradientStop)
+      .attr('stop-opacity', 1);
+  }
 };
 
 export default {
