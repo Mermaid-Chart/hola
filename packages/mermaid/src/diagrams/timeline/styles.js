@@ -50,6 +50,7 @@ const genReduxSections = (options) => {
 
     .lineWrapper line {
       stroke: ${options.nodeBorder};
+      stroke-width:${options.strokeWidth}
     }
 
     .disabled,
