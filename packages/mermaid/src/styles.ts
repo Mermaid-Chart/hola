@@ -155,6 +155,7 @@ const getStyles = (
     filter: ${options.dropShadow};
   }
   ${type === 'mindmap' ? genGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
+  ${type === 'timeline' && theme?.includes('neo') && look === 'neo' ? genTimelineGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
   ${type === 'gitGraph' && theme?.includes('neo') && look === 'neo' ? genGitGraphGradient(config, svgId) : ''}
 
   ${userStyles}
@@ -195,6 +196,33 @@ const genGitGraphGradient = (config: MermaidConfig, svgId: string) => {
   }
   return sections;
 };
+
+const genTimelineGradient = (
+  useGradient: boolean,
+  THEME_COLOR_LIMIT: number,
+  svgId: string,
+  mainBkg: string
+) => {
+  let sections = '';
+  if (useGradient) {
+    for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+      sections += `
+     .section-${i - 1} rect,
+    .section-${i - 1} path,
+    .section-${i - 1} circle {
+      fill: ${mainBkg};
+      stroke: ${'url(' + svgId + '-gradient)'};
+       stroke-width: 2;
+    }
+    .section-${i - 1} line {
+     stroke: ${'url(' + svgId + '-gradient)'};
+      stroke-width: 2;
+    }`;
+    }
+  }
+  return sections;
+};
+
 export const addStylesForDiagram = (type: string, diagramTheme?: DiagramStylesProvider): void => {
   if (diagramTheme !== undefined) {
     themes[type] = diagramTheme;
