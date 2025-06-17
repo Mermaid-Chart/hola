@@ -6,6 +6,7 @@ import type { DrawDefinition } from '../../diagram-api/types.js';
 import type d3 from 'd3';
 import type { Commit, GitGraphDBRenderProvider, DiagramOrientation } from './gitGraphTypes.js';
 import { commitType } from './gitGraphTypes.js';
+import * as configApi from '../../config.js';
 
 interface BranchPosition {
   pos: number;
@@ -197,23 +198,26 @@ const drawCommitBullet = (
   branchIndex: number,
   commitSymbolType: number
 ) => {
+  const { theme } = getConfig();
+  const isReduxTheme = theme?.includes('redux');
+  const isDark = theme?.includes('dark');
   if (commitSymbolType === commitType.HIGHLIGHT) {
     gBullets
       .append('rect')
-      .attr('x', commitPosition.x - 10)
-      .attr('y', commitPosition.y - 10)
-      .attr('width', 20)
-      .attr('height', 20)
+      .attr('x', commitPosition.x - 10 + (isReduxTheme ? 3 : 0))
+      .attr('y', commitPosition.y - 10 + (isReduxTheme ? 3 : 0))
+      .attr('width', isReduxTheme ? 14 : 20)
+      .attr('height', isReduxTheme ? 14 : 20)
       .attr(
         'class',
         `commit ${commit.id} commit-highlight${branchIndex % THEME_COLOR_LIMIT} ${typeClass}-outer`
       );
     gBullets
       .append('rect')
-      .attr('x', commitPosition.x - 6)
-      .attr('y', commitPosition.y - 6)
-      .attr('width', 12)
-      .attr('height', 12)
+      .attr('x', commitPosition.x - 6 + (isReduxTheme ? 2 : 0))
+      .attr('y', commitPosition.y - 6 + (isReduxTheme ? 2 : 0))
+      .attr('width', isReduxTheme ? 8 : 12)
+      .attr('height', isReduxTheme ? 8 : 12)
       .attr(
         'class',
         `commit ${commit.id} commit${branchIndex % THEME_COLOR_LIMIT} ${typeClass}-inner`
@@ -223,21 +227,21 @@ const drawCommitBullet = (
       .append('circle')
       .attr('cx', commitPosition.x)
       .attr('cy', commitPosition.y)
-      .attr('r', 10)
+      .attr('r', isReduxTheme ? 7 : 10)
       .attr('class', `commit ${commit.id} ${typeClass}`);
     gBullets
       .append('circle')
       .attr('cx', commitPosition.x - 3)
       .attr('cy', commitPosition.y + 2)
-      .attr('r', 2.75)
-      .attr('fill', '#fff')
+      .attr('r', isReduxTheme ? 2.5 : 2.75)
+      .attr('fill', isDark ? '#000000' : '#fff')
       .attr('class', `commit ${commit.id} ${typeClass}`);
     gBullets
       .append('circle')
       .attr('cx', commitPosition.x + 3)
       .attr('cy', commitPosition.y + 2)
-      .attr('r', 2.75)
-      .attr('fill', '#fff')
+      .attr('r', isReduxTheme ? 2.5 : 2.75)
+      .attr('fill', isDark ? '#000000' : '#fff')
       .attr('class', `commit ${commit.id} ${typeClass}`);
     gBullets
       .append('line')
@@ -245,7 +249,7 @@ const drawCommitBullet = (
       .attr('y1', commitPosition.y + 1)
       .attr('x2', commitPosition.x)
       .attr('y2', commitPosition.y - 5)
-      .attr('stroke', '#fff')
+      .attr('stroke', isDark ? '#000000' : '#fff')
       .attr('class', `commit ${commit.id} ${typeClass}`);
     gBullets
       .append('line')
@@ -253,19 +257,19 @@ const drawCommitBullet = (
       .attr('y1', commitPosition.y + 1)
       .attr('x2', commitPosition.x)
       .attr('y2', commitPosition.y - 5)
-      .attr('stroke', '#fff')
+      .attr('stroke', isDark ? '#000000' : '#fff')
       .attr('class', `commit ${commit.id} ${typeClass}`);
   } else {
     const circle = gBullets.append('circle');
     circle.attr('cx', commitPosition.x);
     circle.attr('cy', commitPosition.y);
-    circle.attr('r', commit.type === commitType.MERGE ? 9 : 10);
+    circle.attr('r', isReduxTheme ? 7 : 10);
     circle.attr('class', `commit ${commit.id} commit${branchIndex % THEME_COLOR_LIMIT}`);
     if (commitSymbolType === commitType.MERGE) {
       const circle2 = gBullets.append('circle');
       circle2.attr('cx', commitPosition.x);
       circle2.attr('cy', commitPosition.y);
-      circle2.attr('r', 6);
+      circle2.attr('r', isReduxTheme ? 5 : 6);
       circle2.attr(
         'class',
         `commit ${typeClass} ${commit.id} commit${branchIndex % THEME_COLOR_LIMIT}`
@@ -273,10 +277,11 @@ const drawCommitBullet = (
     }
     if (commitSymbolType === commitType.REVERSE) {
       const cross = gBullets.append('path');
+      const constValue = isReduxTheme ? 4 : 5;
       cross
         .attr(
           'd',
-          `M ${commitPosition.x - 5},${commitPosition.y - 5}L${commitPosition.x + 5},${commitPosition.y + 5}M${commitPosition.x - 5},${commitPosition.y + 5}L${commitPosition.x + 5},${commitPosition.y - 5}`
+          `M ${commitPosition.x - constValue},${commitPosition.y - constValue}L${commitPosition.x + constValue},${commitPosition.y + constValue}M${commitPosition.x - constValue},${commitPosition.y + constValue}L${commitPosition.x + constValue},${commitPosition.y - constValue}`
         )
         .attr('class', `commit ${typeClass} ${commit.id} commit${branchIndex % THEME_COLOR_LIMIT}`);
     }
@@ -430,15 +435,15 @@ const drawCommitTags = (
         ${commitPosition.x + LAYOUT_OFFSET + maxTagBboxWidth + 4},${yOrigin + h2 + 2}
         ${commitPosition.x + LAYOUT_OFFSET},${yOrigin + h2 + 2}`
           )
-          .attr('transform', 'translate(12,12) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(7,17) rotate(45, ${commitPosition.x} ,${pos})`);
         hole
           .attr('cx', commitPosition.x + PX / 2)
           .attr('cy', yOrigin)
-          .attr('transform', 'translate(12,12) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(8,18) rotate(45, ${commitPosition.x} ,${pos})`);
         tag
           .attr('x', commitPosition.x + 5)
           .attr('y', yOrigin + 3)
-          .attr('transform', 'translate(14,14) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(9,19) rotate(45, ${commitPosition.x} ,${pos})`);
       }
     }
   }
@@ -814,9 +819,17 @@ const drawBranches = (
   svg: d3.Selection<d3.BaseType, unknown, HTMLElement, any>,
   branches: { name: string }[]
 ) => {
+  const { look, theme, themeVariables } = getConfig();
+  const { dropShadow, THEME_COLOR_LIMIT: themeColorLimit } = themeVariables;
+  const isReduxTheme = theme?.includes('redux');
   const g = svg.append('g');
   branches.forEach((branch, index) => {
-    const adjustIndexForTheme = index % THEME_COLOR_LIMIT;
+    let adjustIndexForTheme;
+    if (isReduxTheme) {
+      adjustIndexForTheme = index === 0 ? 0 : (index % themeColorLimit) + 1;
+    } else {
+      adjustIndexForTheme = index % THEME_COLOR_LIMIT;
+    }
 
     const pos = branchPos.get(branch.name)?.pos;
     if (pos === undefined) {
@@ -855,30 +868,80 @@ const drawBranches = (
 
     label.node()!.appendChild(labelElement);
     const bbox = labelElement.getBBox();
+    const borderRadius = isReduxTheme ? 0 : 4;
+    const labelPaddingX = isReduxTheme ? 16 : 0;
+    const labelPaddingY = isReduxTheme ? 12 : 0;
+
+    if (look === 'neo') {
+      bkg.attr('data-look', `neo`);
+      if (theme?.includes('redux')) {
+        bkg
+          .append('defs')
+          .append('filter')
+          .attr('id', 'drop-shadow')
+          .attr('height', '130%')
+          .attr('width', '130%')
+          .append('feDropShadow')
+          .attr('dx', '4')
+          .attr('dy', '4')
+          .attr('stdDeviation', 0)
+          .attr('flood-opacity', '0.06')
+          .attr('flood-color', `${theme.includes('dark') ? '#FFFFFF' : '#000000'}`);
+      }
+    }
+
     bkg
       .attr('class', 'branchLabelBkg label' + adjustIndexForTheme)
-      .attr('rx', 4)
-      .attr('ry', 4)
+      .attr('style', `filter:${dropShadow}`)
+      .attr('rx', borderRadius)
+      .attr('ry', borderRadius)
       .attr('x', -bbox.width - 4 - (DEFAULT_GITGRAPH_CONFIG?.rotateCommitLabel === true ? 30 : 0))
       .attr('y', -bbox.height / 2 + 8)
-      .attr('width', bbox.width + 18)
-      .attr('height', bbox.height + 4);
+      .attr('width', bbox.width + 18 + labelPaddingX)
+      .attr('height', bbox.height + 4 + labelPaddingY);
     label.attr(
       'transform',
       'translate(' +
-        (-bbox.width - 14 - (DEFAULT_GITGRAPH_CONFIG?.rotateCommitLabel === true ? 30 : 0)) +
+        (-bbox.width -
+          14 -
+          (DEFAULT_GITGRAPH_CONFIG?.rotateCommitLabel === true ? 30 : 0) +
+          labelPaddingX / 2) +
         ', ' +
-        (pos - bbox.height / 2 - 1) +
+        (pos - bbox.height / 2 - 1 + labelPaddingY / 2) +
         ')'
     );
     if (dir === 'TB') {
       bkg.attr('x', pos - bbox.width / 2 - 10).attr('y', 0);
       label.attr('transform', 'translate(' + (pos - bbox.width / 2 - 5) + ', ' + 0 + ')');
+      if (isReduxTheme) {
+        bkg.attr('transform', `translate(${-labelPaddingX / 2 - 3}, ${-labelPaddingY - 10})`);
+        label.attr(
+          'transform',
+          'translate(' + (pos - bbox.width / 2 - 5) + ', ' + (-labelPaddingY - 2.5) + ')'
+        );
+      }
     } else if (dir === 'BT') {
       bkg.attr('x', pos - bbox.width / 2 - 10).attr('y', maxPos);
       label.attr('transform', 'translate(' + (pos - bbox.width / 2 - 5) + ', ' + maxPos + ')');
+      if (isReduxTheme) {
+        bkg.attr('transform', `translate(${-labelPaddingX / 2 - 3}, ${labelPaddingY / 2})`);
+        label.attr(
+          'transform',
+          'translate(' + (pos - bbox.width / 2 - 5) + ', ' + (maxPos + labelPaddingY) + ')'
+        );
+      }
     } else {
       bkg.attr('transform', 'translate(' + -19 + ', ' + (pos - bbox.height / 2) + ')');
+      if (isReduxTheme) {
+        bkg.attr(
+          'transform',
+          `translate(${-labelPaddingX / 2 - 3}, ${+(pos - bbox.height / 2) - labelPaddingY / 2})`
+        );
+        label.attr(
+          'transform',
+          `translate(${-bbox.width - labelPaddingX * 2 + 5}, ${+(pos - bbox.height / 2) - labelPaddingY / 2 + 6})`
+        );
+      }
     }
   });
 };
@@ -897,6 +960,8 @@ const setBranchPosition = function (
 
 export const draw: DrawDefinition = function (txt, id, ver, diagObj) {
   clear();
+  const { look, themeVariables } = configApi.getConfig();
+  const { useGradient, gradientStart, gradientStop } = themeVariables;
 
   log.debug('in gitgraph renderer', txt + '\n', 'id:', id, ver);
   if (!DEFAULT_GITGRAPH_CONFIG) {
@@ -945,6 +1010,29 @@ export const draw: DrawDefinition = function (txt, id, ver, diagObj) {
     DEFAULT_GITGRAPH_CONFIG.diagramPadding,
     DEFAULT_GITGRAPH_CONFIG.useMaxWidth
   );
+
+  if (look === 'neo' && useGradient) {
+    const gradient = diagram
+      .append('linearGradient')
+      .attr('id', diagram.attr('id') + '-gradient')
+      .attr('gradientUnits', 'objectBoundingBox')
+      .attr('x1', '0%')
+      .attr('y1', '0%')
+      .attr('x2', '100%')
+      .attr('y2', '0%');
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '0%')
+      .attr('stop-color', gradientStart)
+      .attr('stop-opacity', 1);
+
+    gradient
+      .append('svg:stop')
+      .attr('offset', '100%')
+      .attr('stop-color', gradientStop)
+      .attr('stop-opacity', 1);
+  }
 };
 
 export default {

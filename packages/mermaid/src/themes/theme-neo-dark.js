@@ -314,15 +314,16 @@ class Theme {
     this.relationLabelColor = this.relationLabelColor || this.actorTextColor;
 
     /* git */
-    this.git0 = this.git0 || this.primaryColor;
-    this.git1 = this.git1 || this.secondaryColor;
-    this.git2 = this.git2 || this.tertiaryColor;
-    this.git3 = this.git3 || adjust(this.primaryColor, { h: -30 });
-    this.git4 = this.git4 || adjust(this.primaryColor, { h: -60 });
-    this.git5 = this.git5 || adjust(this.primaryColor, { h: -90 });
-    this.git6 = this.git6 || adjust(this.primaryColor, { h: +60 });
-    this.git7 = this.git7 || adjust(this.primaryColor, { h: +120 });
-    if (this.darkMode) {
+    this.git0 = this.git0 || '#0b0000';
+    this.git1 = this.git1 || '#4d1037';
+    this.git2 = this.git2 || '#3f5258';
+    this.git3 = this.git3 || '#4f2f1b';
+    this.git4 = this.git4 || '#6e0a0a';
+    this.git5 = this.git5 || '#3b0048';
+    this.git6 = this.git6 || '#995a01';
+    this.git7 = this.git7 || '#154706';
+    this.gitDarkMode = true;
+    if (this.gitDarkMode) {
       this.git0 = lighten(this.git0, 25);
       this.git1 = lighten(this.git1, 25);
       this.git2 = lighten(this.git2, 25);
