@@ -1,5 +1,44 @@
 # mermaid
 
+## 11.7.0
+
+### Minor Changes
+
+- [#6479](https://github.com/mermaid-js/mermaid/pull/6479) [`97b79c3`](https://github.com/mermaid-js/mermaid/commit/97b79c3578a2004c63fa32f6d5e17bd8a536e13a) Thanks [@monicanguyen25](https://github.com/monicanguyen25)! - feat: Add Vertical Line To Gantt Plot At Specified Time
+
+- [#6225](https://github.com/mermaid-js/mermaid/pull/6225) [`41e84b7`](https://github.com/mermaid-js/mermaid/commit/41e84b726a1f2df002b77c4b0071e2c15e47838e) Thanks [@Shahir-47](https://github.com/Shahir-47)! - feat: Add support for styling Journey Diagram title (color, font-family, and font-size)
+
+- [#6423](https://github.com/mermaid-js/mermaid/pull/6423) [`aa6cb86`](https://github.com/mermaid-js/mermaid/commit/aa6cb86899968c65561eebfc1d54dd086b1518a2) Thanks [@BambioGaming](https://github.com/BambioGaming)! - Added support for the click directive in stateDiagram syntax
+
+- [#5980](https://github.com/mermaid-js/mermaid/pull/5980) [`df9df9d`](https://github.com/mermaid-js/mermaid/commit/df9df9dc32b80a8c320cc0efd5483b9485f15bde) Thanks [@BryanCrotazGivEnergy](https://github.com/BryanCrotazGivEnergy)! - feat: Add shorter `+<count>: Label` syntax in packet diagram
+
+- [#6523](https://github.com/mermaid-js/mermaid/pull/6523) [`c17277e`](https://github.com/mermaid-js/mermaid/commit/c17277e743b1c12e4134fba44c62a7d5885f2574) Thanks [@NourBenz](https://github.com/NourBenz)! - fix: allow sequence diagram arrows with a trailing colon but no message
+
+- [#6475](https://github.com/mermaid-js/mermaid/pull/6475) [`a1ba65c`](https://github.com/mermaid-js/mermaid/commit/a1ba65c0c08432ec36e772570c3a5899cb57c102) Thanks [@Shahir-47](https://github.com/Shahir-47)! - feat: Dynamically Render Data Labels Within Bar Charts
+
+### Patch Changes
+
+- [#6588](https://github.com/mermaid-js/mermaid/pull/6588) [`b1cf291`](https://github.com/mermaid-js/mermaid/commit/b1cf29127348602137552405e3300dee1697f0de) Thanks [@omkarht](https://github.com/omkarht)! - Fix stroke styles for ER diagram to correctly apply path and row-specific styles
+
+- [#6296](https://github.com/mermaid-js/mermaid/pull/6296) [`a4754ad`](https://github.com/mermaid-js/mermaid/commit/a4754ad195e70d52fbd46ef44f40797d2d215e41) Thanks [@sidharthv96](https://github.com/sidharthv96)! - chore: Convert StateDB into TypeScript
+
+- [#6463](https://github.com/mermaid-js/mermaid/pull/6463) [`2b05d7e`](https://github.com/mermaid-js/mermaid/commit/2b05d7e1edef635e6c80cb383b10ea0a89279f41) Thanks [@AaronMoat](https://github.com/AaronMoat)! - fix: Remove incorrect `style="undefined;"` attributes in some Mermaid diagrams
+
+- [#6282](https://github.com/mermaid-js/mermaid/pull/6282) [`d63d3bf`](https://github.com/mermaid-js/mermaid/commit/d63d3bf1e7596ac7eeb24ba06cbc7a70f9c8b070) Thanks [@saurabhg772244](https://github.com/saurabhg772244)! - FontAwesome icons can now be embedded as SVGs in flowcharts if they are registered via `mermaid.registerIconPacks`.
+
+- [#6407](https://github.com/mermaid-js/mermaid/pull/6407) [`cdbd3e5`](https://github.com/mermaid-js/mermaid/commit/cdbd3e58a3a35d63a79258115dedca4a535c1038) Thanks [@thomascizeron](https://github.com/thomascizeron)! - Refactor grammar so that title don't break Architecture Diagrams
+
+- [#6343](https://github.com/mermaid-js/mermaid/pull/6343) [`1ddaf10`](https://github.com/mermaid-js/mermaid/commit/1ddaf10b89d8c7311c5e10d466b42fa36b61210b) Thanks [@jeswr](https://github.com/jeswr)! - fix: allow colons in events
+
+- [#6616](https://github.com/mermaid-js/mermaid/pull/6616) [`ca80f71`](https://github.com/mermaid-js/mermaid/commit/ca80f719eac86cf4c31392105d5d896f39b84bbc) Thanks [@ashishjain0512](https://github.com/ashishjain0512)! - fix(timeline): ensure consistent vertical line lengths with visible arrowheads
+
+  Fixed timeline diagrams where vertical dashed lines from tasks had inconsistent lengths. All vertical lines now extend to the same depth regardless of the number of events in each column, with sufficient padding to clearly display both the dashed line pattern and complete arrowheads.
+
+- [#6566](https://github.com/mermaid-js/mermaid/pull/6566) [`bca6ed6`](https://github.com/mermaid-js/mermaid/commit/bca6ed67c3e0db910bf498fdd0fc0346c02d392b) Thanks [@arpitjain099](https://github.com/arpitjain099)! - fix: Fix incomplete string escaping in URL manipulation logic when `arrowMarkerAbsolute: true` by ensuring all unsafe characters are escaped.
+
+- Updated dependencies [[`df9df9d`](https://github.com/mermaid-js/mermaid/commit/df9df9dc32b80a8c320cc0efd5483b9485f15bde), [`cdbd3e5`](https://github.com/mermaid-js/mermaid/commit/cdbd3e58a3a35d63a79258115dedca4a535c1038)]:
+  - @mermaid-js/parser@0.5.0
+
 ## 11.6.0
 
 ### Minor Changes
@@ -110,7 +149,7 @@
 ### Patch Changes
 
 - [#5849](https://github.com/mermaid-js/mermaid/pull/5849) [`6c5b7ce`](https://github.com/mermaid-js/mermaid/commit/6c5b7ce9f41c0fbd59fe03dbefc8418d97697f0a) Thanks [@ReneLombard](https://github.com/ReneLombard)! - Fixed an issue when the mermaid classdiagram crashes when adding a . to the namespace.
-  Forexample
+  For example
 
   ```mermaid
 

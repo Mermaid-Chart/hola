@@ -95,6 +95,7 @@ class Theme {
     this.critBkgColor = 'calculated';
     this.critBorderColor = 'calculated';
     this.todayLineColor = 'calculated';
+    this.vertLineColor = 'calculated';
 
     /* C4 Context Diagram variables */
     this.personBorder = this.primaryBorderColor;
@@ -215,6 +216,7 @@ class Theme {
     this.critBorderColor = darken(this.critBkgColor, 10);
 
     this.todayLineColor = this.critBkgColor;
+    this.vertLineColor = this.critBkgColor;
 
     /* Architecture Diagram variables */
     this.archEdgeColor = this.lineColor;

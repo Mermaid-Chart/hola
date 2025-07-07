@@ -35,6 +35,7 @@ To add an integration to this list, see the [Integrations - create page](./integ
   - [Mermaid Charts & Diagrams for Jira](https://marketplace.atlassian.com/apps/1224537/)
   - [Mermaid for Jira Cloud - Draw UML diagrams easily](https://marketplace.atlassian.com/apps/1223053/mermaid-for-jira-cloud-draw-uml-diagrams-easily?hosting=cloud&tab=overview)
   - [CloudScript.io Mermaid Addon](https://marketplace.atlassian.com/apps/1219878/cloudscript-io-mermaid-addon?hosting=cloud&tab=overview)
+  - [Mermaid plus for Confluence](https://marketplace.atlassian.com/apps/1236814/mermaid-plus-for-confluence?hosting=cloud&tab=overview)
 - [Azure Devops](https://learn.microsoft.com/en-us/azure/devops/project/wiki/markdown-guidance?view=azure-devops#add-mermaid-diagrams-to-a-wiki-page) ✅
 - [Deepdwn](https://billiam.itch.io/deepdwn) ✅
 - [Doctave](https://www.doctave.com/) ✅
@@ -109,6 +110,8 @@ Content Management Systems/Enterprise Content Management
 - [Grav CMS](https://getgrav.org/)
   - [Mermaid Diagrams Plugin](https://github.com/DanielFlaum/grav-plugin-mermaid-diagrams)
   - [GitLab Markdown Adapter](https://github.com/Goutte/grav-plugin-gitlab-markdown-adapter)
+- [Tiki](https://tiki.org)
+  - [Tracker Entity Relationship Diagram](https://doc.tiki.org/Tracker-Entity-Relationship-Diagram)
 - [VitePress](https://vitepress.vuejs.org/)
   - [Plugin for Mermaid.js](https://emersonbottero.github.io/vitepress-plugin-mermaid/)
 - [VuePress](https://vuepress.vuejs.org/)
@@ -237,7 +240,7 @@ Communication tools and platforms
 | GitHub + Mermaid         | -                                                                                                           | [🦊🔗](https://addons.mozilla.org/firefox/addon/github-mermaid/)               | -                                                                              | -                                                                                                                            | [🐙🔗](https://github.com/BackMarket/github-mermaid-extension)                                       |
 | Asciidoctor Live Preview | [🎡🔗](https://chromewebstore.google.com/detail/asciidoctorjs-live-previe/iaalpfgpbocpdfblpnhhgllgbdbchmia) | -                                                                              | -                                                                              | [🌀🔗](https://microsoftedge.microsoft.com/addons/detail/asciidoctorjs-live-previ/pefkelkanablhjdekgdahplkccnbdggd?hl=en-US) | -                                                                                                    |
 | Diagram Tab              | -                                                                                                           | -                                                                              | -                                                                              | -                                                                                                                            | [🐙🔗](https://github.com/khafast/diagramtab)                                                        |
-| Markdown Diagrams        | [🎡🔗](https://chromewebstore.google.com/detail/markdown-diagrams/pmoglnmodacnbbofbgcagndelmgaclel)         | [🦊🔗](https://addons.mozilla.org/en-US/firefox/addon/markdown-diagrams/)      | [🔴🔗](https://addons.opera.com/en/extensions/details/markdown-diagrams/)      | [🌀🔗](https://microsoftedge.microsoft.com/addons/detail/markdown-diagrams/hceenoomhhdkjjijnmlclkpenkapfihe)                 | [🐙🔗](https://github.com/marcozaccari/markdown-diagrams-browser-extension/tree/master/doc/examples) |
+| Markdown Diagrams        | [🎡🔗](https://chromewebstore.google.com/detail/markdown-diagrams/pmoglnmodacnbbofbgcagndelmgaclel)         | [🦊🔗](https://addons.mozilla.org/en-US/firefox/addon/markdown-diagrams/)      | -                                                                              | [🌀🔗](https://microsoftedge.microsoft.com/addons/detail/markdown-diagrams/hceenoomhhdkjjijnmlclkpenkapfihe)                 | [🐙🔗](https://github.com/marcozaccari/markdown-diagrams-browser-extension/tree/master/doc/examples) |
 | Markdown Viewer          | -                                                                                                           | [🦊🔗](https://addons.mozilla.org/en-US/firefox/addon/markdown-viewer-chrome/) | -                                                                              | -                                                                                                                            | [🐙🔗](https://github.com/simov/markdown-viewer)                                                     |
 | Extensions for Mermaid   | -                                                                                                           | -                                                                              | [🔴🔗](https://addons.opera.com/en/extensions/details/extensions-for-mermaid/) | -                                                                                                                            | [🐙🔗](https://github.com/Stefan-S/mermaid-extension)                                                |
 | Chrome Diagrammer        | [🎡🔗](https://chromewebstore.google.com/detail/chrome-diagrammer/bkpbgjmkomfoakfklcjeoegkklgjnnpk)         | -                                                                              | -                                                                              | -                                                                                                                            | -                                                                                                    |
@@ -262,7 +265,6 @@ Communication tools and platforms
   - [reveal.js-mermaid-plugin](https://github.com/ludwick/reveal.js-mermaid-plugin)
 - [Reveal CK](https://github.com/jedcn/reveal-ck)
   - [reveal-ck-mermaid-plugin](https://github.com/tmtm/reveal-ck-mermaid-plugin)
-- [mermaid-isomorphic](https://github.com/remcohaszing/mermaid-isomorphic)
-- [mermaid-server: Generate diagrams using a HTTP request](https://github.com/TomWright/mermaid-server)
+- [Vitepress Plugin](https://github.com/sametcn99/vitepress-mermaid-renderer)
 
 <!--- cspell:ignore Blazorade HueHive --->

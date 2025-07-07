@@ -91,6 +91,7 @@ class Theme {
     this.critBorderColor = 'calculated';
     this.critBkgColor = 'calculated';
     this.todayLineColor = 'calculated';
+    this.vertLineColor = 'calculated';
 
     this.sectionBkgColor = rgba(102, 102, 255, 0.49);
     this.altSectionBkgColor = 'white';
@@ -110,6 +111,7 @@ class Theme {
     this.critBorderColor = '#ff8888';
     this.critBkgColor = 'red';
     this.todayLineColor = 'red';
+    this.vertLineColor = 'navy';
 
     /* C4 Context Diagram variables */
     this.personBorder = this.primaryBorderColor;

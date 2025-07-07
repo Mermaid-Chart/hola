@@ -1,3 +1,5 @@
+import { getIconStyles } from '../globalStyles.js';
+
 const getStyles = (options) =>
   `g.classGroup text {
   fill: ${options.nodeBorder || options.classText};
@@ -178,6 +180,7 @@ g.classGroup line {
   stroke: ${options.clusterBorder};
   stroke-width: ${options.strokeWidth}px;
 }
+  ${getIconStyles()}
 `;
 
 export default getStyles;

@@ -31,6 +31,7 @@ vi.mock('./diagrams/xychart/xychartRenderer.js');
 vi.mock('./diagrams/requirement/requirementRenderer.js');
 vi.mock('./diagrams/sequence/sequenceRenderer.js');
 vi.mock('./diagrams/radar/renderer.js');
+vi.mock('./diagrams/architecture/architectureRenderer.js');
 
 // -------------------------------------
 
@@ -614,7 +615,7 @@ describe('mermaidAPI', () => {
 
       let error: any = { message: '' };
       try {
-        // @ts-ignore This is a read-only property. Typescript will not allow assignment, but regular javascript might.
+        // @ts-ignore This is a read-only property. TypeScript will not allow assignment, but regular javascript might.
         mermaidAPI.defaultConfig = config;
       } catch (e) {
         error = e;
@@ -817,6 +818,7 @@ graph TD;A--x|text including URL space|B;`
       { textDiagramType: 'sequenceDiagram', expectedType: 'sequence' },
       { textDiagramType: 'stateDiagram-v2', expectedType: 'stateDiagram' },
       { textDiagramType: 'radar-beta', expectedType: 'radar' },
+      { textDiagramType: 'architecture-beta', expectedType: 'architecture' },
     ];
 
     describe('accessibility', () => {
