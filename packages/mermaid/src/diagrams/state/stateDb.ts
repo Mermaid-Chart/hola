@@ -25,7 +25,7 @@ import {
   STMT_STATE,
   STMT_STYLEDEF,
 } from './stateCommon.js';
-import type { MermaidConfig } from '../../config.type.js';
+import type { MermaidConfig, StateDiagramConfig } from '../../config.type.js';
 
 const CONSTANTS = {
   START_NODE: '[*]',
@@ -178,6 +178,7 @@ export interface Edge {
   thickness: string;
   classes: string;
   look: MermaidConfig['look'];
+  curve: StateDiagramConfig['curve'];
 }
 
 /**
@@ -265,7 +266,8 @@ export class StateDB {
       this.edges,
       true,
       config.look,
-      this.classes
+      this.classes,
+      config
     );
 
     // Process node labels
