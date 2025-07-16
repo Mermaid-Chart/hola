@@ -51,6 +51,11 @@ export async function note<T extends SVGGraphicsElement>(
     rect.selectAll('path').attr('style', nodeStyles);
   }
 
+  label.attr(
+    'transform',
+    `translate(${-bbox.width / 2 - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) - (bbox.y - (bbox.top ?? 0))})`
+  );
+
   updateNodeBounds(node, rect);
 
   node.intersect = function (point) {

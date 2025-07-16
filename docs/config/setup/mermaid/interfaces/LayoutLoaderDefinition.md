@@ -4,13 +4,13 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/LayoutLoaderDefinition.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/LayoutLoaderDefinition.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
 # Interface: LayoutLoaderDefinition
 
-Defined in: [packages/mermaid/src/rendering-util/render.ts:21](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L21)
+Defined in: [packages/mermaid/src/rendering-util/render.ts:22](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L22)
 
 ## Properties
 
@@ -18,7 +18,7 @@ Defined in: [packages/mermaid/src/rendering-util/render.ts:21](https://github.co
 
 > `optional` **algorithm**: `string`
 
-Defined in: [packages/mermaid/src/rendering-util/render.ts:24](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L24)
+Defined in: [packages/mermaid/src/rendering-util/render.ts:25](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L25)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [packages/mermaid/src/rendering-util/render.ts:24](https://github.co
 
 > **loader**: `LayoutLoader`
 
-Defined in: [packages/mermaid/src/rendering-util/render.ts:23](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L23)
+Defined in: [packages/mermaid/src/rendering-util/render.ts:24](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L24)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [packages/mermaid/src/rendering-util/render.ts:23](https://github.co
 
 > **name**: `string`
 
-Defined in: [packages/mermaid/src/rendering-util/render.ts:22](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L22)
+Defined in: [packages/mermaid/src/rendering-util/render.ts:23](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L23)

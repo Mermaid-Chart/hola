@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/README.md](../../../../packages/mermaid/src/docs/config/setup/mermaid/README.md).
 
-[**mermaid**](../README.md)
+[**@mermaid-chart/mermaid**](../README.md)
 
 ---
 
@@ -38,3 +38,9 @@
 ## Variables
 
 - [default](variables/default.md)
+
+## Functions
+
+- [calcIntersect](functions/calcIntersect.md)
+- [calcIntersections](functions/calcIntersections.md)
+- [calcNodeIntersections](functions/calcNodeIntersections.md)

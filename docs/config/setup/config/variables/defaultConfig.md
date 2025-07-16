@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/config/variables/defaultConfig.md](../../../../../packages/mermaid/src/docs/config/setup/config/variables/defaultConfig.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 

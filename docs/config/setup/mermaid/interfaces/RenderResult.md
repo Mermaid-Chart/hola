@@ -4,13 +4,13 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/RenderResult.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/RenderResult.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
 # Interface: RenderResult
 
-Defined in: [packages/mermaid/src/types.ts:85](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L85)
+Defined in: [packages/mermaid/src/types.ts:95](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L95)
 
 ## Properties
 
@@ -18,7 +18,7 @@ Defined in: [packages/mermaid/src/types.ts:85](https://github.com/mermaid-js/mer
 
 > `optional` **bindFunctions**: (`element`) => `void`
 
-Defined in: [packages/mermaid/src/types.ts:103](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L103)
+Defined in: [packages/mermaid/src/types.ts:113](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L113)
 
 Bind function to be called after the svg has been inserted into the DOM.
 This is necessary for adding event listeners to the elements in the svg.
@@ -45,7 +45,7 @@ bindFunctions?.(div); // To call bindFunctions only if it's present.
 
 > **diagramType**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:93](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L93)
+Defined in: [packages/mermaid/src/types.ts:103](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L103)
 
 The diagram type, e.g. 'flowchart', 'sequence', etc.
 
@@ -55,6 +55,6 @@ The diagram type, e.g. 'flowchart', 'sequence', etc.
 
 > **svg**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:89](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L89)
+Defined in: [packages/mermaid/src/types.ts:99](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L99)
 
 The svg code for the rendered graph.
