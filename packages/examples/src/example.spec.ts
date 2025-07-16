@@ -1,4 +1,4 @@
-import mermaid from 'mermaid';
+import mermaid from '@mermaid-chart/mermaid';
 import { diagramData } from './index.js';
 
 describe('examples', () => {
