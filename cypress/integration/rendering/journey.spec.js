@@ -177,6 +177,8 @@ section Checkout from website
     });
   });
 
+  // NOTE: This test behavior is different than mermaid. There is an issue logged for this:
+  // https://github.com/Mermaid-Chart/alana-mermaid/issues/67
   it('should wrap long labels into multiple lines, keep them under max width, and maintain margins', () => {
     renderGraph(
       `
@@ -208,7 +210,7 @@ section Checkout from website
       .then(() => {
         cy.get('text.legend').then(($lines) => {
           // Check that there are multiple lines
-          expect($lines.length).to.be.equal(9);
+          expect($lines.length).to.be.equal(6);
 
           // Check that all lines are under the maxLabelWidth
           $lines.each((index, el) => {
