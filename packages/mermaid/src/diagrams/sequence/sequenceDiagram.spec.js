@@ -1342,7 +1342,7 @@ link a: Tests @ https://tests.contoso.com/?svc=alice@contoso.com
     const boxes = diagram.db.getBoxes();
     expect(boxes[0].name).toEqual('Group 1');
     expect(boxes[0].actorKeys).toEqual(['a', 'b']);
-    expect(boxes[0].fill).toEqual('transparent');
+    expect(boxes[0].fill).toEqual('#ffffde');
   });
 
   it('should handle box without description', async () => {
