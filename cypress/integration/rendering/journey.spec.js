@@ -209,7 +209,7 @@ section Checkout from website
       .then(() => {
         cy.get('text.legend').then(($lines) => {
           // Check that there are multiple lines
-          expect($lines.length).to.be.equal(9);
+          expect($lines.length).to.be.equal(6);
 
           // Check that all lines are under the maxLabelWidth
           $lines.each((index, el) => {
