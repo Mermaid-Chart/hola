@@ -96,6 +96,9 @@ class Theme {
     this.archGroupBorderColor = this.primaryBorderColor;
     this.archGroupBorderWidth = '2px';
 
+    this.noteFontWeight = 'normal';
+    this.fontWeight = 'normal';
+
     /* state colors */
     this.labelColor = 'black';
 

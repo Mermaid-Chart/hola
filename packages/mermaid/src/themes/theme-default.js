@@ -113,6 +113,9 @@ class Theme {
     this.todayLineColor = 'red';
     this.vertLineColor = 'navy';
 
+    this.noteFontWeight = this.noteFontWeight || 'normal';
+    this.fontWeight = this.fontWeight || 'normal';
+
     /* C4 Context Diagram variables */
     this.personBorder = this.primaryBorderColor;
     this.personBkg = this.mainBkg;
