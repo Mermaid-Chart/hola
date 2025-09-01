@@ -110,6 +110,9 @@ class Theme {
     this.taskTextDarkColor = this.taskTextDarkColor || this.textColor;
     this.taskTextClickableColor = this.taskTextClickableColor || '#003163';
 
+    this.noteFontWeight = this.noteFontWeight || 'normal';
+    this.fontWeight = this.fontWeight || 'normal';
+
     /* Sequence Diagram variables */
 
     this.personBorder = this.personBorder || this.primaryBorderColor;

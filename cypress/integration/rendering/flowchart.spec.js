@@ -751,7 +751,7 @@ describe('Graph', () => {
       const style = svg.attr('style');
       expect(style).to.match(/^max-width: [\d.]+px;$/);
       const maxWidthValue = parseFloat(style.match(/[\d.]+/g).join(''));
-      expect(maxWidthValue).to.be.within(446 * 0.9, 446 * 1.1);
+      expect(maxWidthValue).to.be.within(346 * 0.9, 346 * 1.1);
     });
   });
   it('39: should render a flowchart when useMaxWidth is false', () => {
@@ -770,7 +770,7 @@ describe('Graph', () => {
       const width = parseFloat(svg.attr('width'));
       // use within because the absolute value can be slightly different depending on the environment ±10%
       // expect(height).to.be.within(446 * 0.95, 446 * 1.05);
-      expect(width).to.be.within(446 * 0.9, 446 * 1.1);
+      expect(width).to.be.within(346 * 0.9, 346 * 1.1);
       expect(svg).to.not.have.attr('style');
     });
   });

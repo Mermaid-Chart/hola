@@ -108,6 +108,9 @@ class Theme {
     this.gradientStart = this.primaryBorderColor;
     this.gradientStop = this.secondaryBorderColor;
     this.dropShadow = 'drop-shadow( 1px 2px 2px rgba(185,185,185,1))';
+
+    this.noteFontWeight = this.noteFontWeight || 'normal';
+    this.fontWeight = this.fontWeight || 'normal';
   }
   updateColors() {
     this.secondBkg = lighten(this.mainBkg, 16);

@@ -47,6 +47,8 @@ class Theme {
     this.archEdgeWidth = '3';
     this.archGroupBorderColor = this.primaryBorderColor;
     this.archGroupBorderWidth = '2px';
+    this.noteFontWeight = 'normal';
+    this.fontWeight = 'normal';
   }
   updateColors() {
     // The || is to make sure that if the variable has been defined by a user override that value is to be used
@@ -121,6 +123,7 @@ class Theme {
     this.critBkgColor = this.critBkgColor || 'red';
     this.todayLineColor = this.todayLineColor || 'red';
     this.taskTextColor = this.taskTextColor || this.textColor;
+    this.vertLineColor = this.vertLineColor || this.primaryBorderColor;
     this.taskTextOutsideColor = this.taskTextOutsideColor || this.textColor;
     this.taskTextLightColor = this.taskTextLightColor || this.textColor;
     this.taskTextColor = this.taskTextColor || this.primaryTextColor;

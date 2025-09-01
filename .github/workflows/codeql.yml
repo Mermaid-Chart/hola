@@ -1,15 +1,16 @@
 name: 'CodeQL'
 
 on:
-  push:
-    branches: [develop]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [develop]
-    types:
-      - opened
-      - synchronize
-      - ready_for_review
+  # push:  # Disabled - no automatic triggers
+  #   branches: [develop]
+  # pull_request:  # Disabled - no automatic triggers
+  #   # The branches below must be a subset of the branches above
+  #   branches: [develop]
+  #   types:
+  #     - opened
+  #     - synchronize
+  #     - ready_for_review
+  workflow_dispatch: # Only manual trigger remains
 
 permissions: # added using https://github.com/step-security/secure-repo
   contents: read
@@ -18,6 +19,7 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+
     permissions:
       actions: read
       contents: read
