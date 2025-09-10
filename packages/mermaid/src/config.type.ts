@@ -88,6 +88,11 @@ export interface MermaidConfig {
    */
   handDrawnSeed?: number;
   /**
+   * Defines edge label as node.
+   *
+   */
+  isLabelNode?: boolean;
+  /**
    * Defines which layout algorithm to use for rendering the diagram.
    *
    */
@@ -141,7 +146,7 @@ export interface MermaidConfig {
   /**
    * Level of trust for parsed diagram
    */
-  securityLevel?: 'strict' | 'loose' | 'antiscript' | 'sandbox';
+  securityLevel?: 'strict' | 'loose' | 'antiscript' | 'sandbox' | 'parseOnly';
   /**
    * Dictates whether mermaid starts on Page load
    */

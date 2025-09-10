@@ -321,7 +321,10 @@ const render = async function (
 
   const config = configApi.getConfig();
   log.debug(config);
-
+  if (config.securityLevel === 'parseOnly') {
+    log.warn('Cannot render diagram in parseOnly mode');
+    return { svg: '<!-- security level is parseOnly -->', diagramType: 'unknown' };
+  }
   // Check the maximum allowed text size
   if (text.length > (config?.maxTextSize ?? MAX_TEXTLENGTH)) {
     text = MAX_TEXTLENGTH_EXCEEDED_MSG;
