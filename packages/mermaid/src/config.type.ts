@@ -93,6 +93,11 @@ export interface MermaidConfig {
    */
   isLabelNode?: boolean;
   /**
+   * Defines edge label as node.
+   *
+   */
+  isLabelNode?: boolean;
+  /**
    * Defines which layout algorithm to use for rendering the diagram.
    *
    */
