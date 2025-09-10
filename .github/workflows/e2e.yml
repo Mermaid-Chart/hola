@@ -7,6 +7,7 @@ on:
       - master
       - release/**
   pull_request:
+    types: [opened, synchronize, reopened]
   merge_group:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
