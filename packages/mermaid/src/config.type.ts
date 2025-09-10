@@ -88,16 +88,6 @@ export interface MermaidConfig {
    */
   handDrawnSeed?: number;
   /**
-   * Defines edge label as node.
-   *
-   */
-  isLabelNode?: boolean;
-  /**
-   * Defines edge label as node.
-   *
-   */
-  isLabelNode?: boolean;
-  /**
    * Defines which layout algorithm to use for rendering the diagram.
    *
    */

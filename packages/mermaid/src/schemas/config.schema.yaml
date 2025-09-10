@@ -97,12 +97,6 @@ properties:
       Defines the seed to be used when using handDrawn look. This is important for the automated tests as they will always find differences without the seed. The default value is 0 which gives a random seed.
     type: number
     default: 0
-  isLabelNode:
-    description: |
-      Defines edge label as node.
-    type: boolean
-    default: false
-
   layout:
     description: |
       Defines which layout algorithm to use for rendering the diagram.
