@@ -1,6 +1,5 @@
 import { getConfig } from '../../diagram-api/diagramAPI.js';
 import { log } from '../../logger.js';
-import { generateId } from '../../utils.js';
 import common from '../common/common.js';
 import {
   clear as commonClear,
@@ -352,7 +351,7 @@ export class StateDB {
     if (doc.length > 0 && currentDoc.length > 0) {
       const newNode = {
         stmt: STMT_STATE,
-        id: generateId(),
+        id: this.getDividerId(),
         type: 'divider',
         doc: clone(currentDoc),
       } satisfies StateStmt;
