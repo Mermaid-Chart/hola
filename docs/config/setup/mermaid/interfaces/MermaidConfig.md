@@ -374,7 +374,7 @@ This prevents malicious graph directives from overriding a site's default securi
 
 ### securityLevel?
 
-> `optional` **securityLevel**: `"strict"` | `"loose"` | `"antiscript"` | `"sandbox"`
+> `optional` **securityLevel**: `"strict"` | `"loose"` | `"antiscript"` | `"sandbox"` | `"parseOnly"`
 
 Defined in: [packages/mermaid/src/config.type.ts:144](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/config.type.ts#L144)
 

@@ -3,6 +3,7 @@ import { getDiagram, registerDiagram } from './diagram-api/diagramAPI.js';
 import { detectType, getDiagramLoader } from './diagram-api/detectType.js';
 import { UnknownDiagramError } from './errors.js';
 import { encodeEntities } from './utils.js';
+import { log } from './logger.js';
 import type { DetailedError } from './utils.js';
 import type { DiagramDefinition, DiagramMetadata } from './diagram-api/types.js';
 
@@ -54,6 +55,11 @@ export class Diagram {
   ) {}
 
   async render(id: string, version: string, positions?: any) {
+    const config = configApi.getConfig();
+    if (config.securityLevel === 'parseOnly') {
+      log.warn('Cannot render diagram in parseOnly mode');
+      return;
+    }
     await this.renderer.draw(this.text, id, version, this, positions);
   }
 
