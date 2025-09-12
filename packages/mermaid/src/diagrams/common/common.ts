@@ -338,6 +338,7 @@ const renderKatexUnsanitized = async (text: string, config: MermaidConfig): Prom
     return text.replace(katexRegex, 'MathML is unsupported in this environment.');
   }
 
+  // @ts-ignore: global variable injected at runtime
   if (includeLargeFeatures) {
     const { default: katex } = await import('katex');
     const outputMode =

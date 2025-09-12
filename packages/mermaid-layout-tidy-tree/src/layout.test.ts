@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { executeTidyTreeLayout, validateLayoutData } from './layout.js';
 import type { LayoutResult } from './types.js';
-import type { LayoutData, MermaidConfig } from 'mermaid';
+import type { LayoutData, MermaidConfig } from '@mermaid-chart/mermaid';
 
 // Mock non-layered-tidy-tree-layout
 vi.mock('non-layered-tidy-tree-layout', () => ({
