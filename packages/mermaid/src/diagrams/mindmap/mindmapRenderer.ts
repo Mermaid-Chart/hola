@@ -1,5 +1,4 @@
 import cytoscape from 'cytoscape';
-// @ts-expect-error No types available
 import coseBilkent from 'cytoscape-cose-bilkent';
 import { select } from 'd3';
 import type { MermaidConfig } from '../../config.type.js';
