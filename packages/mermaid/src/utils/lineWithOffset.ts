@@ -116,7 +116,6 @@ export const getLineFunctionsWithOffset = (
         adjustment *= DIRECTION === 'right' ? -1 : 1;
         offset += adjustment;
       }
-
       return pointTransformer(d).x + offset;
     },
     y: function (

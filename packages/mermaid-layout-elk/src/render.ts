@@ -11,7 +11,8 @@ import ELK from 'elkjs/lib/elk.bundled.js';
 import { type TreeData, findCommonAncestor } from './find-common-ancestor.js';
 
 type Node = LayoutData['nodes'][number];
-
+// Used to calculate distances in order to avoid floating number rounding issues when comparing floating numbers
+const epsilon = 0.0001;
 interface LabelData {
   width: number;
   height: number;
@@ -20,11 +21,20 @@ interface LabelData {
 }
 
 interface NodeWithVertex extends Omit<Node, 'domId'> {
-  children?: unknown[];
+  children?: LayoutData['nodes'];
   labelData?: LabelData;
   domId?: Node['domId'] | SVGGroup | d3.Selection<SVGAElement, unknown, Element | null, unknown>;
 }
-
+interface Point {
+  x: number;
+  y: number;
+}
+function distance(p1?: Point, p2?: Point): number {
+  if (!p1 || !p2) {
+    return 0;
+  }
+  return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+}
 export const render = async (
   data4Layout: LayoutData,
   svg: SVG,
@@ -58,15 +68,30 @@ export const render = async (
 
     // Add the element to the DOM
     if (!node.isGroup) {
+      // Create a clean node object for ELK with only the properties it expects
       const child: NodeWithVertex = {
-        ...node,
+        id: node.id,
+        width: node.width,
+        height: node.height,
+        // Store the original node data for later use
+        label: node.label,
+        isGroup: node.isGroup,
+        shape: node.shape,
+        padding: node.padding,
+        cssClasses: node.cssClasses,
+        cssStyles: node.cssStyles,
+        look: node.look,
+        // Include parentId for subgraph processing
+        parentId: node.parentId,
       };
       graph.children.push(child);
       nodeDb[node.id] = child;
 
       const childNodeEl = await insertNode(nodeEl, node, { config, dir: node.dir });
       const boundingBox = childNodeEl.node()!.getBBox();
+      // Store the domId separately for rendering, not in the ELK graph
       child.domId = childNodeEl;
+      child.calcIntersect = node.calcIntersect;
       child.width = boundingBox.width;
       child.height = boundingBox.height;
     } else {
@@ -788,7 +813,10 @@ export const render = async (
     id: 'root',
     layoutOptions: {
       'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-      'elk.layered.crossingMinimization.forceNodeModelOrder': true,
+      'elk.layered.crossingMinimization.forceNodeModelOrder':
+        data4Layout.config.elk?.forceNodeModelOrder,
+      'elk.layered.considerModelOrder.strategy': data4Layout.config.elk?.considerModelOrder,
+
       'elk.algorithm': algorithm,
       'nodePlacement.strategy': data4Layout.config.elk?.nodePlacementStrategy,
       'elk.layered.mergeEdges': data4Layout.config.elk?.mergeEdges,
@@ -888,11 +916,16 @@ export const render = async (
       delete node.height;
     }
   });
-  elkGraph.edges.forEach((edge: any) => {
+  log.debug('APA01 processing edges, count:', elkGraph.edges.length);
+  elkGraph.edges.forEach((edge: any, index: number) => {
+    log.debug('APA01 processing edge', index, ':', edge);
     const source = edge.sources[0];
     const target = edge.targets[0];
+    log.debug('APA01 source:', source, 'target:', target);
+    log.debug('APA01 nodeDb[source]:', nodeDb[source]);
+    log.debug('APA01 nodeDb[target]:', nodeDb[target]);
 
-    if (nodeDb[source].parentId !== nodeDb[target].parentId) {
+    if (nodeDb[source] && nodeDb[target] && nodeDb[source].parentId !== nodeDb[target].parentId) {
       const ancestorId = findCommonAncestor(source, target, parentLookupDb);
       // an edge that breaks a subgraph has been identified, set configuration accordingly
       setIncludeChildrenPolicy(source, ancestorId);
@@ -900,7 +933,37 @@ export const render = async (
     }
   });
 
-  const g = await elk.layout(elkGraph);
+  log.debug('APA01 before');
+  log.debug('APA01 elkGraph structure:', JSON.stringify(elkGraph, null, 2));
+  log.debug('APA01 elkGraph.children length:', elkGraph.children?.length);
+  log.debug('APA01 elkGraph.edges length:', elkGraph.edges?.length);
+
+  // Validate that all edge references exist as nodes
+  elkGraph.edges?.forEach((edge: any, index: number) => {
+    log.debug(`APA01 validating edge ${index}:`, edge);
+    if (edge.sources) {
+      edge.sources.forEach((sourceId: any) => {
+        const sourceExists = elkGraph.children?.some((child: any) => child.id === sourceId);
+        log.debug(`APA01 source ${sourceId} exists:`, sourceExists);
+      });
+    }
+    if (edge.targets) {
+      edge.targets.forEach((targetId: any) => {
+        const targetExists = elkGraph.children?.some((child: any) => child.id === targetId);
+        log.debug(`APA01 target ${targetId} exists:`, targetExists);
+      });
+    }
+  });
+
+  let g;
+  try {
+    g = await elk.layout(elkGraph);
+    log.debug('APA01 after - success');
+    log.debug('APA01 layout result:', JSON.stringify(g, null, 2));
+  } catch (error) {
+    log.error('APA01 ELK layout error:', error);
+    throw error;
+  }
 
   // debugger;
   await drawNodes(0, 0, g.children, svg, subGraphsEl, 0);
@@ -988,18 +1051,6 @@ export const render = async (
             startNode.innerHTML
           );
         }
-        if (startNode.shape === 'diamond' || startNode.shape === 'diam') {
-          edge.points.unshift({
-            x: startNode.offset.posX + startNode.width / 2,
-            y: startNode.offset.posY + startNode.height / 2,
-          });
-        }
-        if (endNode.shape === 'diamond' || endNode.shape === 'diam') {
-          edge.points.push({
-            x: endNode.offset.posX + endNode.width / 2,
-            y: endNode.offset.posY + endNode.height / 2,
-          });
-        }
 
         // edge.points = cutPathAtIntersect2(startNode, edge.points.reverse(), offset, {
         //   x: startNode.x + startNode.width / 2 + offset.x,
@@ -1028,18 +1079,36 @@ export const render = async (
           },
           startNode.shape === 'diamond' || startNode.shape === 'diam'
         ).reverse();
+        if (startNode.calcIntersect) {
+          const intersection = startNode.calcIntersect(
+            {
+              x: startNode.offset.posX + startNode.width / 2,
+              y: startNode.offset.posY + startNode.height / 2,
+              width: startNode.width,
+              height: startNode.height,
+            },
+            edge.points[0]
+          );
 
-        edge.points = cutPathAtIntersect(
-          edge.points,
-          {
-            x: endNode.offset.posX + endNode.width / 2,
-            y: endNode.offset.posY + endNode.height / 2,
-            width: ew,
-            height: endNode.height,
-            padding: endNode.padding,
-          },
-          endNode.shape === 'diamond' || endNode.shape === 'diam'
-        );
+          if (distance(intersection, edge.points[0]) > epsilon) {
+            edge.points.unshift(intersection);
+          }
+        }
+        if (endNode.calcIntersect) {
+          const intersection = endNode.calcIntersect(
+            {
+              x: endNode.offset.posX + endNode.width / 2,
+              y: endNode.offset.posY + endNode.height / 2,
+              width: endNode.width,
+              height: endNode.height,
+            },
+            edge.points[edge.points.length - 1]
+          );
+
+          if (distance(intersection, edge.points[edge.points.length - 1]) > epsilon) {
+            edge.points.push(intersection);
+          }
+        }
 
         const paths = insertEdge(
           edgesEl,
@@ -1050,7 +1119,6 @@ export const render = async (
           endNode,
           data4Layout.diagramId
         );
-        log.info('APA12 edge points after insert', JSON.stringify(edge.points));
 
         edge.x = edge.labels[0].x + offset.x + edge.labels[0].width / 2;
         edge.y = edge.labels[0].y + offset.y + edge.labels[0].height / 2;

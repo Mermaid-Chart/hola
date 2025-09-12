@@ -1,4 +1,3 @@
-import { log } from '../../../logger.js';
 import { labelHelper, updateNodeBounds, getNodeClasses } from './util.js';
 import intersect from '../intersect/index.js';
 import type { Node } from '../../types.js';
@@ -6,6 +5,7 @@ import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
 import rough from 'roughjs';
 import { insertPolygonShape } from './insertPolygonShape.js';
 import type { D3Selection } from '../../../types.js';
+import type { Bounds, Point } from '../../../types.js';
 
 export const createDecisionBoxPathD = (x: number, y: number, size: number): string => {
   return [
@@ -37,6 +37,7 @@ export async function question<T extends SVGGraphicsElement>(parent: D3Selection
   const w = ((node?.width ? node?.width : bbox.width) + padding) / 2;
   const h = w;
   const s = w + h;
+  const adjustment = 0.5;
 
   const points = [
     { x: s / 2, y: 0 },
@@ -57,13 +58,14 @@ export async function question<T extends SVGGraphicsElement>(parent: D3Selection
 
     polygon = shapeSvg
       .insert(() => roughNode, ':first-child')
-      .attr('transform', `translate(${-s / 2}, ${s / 2})`);
+      .attr('transform', `translate(${-s / 2 + adjustment}, ${s / 2})`);
 
     if (cssStyles) {
       polygon.attr('style', cssStyles);
     }
   } else {
     polygon = insertPolygonShape(shapeSvg, s, s, points);
+    polygon.attr('transform', `translate(${-s / 2 + adjustment}, ${s / 2})`);
   }
 
   if (nodeStyles) {
@@ -71,17 +73,26 @@ export async function question<T extends SVGGraphicsElement>(parent: D3Selection
   }
 
   updateNodeBounds(node, polygon);
+  node.calcIntersect = function (bounds: Bounds, point: Point) {
+    const s = bounds.width;
+
+    // Define polygon points
+    const points = [
+      { x: s / 2, y: 0 },
+      { x: s, y: -s / 2 },
+      { x: s / 2, y: -s },
+      { x: 0, y: -s / 2 },
+    ];
+
+    // Calculate the intersection point
+    const res = intersect.polygon(bounds, points, point);
+
+    return { x: res.x - 0.5, y: res.y - 0.5 }; // Adjusted result
+  };
 
   node.intersect = function (point) {
-    log.debug(
-      'APA12 Intersect called SPLIT\npoint:',
-      point,
-      '\nnode:\n',
-      node,
-      '\nres:',
-      intersect.polygon(node, points, point)
-    );
-    return intersect.polygon(node, points, point);
+    // @ts-ignore TODO fix this (KNSV)
+    return this.calcIntersect(node as Bounds, point);
   };
 
   return shapeSvg;

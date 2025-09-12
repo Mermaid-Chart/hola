@@ -16,15 +16,16 @@
   "files": [
     "dist"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mermaid-js/mermaid"
+  },
   "scripts": {
     "clean": "rimraf dist"
   },
   "dependencies": {},
   "devDependencies": {
     "@mermaid-chart/mermaid": "workspace:*"
-  },
-  "peerDependencies": {
-    "@mermaid-chart/mermaid": "workspace:~"
   },
   "publishConfig": {
     "access": "public"
