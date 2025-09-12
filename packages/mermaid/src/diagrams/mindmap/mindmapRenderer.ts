@@ -14,7 +14,7 @@ import { drawNode, positionNode } from './svgDraw.js';
 import defaultConfig from '../../defaultConfig.js';
 import * as configApi from '../../config.js';
 import type { MindmapDB } from './mindmapDb.js';
-import { LayoutData } from '../../mermaid.js';
+import type { LayoutData } from '../../mermaid.js';
 
 // Inject the layout algorithm into cytoscape
 cytoscape.use(coseBilkent);

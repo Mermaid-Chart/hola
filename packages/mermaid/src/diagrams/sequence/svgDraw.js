@@ -1057,7 +1057,7 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter) {
   return actor.height;
 };
 
-const drawActorTypeActor = function (elem, actor, conf, isFooter) {
+const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 80;
@@ -1181,7 +1181,7 @@ export const drawActor = async function (elem, actor, conf, isFooter, diagObj) {
     case 'actor':
       return await drawActorTypeActor(elem, actor, conf, isFooter, diagObj);
     case 'participant':
-      return await drawActorTypeParticipant(elem, actor, conf, isFooter);
+      return await drawActorTypeParticipant(elem, actor, conf, isFooter, diagObj);
     case 'boundary':
       return await drawActorTypeBoundary(elem, actor, conf, isFooter);
     case 'control':
