@@ -176,7 +176,7 @@ Configuration object for mermaid.
 
 ### ~~mermaidAPI~~
 
-> **mermaidAPI**: `Readonly`<{ `defaultConfig`: [`MermaidConfig`](MermaidConfig.md); `getConfig`: () => [`MermaidConfig`](MermaidConfig.md); `getDiagramFromText`: (`text`, `metadata`) => `Promise`<`Diagram`>; `getSiteConfig`: () => [`MermaidConfig`](MermaidConfig.md); `globalReset`: () => `void`; `initialize`: (`userOptions`) => `void`; `parse`: {(`text`, `parseOptions`): `Promise`<`false` | [`ParseResult`](ParseResult.md)>; (`text`, `parseOptions?`): `Promise`<[`ParseResult`](ParseResult.md)>; }; `render`: (`id`, `text`, `svgContainingElement?`) => `Promise`<[`RenderResult`](RenderResult.md)>; `reset`: () => `void`; `setConfig`: (`conf`) => [`MermaidConfig`](MermaidConfig.md); `updateSiteConfig`: (`conf`) => [`MermaidConfig`](MermaidConfig.md); }>
+> **mermaidAPI**: `Readonly`<{ `defaultConfig`: [`MermaidConfig`](MermaidConfig.md); `getConfig`: () => [`MermaidConfig`](MermaidConfig.md); `getDiagramFromText`: (`text`, `metadata`) => `Promise`<`Diagram`>; `getSiteConfig`: () => [`MermaidConfig`](MermaidConfig.md); `globalReset`: () => `void`; `initialize`: (`userOptions`) => `void`; `parse`: {(`text`, `parseOptions`): `Promise`<[`ParseResult`](ParseResult.md) & `object`>; (`text`, `parseOptions?`): `Promise`<[`ParseResult`](ParseResult.md)>; }; `render`: (`id`, `text`, `svgContainingElement?`, `positions?`) => `Promise`<[`RenderResult`](RenderResult.md)>; `reset`: () => `void`; `setConfig`: (`conf`) => [`MermaidConfig`](MermaidConfig.md); `updateSiteConfig`: (`conf`) => [`MermaidConfig`](MermaidConfig.md); }>
 
 Defined in: [packages/mermaid/src/mermaid.ts:436](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/mermaid.ts#L436)
 
@@ -190,13 +190,13 @@ Use [parse](#parse) and [render](#render) instead. Please [open a discussion](ht
 
 ### parse()
 
-> **parse**: {(`text`, `parseOptions`): `Promise`<`false` | [`ParseResult`](ParseResult.md)>; (`text`, `parseOptions?`): `Promise`<[`ParseResult`](ParseResult.md)>; }
+> **parse**: {(`text`, `parseOptions`): `Promise`<[`ParseResult`](ParseResult.md) & `object`>; (`text`, `parseOptions?`): `Promise`<[`ParseResult`](ParseResult.md)>; }
 
 Defined in: [packages/mermaid/src/mermaid.ts:437](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/mermaid.ts#L437)
 
 #### Call Signature
 
-> (`text`, `parseOptions`): `Promise`<`false` | [`ParseResult`](ParseResult.md)>
+> (`text`, `parseOptions`): `Promise`<[`ParseResult`](ParseResult.md) & `object`>
 
 Parse the text and validate the syntax.
 
@@ -340,7 +340,7 @@ Defined in: [packages/mermaid/src/mermaid.ts:444](https://github.com/mermaid-js/
 
 ### render()
 
-> **render**: (`id`, `text`, `svgContainingElement?`) => `Promise`<[`RenderResult`](RenderResult.md)>
+> **render**: (`id`, `text`, `svgContainingElement?`, `positions?`) => `Promise`<[`RenderResult`](RenderResult.md)>
 
 Defined in: [packages/mermaid/src/mermaid.ts:438](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/mermaid.ts#L438)
 
