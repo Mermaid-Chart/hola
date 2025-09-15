@@ -10,7 +10,7 @@
 
 # Interface: RenderResult
 
-Defined in: [packages/mermaid/src/types.ts:95](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L95)
+Defined in: [packages/mermaid/src/types.ts:124](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L124)
 
 ## Properties
 
@@ -18,7 +18,7 @@ Defined in: [packages/mermaid/src/types.ts:95](https://github.com/mermaid-js/mer
 
 > `optional` **bindFunctions**: (`element`) => `void`
 
-Defined in: [packages/mermaid/src/types.ts:113](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L113)
+Defined in: [packages/mermaid/src/types.ts:142](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L142)
 
 Bind function to be called after the svg has been inserted into the DOM.
 This is necessary for adding event listeners to the elements in the svg.
@@ -45,7 +45,7 @@ bindFunctions?.(div); // To call bindFunctions only if it's present.
 
 > **diagramType**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:103](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L103)
+Defined in: [packages/mermaid/src/types.ts:132](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L132)
 
 The diagram type, e.g. 'flowchart', 'sequence', etc.
 
@@ -55,6 +55,6 @@ The diagram type, e.g. 'flowchart', 'sequence', etc.
 
 > **svg**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:99](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L99)
+Defined in: [packages/mermaid/src/types.ts:128](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L128)
 
 The svg code for the rendered graph.

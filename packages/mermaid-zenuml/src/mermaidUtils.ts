@@ -1,4 +1,4 @@
-import type { MermaidConfig } from 'mermaid';
+import type { MermaidConfig } from '@mermaid-chart/mermaid';
 
 const warning = (s: string) => {
   // Todo remove debug code

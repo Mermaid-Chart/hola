@@ -10,7 +10,7 @@
 
 # Interface: ParseResult
 
-Defined in: [packages/mermaid/src/types.ts:69](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L69)
+Defined in: [packages/mermaid/src/types.ts:98](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L98)
 
 ## Properties
 
@@ -18,7 +18,7 @@ Defined in: [packages/mermaid/src/types.ts:69](https://github.com/mermaid-js/mer
 
 > **code**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:74](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L74)
+Defined in: [packages/mermaid/src/types.ts:103](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L103)
 
 The mermaid code after extracting the config.
 
@@ -28,7 +28,7 @@ The mermaid code after extracting the config.
 
 > **config**: [`MermaidConfig`](MermaidConfig.md)
 
-Defined in: [packages/mermaid/src/types.ts:78](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L78)
+Defined in: [packages/mermaid/src/types.ts:107](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L107)
 
 The config passed as YAML frontmatter or directives
 
@@ -38,7 +38,7 @@ The config passed as YAML frontmatter or directives
 
 > `optional` **diagram**: `Diagram`
 
-Defined in: [packages/mermaid/src/types.ts:80](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L80)
+Defined in: [packages/mermaid/src/types.ts:109](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L109)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [packages/mermaid/src/types.ts:80](https://github.com/mermaid-js/mer
 
 > `optional` **error**: `unknown`
 
-Defined in: [packages/mermaid/src/types.ts:84](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L84)
+Defined in: [packages/mermaid/src/types.ts:113](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L113)
 
 The error that occurred during parsing, if any.
 
@@ -56,7 +56,7 @@ The error that occurred during parsing, if any.
 
 > **success**: `boolean`
 
-Defined in: [packages/mermaid/src/types.ts:70](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L70)
+Defined in: [packages/mermaid/src/types.ts:99](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L99)
 
 ---
 
@@ -64,4 +64,4 @@ Defined in: [packages/mermaid/src/types.ts:70](https://github.com/mermaid-js/mer
 
 > `optional` **title**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:79](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L79)
+Defined in: [packages/mermaid/src/types.ts:108](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L108)

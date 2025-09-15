@@ -44,6 +44,14 @@ const registerDefaultLayoutLoaders = () => {
       name: 'fixed',
       loader: async () => await import('./layout-algorithms/fixed/index.js'),
     },
+    ...(includeLargeFeatures
+      ? [
+          {
+            name: 'cose-bilkent',
+            loader: async () => await import('./layout-algorithms/cose-bilkent/index.js'),
+          },
+        ]
+      : []),
   ]);
 };
 

@@ -1,5 +1,4 @@
 import cytoscape from 'cytoscape';
-// @ts-expect-error No types available
 import coseBilkent from 'cytoscape-cose-bilkent';
 import { select } from 'd3';
 import type { MermaidConfig } from '../../config.type.js';
@@ -14,10 +13,31 @@ import { drawNode, positionNode } from './svgDraw.js';
 import defaultConfig from '../../defaultConfig.js';
 import * as configApi from '../../config.js';
 import type { MindmapDB } from './mindmapDb.js';
+import type { LayoutData } from '../../mermaid.js';
 
 // Inject the layout algorithm into cytoscape
 cytoscape.use(coseBilkent);
 
+/**
+ * Update the layout data with actual node dimensions after drawing
+ */
+function _updateNodeDimensions(data4Layout: LayoutData, mindmapRoot: FilledMindMapNode) {
+  const updateNode = (node: FilledMindMapNode) => {
+    // Find the corresponding node in the layout data
+    const layoutNode = data4Layout.nodes.find((n) => n.id === node.id.toString());
+    if (layoutNode) {
+      // Update with the actual dimensions calculated by drawNode
+      layoutNode.width = node.width;
+      layoutNode.height = node.height;
+      log.debug('Updated node dimensions:', node.id, 'width:', node.width, 'height:', node.height);
+    }
+
+    // Recursively update children
+    node.children?.forEach(updateNode);
+  };
+
+  updateNode(mindmapRoot);
+}
 async function drawNodes(
   db: MindmapDB,
   svg: D3Element,

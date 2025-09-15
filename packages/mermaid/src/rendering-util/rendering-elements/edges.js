@@ -373,6 +373,7 @@ const generateDashArray = (len, oValueS, oValueE) => {
 
   return dashArray;
 };
+
 export const insertEdge = function (elem, edge, clusterDb, diagramType, startNode, endNode, id) {
   const { handDrawnSeed } = getConfig();
   let points = edge.points;
@@ -603,6 +604,15 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
         .attr('cy', point.y);
     });
   }
+  // lineData.forEach((point) => {
+  //   elem
+  //     .append('circle')
+  //     .style('stroke', 'red')
+  //     .style('fill', 'red')
+  //     .attr('r', 1)
+  //     .attr('cx', point.x)
+  //     .attr('cy', point.y);
+  // });
 
   let url = '';
   if (getConfig().flowchart.arrowMarkerAbsolute || getConfig().state.arrowMarkerAbsolute) {
@@ -613,6 +623,11 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
 
   const useMargin = !animatedEdge && edge?.look === 'neo';
   addEdgeMarkers(svgPath, edge, url, id, diagramType, useMargin, strokeColor);
+  const midIndex = Math.floor(points.length / 2);
+  const point = points[midIndex];
+  if (!utils.isLabelCoordinateInPath(point, svgPath.attr('d'))) {
+    pointsHasChanged = true;
+  }
 
   let paths = {};
   if (pointsHasChanged) {
