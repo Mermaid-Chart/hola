@@ -471,10 +471,12 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj)
  * @param {any} conf - DrawText implementation discriminator object
  * @param {boolean} isFooter - If the actor is the footer one
  */
-const drawActorTypeCollections = function (elem, actor, conf, isFooter) {
+const drawActorTypeCollections = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
+  const { look, theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
 
   const boxplusLineGroup = elem.append('g').lower();
   var g = boxplusLineGroup;
@@ -531,8 +533,20 @@ const drawActorTypeCollections = function (elem, actor, conf, isFooter) {
     class: 'actor',
   };
   const rectElem = drawRect(g, rect); // draw main rectangle on top
-  drawRect(g, shadowRect);
+  const stackedRect = drawRect(g, shadowRect);
   actor.rectData = rect;
+
+  if (look === 'neo') {
+    g.attr('filter', 'url(#drop-shadow)');
+  }
+
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme?.includes('color')) {
+    rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+    stackedRect.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    stackedRect.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  }
 
   if (actor.properties?.icon) {
     const iconSrc = actor.properties.icon.trim();
@@ -564,10 +578,12 @@ const drawActorTypeCollections = function (elem, actor, conf, isFooter) {
   return height;
 };
 
-const drawActorTypeQueue = function (elem, actor, conf, isFooter) {
+const drawActorTypeQueue = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
+  const { look, theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
 
   const boxplusLineGroup = elem.append('g').lower();
   let g = boxplusLineGroup;
@@ -609,12 +625,12 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter) {
   } else {
     cssclass += ` ${TOP_ACTOR_CLASS}`;
   }
+  g.attr('class', cssclass);
 
   rect.x = actor.x;
   rect.y = actorY;
   rect.width = actor.width;
   rect.height = actor.height;
-  rect.class = cssclass;
   rect.name = actor.name;
 
   // Cylinder dimensions
@@ -626,33 +642,35 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter) {
   const cylinderArc = g.append('g');
 
   // Main cylinder body
-  cylinderGroup
-    .append('path')
-    .attr(
-      'd',
-      `M ${rect.x},${rect.y + ry}
+  const cylinderPath = `M ${rect.x},${rect.y + ry}
     a ${rx},${ry} 0 0 0 0,${rect.height}
     h ${rect.width - 2 * rx}
     a ${rx},${ry} 0 0 0 0,-${rect.height}
     Z
-  `
-    )
-    .attr('class', cssclass);
-  cylinderArc
-    .append('path')
-    .attr(
-      'd',
-      `M ${rect.x},${rect.y + ry}
+  `;
+  cylinderGroup.append('path').attr('d', cylinderPath);
+  cylinderArc.append('path').attr(
+    'd',
+    `M ${rect.x},${rect.y + ry}
       a ${rx},${ry} 0 0 0 0,${rect.height}`
-    )
-    .attr('stroke', '#666')
-    .attr('stroke-width', '1px')
-    .attr('class', cssclass);
+  );
 
   cylinderGroup.attr('transform', `translate(${rx}, ${-(rect.height / 2)})`);
   cylinderArc.attr('transform', `translate(${rect.width - rx}, ${-rect.height / 2})`);
 
   actor.rectData = rect;
+
+  if (look === 'neo') {
+    cylinderGroup.attr('filter', 'url(#drop-shadow)');
+  }
+
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme?.includes('color')) {
+    cylinderGroup.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    cylinderGroup.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+    cylinderArc.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    cylinderArc.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  }
 
   if (actor.properties?.icon) {
     const iconSrc = actor.properties.icon.trim();
@@ -687,10 +705,12 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter) {
   return height;
 };
 
-const drawActorTypeControl = function (elem, actor, conf, isFooter) {
+const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 75;
+  const { look, theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
 
   const line = elem.append('g').lower();
 
@@ -711,7 +731,7 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter) {
     actor.actorCnt = actorCnt;
   }
   const actElem = elem.append('g');
-  let cssClass = ACTOR_MAN_FIGURE_CLASS;
+  let cssClass = 'actor';
   if (isFooter) {
     cssClass += ` ${BOTTOM_ACTOR_CLASS}`;
   } else {
@@ -741,6 +761,7 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter) {
     .attr('markerWidth', 20)
     .attr('markerHeight', 28)
     .attr('orient', '172.5')
+    .attr('stroke-width', 1.2)
     .append('path')
     .attr('d', 'M 14.4 5.6 L 7.2 10.4 L 8.8 5.6 L 7.2 0.8 Z');
 
@@ -750,9 +771,7 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter) {
     .attr('cx', cx)
     .attr('cy', cy)
     .attr('r', r)
-    .attr('fill', '#eaeaf7')
-    .attr('stroke', '#666')
-    .attr('stroke-width', 1.2);
+    .attr('filter', `${look === 'neo' ? 'url(#drop-shadow)' : ''}`);
 
   // Draw looping arrow as arc path
   actElem
@@ -760,6 +779,11 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter) {
     .attr('marker-end', 'url(#filled-head-control)')
     .attr('transform', `translate(${cx}, ${cy - r})`);
 
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme?.includes('color')) {
+    actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  }
   const bounds = actElem.node().getBBox();
   actor.height = bounds.height + 2 * (conf?.sequence?.labelBoxHeight ?? 0);
 
@@ -777,15 +801,17 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter) {
   return actor.height;
 };
 
-const drawActorTypeEntity = function (elem, actor, conf, isFooter) {
+const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 75;
+  const { theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
 
   const line = elem.append('g').lower();
 
   const actElem = elem.append('g');
-  let cssClass = ACTOR_MAN_FIGURE_CLASS;
+  let cssClass = 'actor';
   if (isFooter) {
     cssClass += ` ${BOTTOM_ACTOR_CLASS}`;
   } else {
@@ -820,8 +846,15 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter) {
     .attr('x2', cx + r)
     .attr('y1', cy + r)
     .attr('y2', cy + r)
-    .attr('stroke', '#333')
     .attr('stroke-width', 2);
+
+  actElem.attr('filter', 'url(#drop-shadow)');
+
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme?.includes('color')) {
+    actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  }
 
   const bounds = actElem.node().getBBox();
   actor.height = bounds.height + (conf?.sequence?.labelBoxHeight ?? 0);
@@ -845,9 +878,9 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter) {
 
   _drawTextCandidateFunc(conf, hasKatex(actor.description))(
     actor.description,
-    actElem,
+    elem,
     rect.x,
-    rect.y + (!isFooter ? (cy + r - actorY) / 2 : (cy - actorY + r - 5) / 2),
+    rect.y + (!isFooter ? 33 : 23),
     rect.width,
     rect.height,
     { class: `actor ${ACTOR_MAN_FIGURE_CLASS}` },
@@ -863,10 +896,12 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter) {
   return actor.height;
 };
 
-const drawActorTypeDatabase = function (elem, actor, conf, isFooter) {
+const drawActorTypeDatabase = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height + 2 * conf.boxTextMargin;
+  const { theme, themeVariables, look } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
 
   const boxplusLineGroup = elem.append('g').lower();
   let g = boxplusLineGroup;
@@ -927,6 +962,7 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter) {
 
   // Cylinder base group
   const cylinderGroup = g.append('g');
+  cylinderGroup.attr('class', cssclass);
 
   const d = `
   M ${rect.x},${rect.y + ry}
@@ -937,13 +973,15 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter) {
   l 0,-${h - 2 * ry}
 `;
   // Draw the main cylinder body
-  cylinderGroup
-    .append('path')
-    .attr('d', d)
-    .attr('fill', '#eaeaea')
-    .attr('stroke', '#000')
-    .attr('stroke-width', 1)
-    .attr('class', cssclass);
+  cylinderGroup.append('path').attr('d', d);
+  if (look === 'neo') {
+    cylinderGroup.attr('filter', 'url(#drop-shadow)');
+  }
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme?.includes('color')) {
+    cylinderGroup.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    cylinderGroup.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  }
 
   if (!isFooter) {
     cylinderGroup.attr('transform', `translate(${w * 1.5}, ${(rect.height + ry) / 4})`);
@@ -971,12 +1009,14 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter) {
   return actor.height;
 };
 
-const drawActorTypeBoundary = function (elem, actor, conf, isFooter) {
+const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 80;
   const radius = 30;
   const line = elem.append('g').lower();
+  const { look, theme, themeVariables } = conf;
+  const { bkgColorArray, borderColorArray } = themeVariables;
 
   if (!isFooter) {
     actorCnt++;
@@ -995,7 +1035,7 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter) {
     actor.actorCnt = actorCnt;
   }
   const actElem = elem.append('g');
-  let cssClass = ACTOR_MAN_FIGURE_CLASS;
+  let cssClass = 'actor';
   if (isFooter) {
     cssClass += ` ${BOTTOM_ACTOR_CLASS}`;
   } else {
@@ -1034,14 +1074,23 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter) {
     .attr('cy', actorY + 10)
     .attr('r', radius);
 
+  if (look === 'neo') {
+    actElem.attr('filter', 'url(#drop-shadow)');
+  }
+
+  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
+  if (theme?.includes('color')) {
+    actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
+    actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  }
   const bounds = actElem.node().getBBox();
   actor.height = bounds.height + (conf.sequence.labelBoxHeight ?? 0);
 
   _drawTextCandidateFunc(conf, hasKatex(actor.description))(
     actor.description,
-    actElem,
+    elem,
     rect.x,
-    rect.y + (!isFooter ? radius / 2 + 3 : radius / 2 - 4),
+    rect.y + (!isFooter ? 40 : 33),
     rect.width,
     rect.height,
     { class: `actor ${ACTOR_MAN_FIGURE_CLASS}` },
@@ -1183,17 +1232,17 @@ export const drawActor = async function (elem, actor, conf, isFooter, diagObj) {
     case 'participant':
       return await drawActorTypeParticipant(elem, actor, conf, isFooter, diagObj);
     case 'boundary':
-      return await drawActorTypeBoundary(elem, actor, conf, isFooter);
+      return await drawActorTypeBoundary(elem, actor, conf, isFooter, diagObj);
     case 'control':
-      return await drawActorTypeControl(elem, actor, conf, isFooter);
+      return await drawActorTypeControl(elem, actor, conf, isFooter, diagObj);
     case 'entity':
-      return await drawActorTypeEntity(elem, actor, conf, isFooter);
+      return await drawActorTypeEntity(elem, actor, conf, isFooter, diagObj);
     case 'database':
-      return await drawActorTypeDatabase(elem, actor, conf, isFooter);
+      return await drawActorTypeDatabase(elem, actor, conf, isFooter, diagObj);
     case 'collections':
-      return await drawActorTypeCollections(elem, actor, conf, isFooter);
+      return await drawActorTypeCollections(elem, actor, conf, isFooter, diagObj);
     case 'queue':
-      return await drawActorTypeQueue(elem, actor, conf, isFooter);
+      return await drawActorTypeQueue(elem, actor, conf, isFooter, diagObj);
   }
 };
 
@@ -1510,6 +1559,21 @@ export const insertArrowCrossHead = function (elem) {
   // this is actual shape for arrowhead
 };
 
+export const insertDropShadow = function (elem, conf) {
+  const { theme } = conf;
+  elem
+    .append('defs')
+    .append('filter')
+    .attr('id', 'drop-shadow')
+    .attr('height', '130%')
+    .attr('width', '130%')
+    .append('feDropShadow')
+    .attr('dx', '4')
+    .attr('dy', '4')
+    .attr('stdDeviation', 0)
+    .attr('flood-opacity', '0.06')
+    .attr('flood-color', `${theme === 'redux' || theme === 'redux-color' ? '#000000' : '#FFFFFF'}`);
+};
 export const getTextObj = function () {
   return {
     x: 0,
@@ -1823,4 +1887,5 @@ export default {
   getNoteRect,
   fixLifeLineHeights,
   sanitizeUrl,
+  insertDropShadow,
 };

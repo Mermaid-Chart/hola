@@ -865,6 +865,9 @@ export const draw = async function (_text: string, id: string, _version: string,
   svgDraw.insertArrowCrossHead(diagram);
   svgDraw.insertArrowFilledHead(diagram);
   svgDraw.insertSequenceNumber(diagram);
+  if (look === 'neo') {
+    svgDraw.insertDropShadow(diagram, conf);
+  }
 
   /**
    * @param msg - The message to draw.
