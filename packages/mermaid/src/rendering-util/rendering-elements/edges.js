@@ -373,7 +373,6 @@ const generateDashArray = (len, oValueS, oValueE) => {
 
   return dashArray;
 };
-
 export const insertEdge = function (elem, edge, clusterDb, diagramType, startNode, endNode, id) {
   const { handDrawnSeed } = getConfig();
   let points = edge.points;

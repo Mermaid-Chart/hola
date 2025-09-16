@@ -40,6 +40,33 @@ const openSourceFeatures: Feature[] = [
   { iconUrl: '/icons/version-history.svg', featureName: 'Version history' },
 ];
 
+const editorColumns: EditorColumn[] = [
+  {
+    title: 'Mermaid Pro',
+    description: 'Unlock AI and real-time collaboration',
+    highlighted: true,
+    redBarText: 'Recommended',
+    proTrialButtonText: 'Start free trial',
+    proTrialUrl:
+      'https://www.mermaidchart.com/app/sign-up?utm_source=mermaid_js&utm_medium=2_editor_selection&utm_campaign=start_pro&redirect=%2Fapp%2Fuser%2Fbilling%2Fcheckout%3FisFromMermaid%3Dtrue',
+    features: mermaidChartFeatures,
+  },
+  {
+    title: 'Open Source',
+    description: 'Code only, no login',
+    buttonText: 'Start free',
+    redirectUrl: 'https://mermaid.live/edit',
+    features: openSourceFeatures,
+  },
+];
+
+const openSourceFeatures: Feature[] = [
+  { iconUrl: '/icons/public.svg', featureName: 'Diagram stored in URL' },
+  { iconUrl: '/icons/terminal.svg', featureName: 'Code editor' },
+  { iconUrl: '/icons/open-source.svg', featureName: 'Open source' },
+  { iconUrl: '/icons/version-history.svg', featureName: 'Version history' },
+];
+
 const playgroundFeatures: Feature[] = [
   { iconUrl: '/icons/public.svg', featureName: 'Diagram stored in URL' },
   { iconUrl: '/icons/terminal.svg', featureName: 'Code editor' },
