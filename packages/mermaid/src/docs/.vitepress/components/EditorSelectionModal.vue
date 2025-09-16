@@ -60,13 +60,6 @@ const editorColumns: EditorColumn[] = [
   },
 ];
 
-const openSourceFeatures: Feature[] = [
-  { iconUrl: '/icons/public.svg', featureName: 'Diagram stored in URL' },
-  { iconUrl: '/icons/terminal.svg', featureName: 'Code editor' },
-  { iconUrl: '/icons/open-source.svg', featureName: 'Open source' },
-  { iconUrl: '/icons/version-history.svg', featureName: 'Version history' },
-];
-
 const playgroundFeatures: Feature[] = [
   { iconUrl: '/icons/public.svg', featureName: 'Diagram stored in URL' },
   { iconUrl: '/icons/terminal.svg', featureName: 'Code editor' },
