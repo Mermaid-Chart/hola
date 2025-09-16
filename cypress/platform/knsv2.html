@@ -427,6 +427,44 @@ config:
 config:
   layout: elk
 ---
+      flowchart LR
+      a
+      subgraph s0["APA"]
+      subgraph s8["APA"]
+      subgraph s1["APA"]
+        D{"X"}
+        E[Q]
+      end
+      subgraph s3["BAPA"]
+        F[Q]
+        I
+      end
+            D --> I
+            D --> I
+            D --> I
+
+      I{"X"}
+      end
+      end
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  layout: elk
+---
+      flowchart LR
+      a
+        D{"Use the editor"}
+
+      D -- Mermaid js --> I{"fa:fa-code Text"}
+      D-->I
+      D-->I
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  layout: elk
+---
 flowchart LR
   classDef redNode fill:#D50000,color:#000000;
   classDef pinkNode fill:#E1BEE7,color:#000000;
