@@ -1,5 +1,5 @@
 import { getConfig } from '../../diagram-api/diagramAPI.js';
-import { evaluate, getUrl } from '../../diagrams/common/common.js';
+import { evaluate } from '../../diagrams/common/common.js';
 import { log } from '../../logger.js';
 import { createText } from '../createText.js';
 import utils from '../../utils.js';
@@ -29,10 +29,10 @@ import {
 import rough from 'roughjs';
 import createLabel from './createLabel.js';
 import { addEdgeMarkers } from './edgeMarker.ts';
-import { isLabelStyle } from './shapes/handDrawnShapeStyles.js';
+import { isLabelStyle, styles2String } from './shapes/handDrawnShapeStyles.js';
 
-const edgeLabels = new Map();
-const terminalLabels = new Map();
+export const edgeLabels = new Map();
+export const terminalLabels = new Map();
 
 export const clear = () => {
   edgeLabels.clear();
@@ -47,8 +47,10 @@ export const getLabelStyles = (styleArray) => {
 export const insertEdgeLabel = async (elem, edge) => {
   let useHtmlLabels = evaluate(getConfig().flowchart.htmlLabels);
 
+  const { labelStyles } = styles2String(edge);
+  edge.labelStyle = labelStyles;
   const labelElement = await createText(elem, edge.label, {
-    style: getLabelStyles(edge.labelStyle),
+    style: edge.labelStyle,
     useHtmlLabels,
     addSvgBackground: true,
     isNode: false,
@@ -373,7 +375,17 @@ const generateDashArray = (len, oValueS, oValueE) => {
 
   return dashArray;
 };
-export const insertEdge = function (elem, edge, clusterDb, diagramType, startNode, endNode, id) {
+
+export const insertEdge = function (
+  elem,
+  edge,
+  clusterDb,
+  diagramType,
+  startNode,
+  endNode,
+  id,
+  skipIntersect = false
+) {
   const { handDrawnSeed } = getConfig();
   let points = edge.points;
   let pointsHasChanged = false;
@@ -387,11 +399,12 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
     edgeClassStyles.push(edge.cssCompiledStyles[key]);
   }
 
-  if (head.intersect && tail.intersect) {
+  log.debug('UIO intersect check', edge.points, head.x, tail.x);
+  if (head.intersect && tail.intersect && !skipIntersect) {
     points = points.slice(1, edge.points.length - 1);
     points.unshift(tail.intersect(points[0]));
     log.debug(
-      'Last point APA12',
+      'Last point UIO',
       edge.start,
       '-->',
       edge.end,
@@ -560,7 +573,8 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
 
     animatedEdge =
       edge.animate === true || !!edge.animation || stylesFromClasses.includes('animation');
-    const len = svgPath.node().getTotalLength();
+    const pathNode = svgPath.node();
+    const len = typeof pathNode.getTotalLength === 'function' ? pathNode.getTotalLength() : 0;
     const oValueS = markerOffsets2[edge.arrowTypeStart] || 0;
     const oValueE = markerOffsets2[edge.arrowTypeEnd] || 0;
 
@@ -615,7 +629,13 @@ export const insertEdge = function (elem, edge, clusterDb, diagramType, startNod
 
   let url = '';
   if (getConfig().flowchart.arrowMarkerAbsolute || getConfig().state.arrowMarkerAbsolute) {
-    url = getUrl(true);
+    url =
+      window.location.protocol +
+      '//' +
+      window.location.host +
+      window.location.pathname +
+      window.location.search;
+    url = url.replace(/\(/g, '\\(').replace(/\)/g, '\\)');
   }
   log.info('arrowTypeStart', edge.arrowTypeStart);
   log.info('arrowTypeEnd', edge.arrowTypeEnd);
