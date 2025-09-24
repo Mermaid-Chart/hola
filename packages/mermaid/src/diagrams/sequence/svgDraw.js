@@ -902,7 +902,9 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
       .attr('class', 'actor-line 200')
       .attr('stroke-width', '0.5px')
       .attr('stroke', '#999')
-      .attr('name', actor.name);
+      .attr('name', actor.name)
+      .attr('data-et', 'life-line')
+      .attr('data-id', actor.name);
 
     actor.actorCnt = actorCnt;
   }
