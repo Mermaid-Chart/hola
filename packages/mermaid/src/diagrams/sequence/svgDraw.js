@@ -423,6 +423,7 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj)
 
   if (!isFooter) {
     g.attr('data-et', 'participant');
+    g.attr('data-type', 'participant');
     g.attr('data-id', actor.name);
     if (look === 'neo' && theme?.includes('redux')) {
       g.append('defs')
@@ -581,7 +582,8 @@ const drawActorTypeCollections = function (elem, actor, conf, isFooter, diagObj)
   }
 
   if (!isFooter) {
-    g.attr('data-et', 'collections');
+    g.attr('data-et', 'participant');
+    g.attr('data-type', 'collections');
     g.attr('data-id', actor.name);
   }
 
@@ -718,7 +720,8 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter, diagObj) {
   }
 
   if (!isFooter) {
-    g.attr('data-et', 'queue');
+    g.attr('data-et', 'participant');
+    g.attr('data-type', 'queue');
     g.attr('data-id', actor.name);
   }
 
@@ -821,7 +824,8 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
   );
 
   if (!isFooter) {
-    actElem.attr('data-et', 'control');
+    actElem.attr('data-et', 'participant');
+    actElem.attr('data-type', 'control');
     actElem.attr('data-id', actor.name);
   }
 
@@ -916,7 +920,8 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
 
   if (!isFooter) {
     actElem.attr('transform', `translate(${0}, ${r / 2})`);
-    actElem.attr('data-et', 'entity');
+    actElem.attr('data-et', 'participant');
+    actElem.attr('data-type', 'entity');
     actElem.attr('data-id', actor.name);
   } else {
     actElem.attr('transform', `translate(${0}, ${r / 2})`);
@@ -1041,7 +1046,8 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter, diagObj) {
   }
 
   if (!isFooter) {
-    g.attr('data-et', 'database');
+    g.attr('data-et', 'participant');
+    g.attr('data-type', 'database');
     g.attr('data-id', actor.name);
   }
 
@@ -1145,7 +1151,8 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
   }
 
   if (!isFooter) {
-    actElem.attr('data-et', 'boundary');
+    actElem.attr('data-et', 'participant');
+    actElem.attr('data-type', 'boundary');
     actElem.attr('data-id', actor.name);
   }
 
@@ -1190,7 +1197,10 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   actElem.attr('name', actor.name);
 
   if (!isFooter) {
-    actElem.attr('data-et', 'participant').attr('data-id', actor.name);
+    actElem
+      .attr('data-et', 'participant')
+      .attr('data-type', 'participant')
+      .attr('data-id', actor.name);
   }
 
   // Scaling the stickman
