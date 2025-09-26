@@ -1199,10 +1199,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   actElem.attr('name', actor.name);
 
   if (!isFooter) {
-    actElem
-      .attr('data-et', 'participant')
-      .attr('data-type', 'participant')
-      .attr('data-id', actor.name);
+    actElem.attr('data-et', 'participant').attr('data-type', 'actor').attr('data-id', actor.name);
   }
 
   // Scaling the stickman
