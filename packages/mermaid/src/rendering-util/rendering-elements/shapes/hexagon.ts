@@ -25,25 +25,26 @@ export const createHexagonPathD = (
 
 export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<T>, node: Node) {
   const { labelStyles, nodeStyles } = styles2String(node);
-  const f = node.look === 'neo' ? 3.5 : 4;
   node.labelStyle = labelStyles;
   const nodePadding = node.padding ?? 0;
-  const wa = 70;
-  const ha = 32;
+  const labelPaddingX = node.look === 'neo' ? 16 : nodePadding;
+  const labelPaddingY = node.look === 'neo' ? 12 : nodePadding;
 
-  const labelPaddingX = node.look === 'neo' ? wa : nodePadding;
-  const labelPaddingY = node.look === 'neo' ? ha : nodePadding;
   if (node.width || node.height) {
-    const originalHeight = node.height ?? 0;
-    const m = originalHeight / f;
-    node.width = (node?.width ?? 0) - 2 * m - labelPaddingY;
-    node.height = (node.height ?? 0) - labelPaddingX;
+    node.width = (node?.width ?? 0) - labelPaddingX * 2;
+    if (node.width < 10) {
+      node.width = 10;
+    }
+    node.height = (node?.height ?? 0) - labelPaddingY * 2;
+    if (node.height < 10) {
+      node.height = 10;
+    }
   }
 
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
 
-  const h = bbox.height + (node.padding ?? 0);
-  const w = bbox.width + (node.padding ?? 0) * 2.5;
+  const w = (node?.width ?? bbox.width) + labelPaddingX * 2;
+  const h = (node?.height ?? bbox.height) + labelPaddingY * 2;
   const { cssStyles } = node;
   // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
   const rc = rough.svg(shapeSvg);
@@ -52,25 +53,21 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
   if (node.look !== 'handDrawn') {
     options.roughness = 0;
     options.fillStyle = 'solid';
+    options.stroke = 'none';
   }
 
-  let halfWidth = w / 2;
-  const m = halfWidth / 6; // Margin for label
-  halfWidth = halfWidth + m; // Adjusted half width for hexagon
-
+  const halfWidth = w / 2;
   const halfHeight = h / 2;
 
-  const fixedLength = halfHeight / 2;
-  const deducedWidth = halfWidth - fixedLength;
+  const hexagonWidth = halfWidth * 0.8;
+  const hexagonHeight = halfHeight;
 
   const points = [
-    { x: -deducedWidth, y: -halfHeight },
-    { x: 0, y: -halfHeight },
-    { x: deducedWidth, y: -halfHeight },
+    { x: -hexagonWidth, y: -hexagonHeight },
+    { x: hexagonWidth, y: -hexagonHeight },
     { x: halfWidth, y: 0 },
-    { x: deducedWidth, y: halfHeight },
-    { x: 0, y: halfHeight },
-    { x: -deducedWidth, y: halfHeight },
+    { x: hexagonWidth, y: hexagonHeight },
+    { x: -hexagonWidth, y: hexagonHeight },
     { x: -halfWidth, y: 0 },
   ];
 

@@ -94,6 +94,7 @@ export async function stadium<T extends SVGGraphicsElement>(parent: D3Selection<
   if (node.look !== 'handDrawn') {
     options.roughness = 0;
     options.fillStyle = 'solid';
+    options.stroke = 'none';
   }
 
   const points = [
