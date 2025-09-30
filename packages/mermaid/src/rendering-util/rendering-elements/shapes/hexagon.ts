@@ -27,20 +27,24 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
   const { labelStyles, nodeStyles } = styles2String(node);
   node.labelStyle = labelStyles;
   const nodePadding = node.padding ?? 0;
+
+  // Minimum dimensions for hexagon
+  const minWidth = 70;
+  const minHeight = 32;
+
   const labelPaddingX = node.look === 'neo' ? 16 : nodePadding;
   const labelPaddingY = node.look === 'neo' ? 12 : nodePadding;
 
   if (node.width || node.height) {
     node.width = (node?.width ?? 0) - labelPaddingX * 2;
-    node.width = Math.max(node.width, 10);
     node.height = (node?.height ?? 0) - labelPaddingY * 2;
-    node.height = Math.max(node.height, 10);
   }
 
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
 
-  const w = (node?.width ?? bbox.width) + labelPaddingX * 2;
-  const h = (node?.height ?? bbox.height) + labelPaddingY * 2;
+  // Apply minimum dimensions
+  const w = Math.max((node?.width ?? bbox.width) + labelPaddingX * 2, minWidth);
+  const h = Math.max((node?.height ?? bbox.height) + labelPaddingY * 2, minHeight);
   const { cssStyles } = node;
   // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
   const rc = rough.svg(shapeSvg);
@@ -55,16 +59,18 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
   const halfWidth = w / 2;
   const halfHeight = h / 2;
 
-  const hexagonWidth = halfWidth * 0.8;
-  const hexagonHeight = halfHeight;
+  // Calculate hexagon dimensions based on height
+  // The angled sides extend outward based on the height
+  // Using a 30-degree angle (tan(30°) ≈ 0.577) for the slanted edges
+  const angleOffset = halfHeight * 0.577; // This creates the angled sides based on height
 
   const points = [
-    { x: -hexagonWidth, y: -hexagonHeight },
-    { x: hexagonWidth, y: -hexagonHeight },
-    { x: halfWidth, y: 0 },
-    { x: hexagonWidth, y: hexagonHeight },
-    { x: -hexagonWidth, y: hexagonHeight },
-    { x: -halfWidth, y: 0 },
+    { x: -halfWidth + angleOffset, y: -halfHeight }, // Top-left corner
+    { x: halfWidth - angleOffset, y: -halfHeight }, // Top-right corner
+    { x: halfWidth, y: 0 }, // Right point
+    { x: halfWidth - angleOffset, y: halfHeight }, // Bottom-right corner
+    { x: -halfWidth + angleOffset, y: halfHeight }, // Bottom-left corner
+    { x: -halfWidth, y: 0 }, // Left point
   ];
 
   const pathData = createPathFromPoints(points);
