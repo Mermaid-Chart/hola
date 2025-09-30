@@ -32,13 +32,9 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
 
   if (node.width || node.height) {
     node.width = (node?.width ?? 0) - labelPaddingX * 2;
-    if (node.width < 10) {
-      node.width = 10;
-    }
+    node.width = Math.max(node.width, 10);
     node.height = (node?.height ?? 0) - labelPaddingY * 2;
-    if (node.height < 10) {
-      node.height = 10;
-    }
+    node.height = Math.max(node.height, 10);
   }
 
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
