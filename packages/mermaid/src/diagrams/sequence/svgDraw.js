@@ -423,6 +423,7 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj)
 
   if (!isFooter) {
     g.attr('data-et', 'participant');
+    g.attr('data-type', 'participant');
     g.attr('data-id', actor.name);
     if (look === 'neo' && theme?.includes('redux')) {
       g.append('defs')
@@ -495,13 +496,18 @@ const drawActorTypeCollections = function (elem, actor, conf, isFooter, diagObj)
       .attr('class', 'actor-line 200')
       .attr('stroke-width', '0.5px')
       .attr('stroke', '#999')
-      .attr('name', actor.name);
+      .attr('name', actor.name)
+      .attr('data-et', 'life-line')
+      .attr('data-id', actor.name);
 
     g = boxplusLineGroup.append('g');
     actor.actorCnt = actorCnt;
 
     if (actor.links != null) {
       g.attr('id', 'root-' + actorCnt);
+    }
+    if (look === 'neo') {
+      g.attr('data-look', 'neo');
     }
   }
 
@@ -575,6 +581,12 @@ const drawActorTypeCollections = function (elem, actor, conf, isFooter, diagObj)
     height = bounds.height;
   }
 
+  if (!isFooter) {
+    g.attr('data-et', 'participant');
+    g.attr('data-type', 'collections');
+    g.attr('data-id', actor.name);
+  }
+
   return height;
 };
 
@@ -602,13 +614,18 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter, diagObj) {
       .attr('class', 'actor-line 200')
       .attr('stroke-width', '0.5px')
       .attr('stroke', '#999')
-      .attr('name', actor.name);
+      .attr('name', actor.name)
+      .attr('data-et', 'life-line')
+      .attr('data-id', actor.name);
 
     g = boxplusLineGroup.append('g');
     actor.actorCnt = actorCnt;
 
     if (actor.links != null) {
       g.attr('id', 'root-' + actorCnt);
+    }
+    if (look === 'neo') {
+      g.attr('data-look', 'neo');
     }
   }
 
@@ -702,6 +719,12 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter, diagObj) {
     height = bounds.height;
   }
 
+  if (!isFooter) {
+    g.attr('data-et', 'participant');
+    g.attr('data-type', 'queue');
+    g.attr('data-id', actor.name);
+  }
+
   return height;
 };
 
@@ -726,7 +749,9 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
       .attr('class', 'actor-line 200')
       .attr('stroke-width', '0.5px')
       .attr('stroke', '#999')
-      .attr('name', actor.name);
+      .attr('name', actor.name)
+      .attr('data-et', 'life-line')
+      .attr('data-id', actor.name);
 
     actor.actorCnt = actorCnt;
   }
@@ -797,6 +822,12 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
     { class: `actor ${ACTOR_MAN_FIGURE_CLASS}` },
     conf
   );
+
+  if (!isFooter) {
+    actElem.attr('data-et', 'participant');
+    actElem.attr('data-type', 'control');
+    actElem.attr('data-id', actor.name);
+  }
 
   return actor.height;
 };
@@ -871,7 +902,9 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
       .attr('class', 'actor-line 200')
       .attr('stroke-width', '0.5px')
       .attr('stroke', '#999')
-      .attr('name', actor.name);
+      .attr('name', actor.name)
+      .attr('data-et', 'life-line')
+      .attr('data-id', actor.name);
 
     actor.actorCnt = actorCnt;
   }
@@ -889,6 +922,9 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
 
   if (!isFooter) {
     actElem.attr('transform', `translate(${0}, ${r / 2})`);
+    actElem.attr('data-et', 'participant');
+    actElem.attr('data-type', 'entity');
+    actElem.attr('data-id', actor.name);
   } else {
     actElem.attr('transform', `translate(${0}, ${r / 2})`);
   }
@@ -920,13 +956,18 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter, diagObj) {
       .attr('class', 'actor-line 200')
       .attr('stroke-width', '0.5px')
       .attr('stroke', '#999')
-      .attr('name', actor.name);
+      .attr('name', actor.name)
+      .attr('data-et', 'life-line')
+      .attr('data-id', actor.name);
 
     g = boxplusLineGroup.append('g');
     actor.actorCnt = actorCnt;
 
     if (actor.links != null) {
       g.attr('id', 'root-' + actorCnt);
+    }
+    if (look === 'neo') {
+      g.attr('data-look', 'neo');
     }
   }
 
@@ -1006,6 +1047,12 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter, diagObj) {
     actor.height = bounds.height + (conf.sequence.labelBoxHeight ?? 0);
   }
 
+  if (!isFooter) {
+    g.attr('data-et', 'participant');
+    g.attr('data-type', 'database');
+    g.attr('data-id', actor.name);
+  }
+
   return actor.height;
 };
 
@@ -1030,7 +1077,9 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
       .attr('class', 'actor-line 200')
       .attr('stroke-width', '0.5px')
       .attr('stroke', '#999')
-      .attr('name', actor.name);
+      .attr('name', actor.name)
+      .attr('data-et', 'life-line')
+      .attr('data-id', actor.name);
 
     actor.actorCnt = actorCnt;
   }
@@ -1103,6 +1152,12 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
     actElem.attr('transform', `translate(0,${radius / 2 + 7})`);
   }
 
+  if (!isFooter) {
+    actElem.attr('data-et', 'participant');
+    actElem.attr('data-type', 'boundary');
+    actElem.attr('data-id', actor.name);
+  }
+
   return actor.height;
 };
 
@@ -1144,7 +1199,7 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   actElem.attr('name', actor.name);
 
   if (!isFooter) {
-    actElem.attr('data-et', 'participant').attr('data-id', actor.name);
+    actElem.attr('data-et', 'participant').attr('data-type', 'actor').attr('data-id', actor.name);
   }
 
   // Scaling the stickman
