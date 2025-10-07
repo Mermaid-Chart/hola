@@ -4,6 +4,7 @@ import type { Node } from '../../types.js';
 import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
 import rough from 'roughjs';
 import type { D3Selection } from '../../../types.js';
+import { createRoundedRectPathD } from './roundedRectPath.js';
 
 /**
  * Generates evenly spaced points along an elliptical arc connecting two points.
@@ -96,6 +97,11 @@ export async function roundedRect<T extends SVGGraphicsElement>(
   const labelPaddingX = node.look === 'neo' ? 16 : nodePadding;
   const labelPaddingY = node.look === 'neo' ? 12 : nodePadding;
 
+  if (node.width || node.height) {
+    node.width = (node?.width ?? 0) - labelPaddingX * 2;
+    node.height = (node?.height ?? 0) - labelPaddingY * 2;
+  }
+
   const w = (node?.width ? node?.width : bbox.width) + labelPaddingX * 2;
   const h = (node?.height ? node?.height : bbox.height) + labelPaddingY * 2;
   const radius = node.radius || 5;
@@ -110,6 +116,7 @@ export async function roundedRect<T extends SVGGraphicsElement>(
   if (node.look !== 'handDrawn') {
     options.roughness = 0;
     options.fillStyle = 'solid';
+    options.stroke = 'none';
   }
   const points = [
     // Top edge (left to right)
@@ -136,11 +143,20 @@ export async function roundedRect<T extends SVGGraphicsElement>(
     ...generateArcPoints(-w / 2, -h / 2 + taper, -w / 2 + taper, -h / 2, radius, radius, true), // Top-left arc (4 to 5)
   ];
 
-  const pathData = createPathFromPoints(points);
+  let pathData;
+  if (node.look === 'handDrawn') {
+    pathData = createRoundedRectPathD(0, 0, w, h, radius);
+  } else {
+    pathData = createPathFromPoints(points);
+  }
   const shapeNode = rc.path(pathData, options);
 
   const polygon = shapeSvg.insert(() => shapeNode, ':first-child');
   polygon.attr('class', 'basic label-container outer-path');
+
+  if (node.look === 'handDrawn') {
+    polygon.attr('transform', `translate(${-w / 2}, ${-h / 2})`);
+  }
 
   if (cssStyles && node.look !== 'handDrawn') {
     polygon.selectChildren('path').attr('style', cssStyles);

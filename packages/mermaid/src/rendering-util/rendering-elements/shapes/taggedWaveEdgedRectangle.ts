@@ -39,7 +39,7 @@ export async function taggedWaveEdgedRectangle<T extends SVGGraphicsElement>(
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
   const w = (node?.width ? node?.width : bbox.width) + (labelPaddingX ?? 0) * 2;
   const h = (node?.height ? node?.height : bbox.height) + (labelPaddingY ?? 0) * 2;
-  const waveAmplitude = node.look === 'neo' ? h / 4 : h / 8;
+  const waveAmplitude = h / 8;
   const tagWidth = 0.2 * w;
   const tagHeight = 0.2 * h;
   const finalH = h + (adjustFinalHeight ? waveAmplitude : -waveAmplitude);
