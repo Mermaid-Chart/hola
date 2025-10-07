@@ -230,7 +230,7 @@ importers:
         specifier: ^3.0.1
         version: 3.0.2
       '@mermaid-js/parser':
-        specifier: ^0.6.3
+        specifier: ^0.6.2
         version: 0.6.3
       '@types/d3':
         specifier: ^7.4.3
