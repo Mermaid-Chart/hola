@@ -1,14 +1,13 @@
 import type { SequenceParserVisitor } from './generated/SequenceParserVisitor.js';
-import {
+import type {
   SequenceAST,
-  SequenceStatement,
   ParticipantData,
   MessageData,
   NoteData,
-  SequenceASTHelper,
   ElementMapping,
   ElementPosition,
 } from './SequenceAST.js';
+import { SequenceStatement, SequenceASTHelper } from './SequenceAST.js';
 import { ElementMappingUtils } from './SequenceElementMapper.js';
 
 /**
@@ -32,7 +31,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   private currentIndex = 0;
 
   // Position tracking for bidirectional synchronization
-  private originalText: string = '';
+  private originalText = '';
   private elementMappings: ElementMapping[] = [];
   private svgIdCounter = 0;
   private currentLine = 1;
@@ -77,6 +76,9 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
     this.resetPositionTracking();
 
     console.log('🎯 Starting code generation with AST building and position tracking');
+    try {
+      console.log('🔎 Root ctx type:', tree?.constructor?.name);
+    } catch {}
 
     // Visit the tree to generate code and build AST
     this.visit(tree);
@@ -161,20 +163,21 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
       // For participants, data-id is the participant id
       // First, look for explicit participant declarations (without 'role' property)
       for (const mapping of mappings) {
-        if (mapping.type === 'participant' && 'id' in mapping.data) {
-          if (mapping.data.id === dataId && !('role' in mapping.data)) {
-            return mapping;
-          }
+        if (
+          mapping.type === 'participant' &&
+          'id' in mapping.data &&
+          mapping.data.id === dataId &&
+          !('role' in mapping.data)
+        ) {
+          return mapping;
         }
       }
 
       // If no explicit declaration found, look for implicit participant references in messages
       // (these have 'role' property set to 'from' or 'to')
       for (const mapping of mappings) {
-        if (mapping.type === 'participant' && 'id' in mapping.data) {
-          if (mapping.data.id === dataId) {
-            return mapping;
-          }
+        if (mapping.type === 'participant' && 'id' in mapping.data && mapping.data.id === dataId) {
+          return mapping;
         }
       }
 
@@ -256,6 +259,16 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   }
 
   /**
+   * Add a line using indentation inferred from the original source position (ctx.start.column)
+   * Falls back to currentIndent when no context is available.
+   */
+  private addLineWithCtxIndent(text: string, ctx?: any): void {
+    const extra = ctx?.start?.column ?? 0;
+    const indent = ' '.repeat(this.currentIndent + extra);
+    this.lines.push(indent + text);
+  }
+
+  /**
    * Add a line without indentation
    */
   private addRawLine(text: string): void {
@@ -277,10 +290,23 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   }
 
   /**
+   * Get the exact original line text from the input, 1-based line number.
+   * Used to faithfully reproduce lines like "box ..." and "end" with
+   * original spacing and labels.
+   */
+  private getOriginalLine(lineNumber: number): string {
+    if (!this.originalText) {
+      return '';
+    }
+    const lines = this.originalText.replace(/\r\n?/g, '\n').split('\n');
+    return lines[lineNumber - 1] ?? '';
+  }
+
+  /**
    * Track position from ANTLR context
    */
   private getPositionFromContext(ctx: any): ElementPosition | null {
-    if (!ctx || !ctx.start || !ctx.stop) {
+    if (!ctx?.start || !ctx.stop) {
       return null;
     }
 
@@ -478,7 +504,9 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
    * Extract text from terminal nodes
    */
   private getTerminalText(ctx: any): string {
-    if (!ctx) return '';
+    if (!ctx) {
+      return '';
+    }
 
     // If it's a terminal node, return its text
     if (ctx.symbol?.text) {
@@ -500,7 +528,9 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
    * Get text content from a context, handling both terminal and non-terminal nodes
    */
   private getContextText(ctx: any): string {
-    if (!ctx) return '';
+    if (!ctx) {
+      return '';
+    }
 
     // Use ANTLR's built-in getText() method which is most reliable
     if (ctx.getText) {
@@ -517,7 +547,9 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   private extractAllText(ctx: any): string[] {
     const lines: string[] = [];
 
-    if (!ctx) return lines;
+    if (!ctx) {
+      return lines;
+    }
 
     // Get the full text content
     const fullText = ctx.getText ? ctx.getText() : '';
@@ -539,7 +571,9 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
   // Default visit method
   visit(tree: any): string {
-    if (!tree) return '';
+    if (!tree) {
+      return '';
+    }
 
     try {
       return tree.accept(this) || '';
@@ -551,7 +585,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
   // Default visit methods
   visitChildren(node: any): string {
-    if (!node || !node.children) {
+    if (!node?.children) {
       return '';
     }
 
@@ -620,6 +654,12 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
     this.visitChildren(ctx);
     return '';
   }
+  // Comment statement (%% ...)
+  visitCommentStatement(ctx: any): string {
+    const text = ctx.getText ? ctx.getText() : '%%';
+    this.addLineWithCtxIndent(text, ctx);
+    return '';
+  }
 
   // Statement - individual statements
   visitStatement(ctx: any): string {
@@ -631,29 +671,74 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   visitParticipantStatement(ctx: any): string {
     console.log('🎯 visitParticipantStatement:', ctx);
 
-    // Use the simpler approach: get the full text and clean it up
-    const fullText = ctx.getText ? ctx.getText() : '';
-    console.log('  - Full participant text:', fullText);
+    // Prefer structured reconstruction using tokens/children to preserve whitespace semantics
+    try {
+      const hasActor = !!(
+        ctx.PARTICIPANT_ACTOR &&
+        typeof ctx.PARTICIPANT_ACTOR === 'function' &&
+        ctx.PARTICIPANT_ACTOR()
+      );
+      const hasParticipant = !!(
+        ctx.PARTICIPANT &&
+        typeof ctx.PARTICIPANT === 'function' &&
+        ctx.PARTICIPANT()
+      );
+      const keyword = hasActor ? 'actor' : 'participant';
 
+      const actorCtx = typeof ctx.actor === 'function' ? (ctx.actor(0) ?? ctx.actor()) : undefined;
+      const id = actorCtx ? this.getContextText(actorCtx).trim() : '';
+
+      let alias = '';
+      const hasAS = !!(ctx.AS && typeof ctx.AS === 'function' && ctx.AS());
+      if (hasAS && ctx.restOfLine && typeof ctx.restOfLine === 'function' && ctx.restOfLine()) {
+        // For aliases, the grammar uses: (AS restOfLine)?
+        // restOfLine should already be the alias text without a leading colon
+        alias = this.getContextText(ctx.restOfLine()).trim();
+      }
+
+      if ((hasActor || hasParticipant) && id) {
+        const line = alias ? `${keyword} ${id} as ${alias}` : `${keyword} ${id}`;
+        this.addLineWithCtxIndent(line, ctx);
+
+        // Build AST entry
+        const participantData: ParticipantData = { id, alias: alias || undefined };
+        this.ast.statements.push({
+          type: 'participant',
+          originalIndex: this.currentIndex,
+          data: participantData,
+          sourceTokens: { start: ctx.start, stop: ctx.stop },
+        });
+
+        // Create element mapping for bidirectional synchronization
+        this.createElementMapping('participant', ctx, participantData);
+        console.log('📝 Added participant to AST:', participantData);
+        return '';
+      }
+    } catch (e) {
+      console.warn('visitParticipantStatement fallback path due to error:', e);
+    }
+
+    // Fallback: parse compacted text (e.g., 'actorAlice' or 'participantBob') from ctx.getText()
+    const fullText = ctx.getText ? ctx.getText() : '';
+    console.log('  - Full participant text (fallback):', fullText);
     if (fullText) {
       let id = '';
       let alias = '';
+      let keyword = 'participant';
 
-      // Parse the participant pattern: participant + id + as + alias
-      const participantMatch = fullText.match(/^participant(\w+)as(.+)$/);
-      if (participantMatch) {
-        [, id, alias] = participantMatch;
+      const aliasMatch = fullText.match(/^(participant|actor)(\w+)as(.+)$/);
+      if (aliasMatch) {
+        [, keyword, id, alias] = aliasMatch;
         alias = alias.trim();
-        this.addLine(`participant ${id} as ${alias}`);
+        this.addLineWithCtxIndent(`${keyword} ${id} as ${alias}`, ctx);
       } else {
-        // Try simple participant without alias
-        const simpleMatch = fullText.match(/^participant(\w+)$/);
+        const simpleMatch = fullText.match(/^(participant|actor)(\w+)$/);
         if (simpleMatch) {
-          [, id] = simpleMatch;
-          this.addLine(`participant ${id}`);
+          [, keyword, id] = simpleMatch;
+          this.addLineWithCtxIndent(`${keyword} ${id}`, ctx);
         } else {
-          // Fallback: just use the text as-is with proper indentation
-          this.addLine(fullText);
+          // Final fallback: add as-is with inferred indentation
+          this.addLineWithCtxIndent(fullText, ctx);
           return '';
         }
       }
@@ -669,8 +754,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
       // Create element mapping for bidirectional synchronization
       this.createElementMapping('participant', ctx, participantData);
-
-      console.log('📝 Added participant to AST:', participantData);
+      console.log('📝 Added participant to AST (fallback):', participantData);
     }
 
     return '';
@@ -710,7 +794,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
         const [, from, arrow, activationMarker, to, message] = signalMatch;
         const cleanMessage = message.trim();
         const fullArrow = arrow + activationMarker;
-        this.addLine(`${from}${fullArrow}${to}: ${cleanMessage}`);
+        this.addLineWithCtxIndent(`${from}${fullArrow}${to}: ${cleanMessage}`, ctx);
 
         // Build AST entry
         const messageData: MessageData = { from, arrow: fullArrow, to, message: cleanMessage };
@@ -729,7 +813,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
       } else {
         console.warn('  - ⚠️ Regex did not match, using fallback');
         // Fallback: just use the text as-is with proper indentation
-        this.addLine(fullText);
+        this.addLineWithCtxIndent(fullText, ctx);
       }
     }
 
@@ -747,7 +831,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
     if (fullText) {
       // Parse the note pattern: Note + position + of + participant + : + message
       // Handle both with and without spaces: "Noteright ofBob:" or "Note right of Bob:"
-      const noteMatch = fullText.match(/^Note\s*(left|right|over)\s*of\s*(\w+)\s*:\s*(.+)$/i);
+      const noteMatch = fullText.match(/^note\s*(left|right|over)\s*of\s*(\w+)\s*:\s*(.+)$/i);
       if (noteMatch) {
         const [, position, participant, message] = noteMatch;
         this.addLine(`Note ${position} of ${participant}: ${message.trim()}`);
@@ -771,7 +855,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
       } else {
         console.log('⚠️ Note pattern did not match, using fallback');
         // Fallback: just use the text as-is with proper indentation
-        this.addLine(fullText);
+        this.addLineWithCtxIndent(fullText, ctx);
       }
     }
 
@@ -819,7 +903,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   // Opt block
   visitOptBlock(ctx: any): string {
     const optText = this.getContextText(ctx);
-    const optMatch = optText.match(/opt\s+(.+?)(?=\s|$)/);
+    const optMatch = /opt\s+(.+?)(?=\s|$)/.exec(optText);
     const condition = optMatch ? optMatch[1] : '';
 
     this.addLine(`opt ${condition}`);
@@ -844,7 +928,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   // Alt block
   visitAltBlock(ctx: any): string {
     const altText = this.getContextText(ctx);
-    const altMatch = altText.match(/alt\s+(.+?)(?=\s|$)/);
+    const altMatch = /alt\s+(.+?)(?=\s|$)/.exec(altText);
     const condition = altMatch ? altMatch[1] : '';
 
     this.addLine(`alt ${condition}`);
@@ -871,7 +955,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
     this.unindent();
 
     const elseText = this.getContextText(ctx);
-    const elseMatch = elseText.match(/else\s+(.+?)(?=\s|$)/);
+    const elseMatch = /else\s+(.+?)(?=\s|$)/.exec(elseText);
     const condition = elseMatch ? elseMatch[1] : '';
 
     this.addLine(`else ${condition}`);
@@ -884,7 +968,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   // Par block
   visitParBlock(ctx: any): string {
     const parText = this.getContextText(ctx);
-    const parMatch = parText.match(/par\s+(.+?)(?=\s|$)/);
+    const parMatch = /par\s+(.+?)(?=\s|$)/.exec(parText);
     const condition = parMatch ? parMatch[1] : '';
 
     this.addLine(`par ${condition}`);
@@ -902,7 +986,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
     this.unindent();
 
     const andText = this.getContextText(ctx);
-    const andMatch = andText.match(/and\s+(.+?)(?=\s|$)/);
+    const andMatch = /and\s+(.+?)(?=\s|$)/.exec(andText);
     const condition = andMatch ? andMatch[1] : '';
 
     this.addLine(`and ${condition}`);
@@ -915,7 +999,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   // Rect block
   visitRectBlock(ctx: any): string {
     const rectText = this.getContextText(ctx);
-    const rectMatch = rectText.match(/rect\s+(.+?)(?=\s|$)/);
+    const rectMatch = /rect\s+(.+?)(?=\s|$)/.exec(rectText);
     const style = rectMatch ? rectMatch[1] : '';
 
     this.addLine(`rect ${style}`);
@@ -930,24 +1014,24 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
   // Box block
   visitBoxBlock(ctx: any): string {
-    const boxText = this.getContextText(ctx);
-    const boxMatch = boxText.match(/box\s+(.+?)(?=\s|$)/);
-    const label = boxMatch ? boxMatch[1] : '';
+    // Re-emit the exact opening line from the original source (preserves label and indentation)
+    const openLine = this.getOriginalLine(ctx.start.line).replace(/\r?$/g, '');
+    this.addRawLine(openLine);
 
-    this.addLine(`box ${label}`);
-    this.indent();
-
+    // Do not apply structural indentation here; children already use ctx.start.column
+    // to restore original indentation via addLineWithCtxIndent.
     this.visitChildren(ctx);
 
-    this.unindent();
-    this.addLine('end');
+    // Re-emit the exact closing 'end' line from the original source
+    const endLine = this.getOriginalLine(ctx.stop.line).replace(/\r?$/g, '');
+    this.addRawLine(endLine);
     return '';
   }
 
   // Break block
   visitBreakBlock(ctx: any): string {
     const breakText = this.getContextText(ctx);
-    const breakMatch = breakText.match(/break\s+(.+?)(?=\s|$)/);
+    const breakMatch = /break\s+(.+?)(?=\s|$)/.exec(breakText);
     const condition = breakMatch ? breakMatch[1] : '';
 
     this.addLine(`break ${condition}`);
@@ -963,7 +1047,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   // Critical block
   visitCriticalBlock(ctx: any): string {
     const criticalText = this.getContextText(ctx);
-    const criticalMatch = criticalText.match(/critical\s+(.+?)(?=\s|$)/);
+    const criticalMatch = /critical\s+(.+?)(?=\s|$)/.exec(criticalText);
     const condition = criticalMatch ? criticalMatch[1] : '';
 
     this.addLine(`critical ${condition}`);
@@ -981,7 +1065,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
     this.unindent();
 
     const optionText = this.getContextText(ctx);
-    const optionMatch = optionText.match(/option\s+(.+?)(?=\s|$)/);
+    const optionMatch = /option\s+(.+?)(?=\s|$)/.exec(optionText);
     const condition = optionMatch ? optionMatch[1] : '';
 
     this.addLine(`option ${condition}`);
@@ -994,7 +1078,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   // ParOver block
   visitParOverBlock(ctx: any): string {
     const parOverText = this.getContextText(ctx);
-    const parOverMatch = parOverText.match(/par\s+over\s+(.+?)(?=\s|$)/);
+    const parOverMatch = /par\s+over\s+(.+?)(?=\s|$)/.exec(parOverText);
     const participants = parOverMatch ? parOverMatch[1] : '';
 
     this.addLine(`par over ${participants}`);

@@ -1,6 +1,6 @@
 lexer grammar SequenceLexer;
 import HeaderCommon;
-tokens { AS }
+tokens { AS, COMMENT }
 
 
 
@@ -11,7 +11,7 @@ NEWLINE: ('\r'? '\n')+;
 WS: [ \t]+ -> skip;
 // Top-level comments (also defined in HeaderCommon, duplicated here to ensure availability post-header)
 HASH_COMMENT_TOP: '#' ~[\r\n]* -> skip;
-PERCENT_COMMENT_TOP: '%%' ~[\r\n]* -> skip;
+PERCENT_COMMENT_TOP: '%%' ~[\r\n]* -> type(COMMENT);
 
 // Punctuation and simple symbols
 COMMA: ',';

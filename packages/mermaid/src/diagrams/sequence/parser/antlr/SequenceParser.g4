@@ -13,7 +13,8 @@ document: (line | loopBlock | rectBlock | boxBlock | optBlock | altBlock | parBl
 line: statement? NEWLINE;
 
 statement
-  : participantStatement
+  : commentStatement
+  | participantStatement
   | createStatement
   | destroyStatement
   | signalStatement
@@ -30,6 +31,12 @@ statement
   | accDescrStatement
   | accDescrMultilineStatement
   ;
+
+
+commentStatement
+  : COMMENT
+  ;
+
 
 createStatement
   : CREATE (PARTICIPANT | PARTICIPANT_ACTOR) actor (AS restOfLine)?
