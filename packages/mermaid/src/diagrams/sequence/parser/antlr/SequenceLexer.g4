@@ -11,7 +11,8 @@ NEWLINE: ('\r'? '\n')+;
 WS: [ \t]+ -> skip;
 // Top-level comments (also defined in HeaderCommon, duplicated here to ensure availability post-header)
 HASH_COMMENT_TOP: '#' ~[\r\n]* -> skip;
-PERCENT_COMMENT_TOP: '%%' ~[\r\n]* -> type(COMMENT);
+// Do not consume header directives like %%{init}%% as comments; exclude when next char is '{'
+PERCENT_COMMENT_TOP: '%%' ~['{''\r''\n'] ~[\r\n]* -> type(COMMENT);
 
 // Punctuation and simple symbols
 COMMA: ',';
@@ -126,6 +127,8 @@ CONFIG_END: '}' -> popMode;
 mode AFTER_SD;
 AFTER_SD_WS: [ \t]+ -> skip;
 AFTER_SD_HASH_COMMENT: '#' ~[\r\n]* -> skip;
+// Preserve wrap directive as a comment even after SD
+AFTER_SD_WRAP_DIRECTIVE: '%%{wrap}%%' -> type(COMMENT);
 AFTER_SD_PERCENT_COMMENT1: '%%' ~[\r\n]* -> skip;
 AFTER_SD_PERCENT_COMMENT2: ~[}] '%%' ~[\r\n]* -> skip;
 AFTER_SD_SEMI: ';' -> popMode, type(NEWLINE);
@@ -196,6 +199,8 @@ LINE_NEWLINE: ('\r'? '\n')+ -> popMode, type(NEWLINE);
 LINE_SEMI: ';' -> popMode, type(NEWLINE);
 LINE_WS: [ \t]+ -> skip;
 LINE_HASH_COMMENT: '#' ~[\r\n]* -> skip;
+// Preserve wrap directive lines in document as comments
+LINE_WRAP_DIRECTIVE: '%%{wrap}%%' -> type(COMMENT);
 LINE_PERCENT_COMMENT: '%%' ~[\r\n]* -> skip;
 // Prefer capturing the remainder of the line as a single TXT token
 LINE_TXT: (~[\r\n;#])+ -> type(TXT);
