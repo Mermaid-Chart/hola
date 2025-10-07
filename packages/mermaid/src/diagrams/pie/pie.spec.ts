@@ -161,7 +161,7 @@ describe('pie', () => {
         "rats" : 40.12
     `);
       }).rejects.toThrowError(
-        'Parsing failed: unexpected character: ->-<- at offset: 184, skipped 1 characters. '
+        '"dogs" has invalid value: -60.67. Negative values are not allowed in pie charts. All slice values must be >= 0.'
       );
     });
 
