@@ -101,6 +101,42 @@ looks.forEach((look) => {
           });
           imgSnapshotTest(flowchartCode, { look });
         });
+
+        it(`with fill transparent style`, () => {
+          let flowchartCode = `flowchart ${direction}\n`;
+          shapesSet.forEach((newShape, index) => {
+            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'transparent ${newShape}' }\n`;
+            flowchartCode += `  style n${index}${index} fill:transparent,stroke:#333,stroke-width:2px \n`;
+          });
+          imgSnapshotTest(flowchartCode, { look });
+        });
+
+        it(`with fill none style`, () => {
+          let flowchartCode = `flowchart ${direction}\n`;
+          shapesSet.forEach((newShape, index) => {
+            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'none ${newShape}' }\n`;
+            flowchartCode += `  style n${index}${index} fill:none,stroke:#666,stroke-width:3px \n`;
+          });
+          imgSnapshotTest(flowchartCode, { look });
+        });
+
+        it(`with stroke transparent style`, () => {
+          let flowchartCode = `flowchart ${direction}\n`;
+          shapesSet.forEach((newShape, index) => {
+            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'stroke transparent ${newShape}' }\n`;
+            flowchartCode += `  style n${index}${index} fill:#f9f,stroke:transparent,stroke-width:2px \n`;
+          });
+          imgSnapshotTest(flowchartCode, { look });
+        });
+
+        it(`with stroke none style`, () => {
+          let flowchartCode = `flowchart ${direction}\n`;
+          shapesSet.forEach((newShape, index) => {
+            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'stroke none ${newShape}' }\n`;
+            flowchartCode += `  style n${index}${index} fill:#bbf,stroke:none,stroke-width:2px \n`;
+          });
+          imgSnapshotTest(flowchartCode, { look });
+        });
       });
     });
   });

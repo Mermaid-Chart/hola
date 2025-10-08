@@ -1,4 +1,4 @@
-import { labelHelper, updateNodeBounds, getNodeClasses, createPathFromPoints } from './util.js';
+import { labelHelper, updateNodeBounds, getNodeClasses } from './util.js';
 import intersect from '../intersect/index.js';
 import type { Node } from '../../types.js';
 import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
@@ -6,84 +6,79 @@ import rough from 'roughjs';
 import type { D3Selection } from '../../../types.js';
 import { createRoundedRectPathD } from './roundedRectPath.js';
 
-/**
- * Generates evenly spaced points along an elliptical arc connecting two points.
- *
- * @param x1 - x-coordinate of the start point of the arc
- * @param y1 - y-coordinate of the start point of the arc
- * @param x2 - x-coordinate of the end point of the arc
- * @param y2 - y-coordinate of the end point of the arc
- * @param rx - horizontal radius of the ellipse
- * @param ry - vertical radius of the ellipse
- * @param clockwise - direction of the arc; true for clockwise, false for counterclockwise
- * @returns Array of points `{ x, y }` along the elliptical arc
- *
- * @throws Error if the given radii are too small to draw an arc between the points
- */
-export function generateArcPoints(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  rx: number,
-  ry: number,
-  clockwise: boolean
-) {
-  const numPoints = 20;
-  // Calculate midpoint
-  const midX = (x1 + x2) / 2;
-  const midY = (y1 + y2) / 2;
+interface Point {
+  x: number;
+  y: number;
+}
+export function generateRoundedRectanglePoints(
+  w: number,
+  h: number,
+  radius: number,
+  numPointsPerArc = 10
+): Point[] {
+  const toRad = (deg: number): number => (deg * Math.PI) / 180;
 
-  // Calculate the angle of the line connecting the points
-  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const generateArcPoints = (startDeg: number, endDeg: number, cx: number, cy: number): Point[] => {
+    const points: Point[] = [];
+    const step = toRad(endDeg - startDeg) / (numPointsPerArc - 1);
+    for (let i = 0; i < numPointsPerArc; i++) {
+      const angle = toRad(startDeg) + i * step;
+      points.push({
+        x: cx + radius * Math.cos(angle),
+        y: cy + radius * Math.sin(angle),
+      });
+    }
+    return points;
+  };
 
-  // Calculate transformed coordinates for the ellipse
-  const dx = (x2 - x1) / 2;
-  const dy = (y2 - y1) / 2;
+  // Define each corner’s center and arc range
+  const arcs = {
+    topRight: { start: 270, end: 360, cx: w / 2 - radius, cy: -h / 2 + radius },
+    bottomRight: { start: 0, end: 90, cx: w / 2 - radius, cy: h / 2 - radius },
+    bottomLeft: { start: 90, end: 180, cx: -w / 2 + radius, cy: h / 2 - radius },
+    topLeft: { start: 180, end: 270, cx: -w / 2 + radius, cy: -h / 2 + radius },
+  };
 
-  // Scale to unit circle
-  const transformedX = dx / rx;
-  const transformedY = dy / ry;
+  const topRightArcPoints = generateArcPoints(
+    arcs.topRight.start,
+    arcs.topRight.end,
+    arcs.topRight.cx,
+    arcs.topRight.cy
+  );
+  const bottomRightArcPoints = generateArcPoints(
+    arcs.bottomRight.start,
+    arcs.bottomRight.end,
+    arcs.bottomRight.cx,
+    arcs.bottomRight.cy
+  );
+  const bottomLeftArcPoints = generateArcPoints(
+    arcs.bottomLeft.start,
+    arcs.bottomLeft.end,
+    arcs.bottomLeft.cx,
+    arcs.bottomLeft.cy
+  );
+  const topLeftArcPoints = generateArcPoints(
+    arcs.topLeft.start,
+    arcs.topLeft.end,
+    arcs.topLeft.cx,
+    arcs.topLeft.cy
+  );
 
-  // Calculate the distance between points on the unit circle
-  const distance = Math.sqrt(transformedX ** 2 + transformedY ** 2);
-
-  // Check if the ellipse can be drawn with the given radii
-  if (distance > 1) {
-    throw new Error('The given radii are too small to create an arc between the points.');
-  }
-
-  // Calculate the distance from the midpoint to the center of the ellipse
-  const scaledCenterDistance = Math.sqrt(1 - distance ** 2);
-
-  // Calculate the center of the ellipse
-  const centerX = midX + scaledCenterDistance * ry * Math.sin(angle) * (clockwise ? -1 : 1);
-  const centerY = midY - scaledCenterDistance * rx * Math.cos(angle) * (clockwise ? -1 : 1);
-
-  // Calculate the start and end angles on the ellipse
-  const startAngle = Math.atan2((y1 - centerY) / ry, (x1 - centerX) / rx);
-  const endAngle = Math.atan2((y2 - centerY) / ry, (x2 - centerX) / rx);
-
-  // Adjust angles for clockwise/counterclockwise
-  let angleRange = endAngle - startAngle;
-  if (clockwise && angleRange < 0) {
-    angleRange += 2 * Math.PI;
-  }
-  if (!clockwise && angleRange > 0) {
-    angleRange -= 2 * Math.PI;
-  }
-
-  // Generate points
-  const points = [];
-  for (let i = 0; i < numPoints; i++) {
-    const t = i / (numPoints - 1);
-    const angle = startAngle + t * angleRange;
-    const x = centerX + rx * Math.cos(angle);
-    const y = centerY + ry * Math.sin(angle);
-    points.push({ x, y });
-  }
-
-  return points;
+  // Construct full rounded rectangle points
+  return [
+    { x: -w / 2 + radius, y: -h / 2 },
+    { x: w / 2 - radius, y: -h / 2 },
+    ...topRightArcPoints,
+    { x: w / 2, y: -h / 2 + radius },
+    { x: w / 2, y: h / 2 - radius },
+    ...bottomRightArcPoints,
+    { x: w / 2 - radius, y: h / 2 },
+    { x: -w / 2 + radius, y: h / 2 },
+    ...bottomLeftArcPoints,
+    { x: -w / 2, y: h / 2 - radius },
+    { x: -w / 2, y: -h / 2 + radius },
+    ...topLeftArcPoints,
+  ];
 }
 
 export async function roundedRect<T extends SVGGraphicsElement>(
@@ -105,7 +100,6 @@ export async function roundedRect<T extends SVGGraphicsElement>(
   const w = (node?.width ? node?.width : bbox.width) + labelPaddingX * 2;
   const h = (node?.height ? node?.height : bbox.height) + labelPaddingY * 2;
   const radius = node.radius || 5;
-  const taper = node.taper || 5; // Taper width for the rounded corners
   const { cssStyles } = node;
   // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
   const rc = rough.svg(shapeSvg);
@@ -116,47 +110,14 @@ export async function roundedRect<T extends SVGGraphicsElement>(
   if (node.look !== 'handDrawn') {
     options.roughness = 0;
     options.fillStyle = 'solid';
-    options.stroke = 'none';
   }
-  const points = [
-    // Top edge (left to right)
-    { x: -w / 2 + taper, y: -h / 2 }, // Top-left corner start (1)
-    { x: w / 2 - taper, y: -h / 2 }, // Top-right corner start (2)
 
-    ...generateArcPoints(w / 2 - taper, -h / 2, w / 2, -h / 2 + taper, radius, radius, true), // Top-left arc (2 to 3)
-
-    // Right edge (top to bottom)
-    { x: w / 2, y: -h / 2 + taper }, // Top-right taper point (3)
-    { x: w / 2, y: h / 2 - taper }, // Bottom-right taper point (4)
-
-    ...generateArcPoints(w / 2, h / 2 - taper, w / 2 - taper, h / 2, radius, radius, true), // Top-left arc (4 to 5)
-
-    // Bottom edge (right to left)
-    { x: w / 2 - taper, y: h / 2 }, // Bottom-right corner start (5)
-    { x: -w / 2 + taper, y: h / 2 }, // Bottom-left corner start (6)
-
-    ...generateArcPoints(-w / 2 + taper, h / 2, -w / 2, h / 2 - taper, radius, radius, true), // Top-left arc (4 to 5)
-
-    // Left edge (bottom to top)
-    { x: -w / 2, y: h / 2 - taper }, // Bottom-left taper point (7)
-    { x: -w / 2, y: -h / 2 + taper }, // Top-left taper point (8)
-    ...generateArcPoints(-w / 2, -h / 2 + taper, -w / 2 + taper, -h / 2, radius, radius, true), // Top-left arc (4 to 5)
-  ];
-
-  let pathData;
-  if (node.look === 'handDrawn') {
-    pathData = createRoundedRectPathD(0, 0, w, h, radius);
-  } else {
-    pathData = createPathFromPoints(points);
-  }
+  // Use createRoundedRectPathD for both handDrawn and non-handDrawn modes
+  const pathData = createRoundedRectPathD(-w / 2, -h / 2, w, h, radius);
   const shapeNode = rc.path(pathData, options);
 
   const polygon = shapeSvg.insert(() => shapeNode, ':first-child');
   polygon.attr('class', 'basic label-container outer-path');
-
-  if (node.look === 'handDrawn') {
-    polygon.attr('transform', `translate(${-w / 2}, ${-h / 2})`);
-  }
 
   if (cssStyles && node.look !== 'handDrawn') {
     polygon.selectChildren('path').attr('style', cssStyles);
@@ -167,6 +128,8 @@ export async function roundedRect<T extends SVGGraphicsElement>(
   }
 
   updateNodeBounds(node, polygon);
+
+  const points = generateRoundedRectanglePoints(w, h, radius);
 
   node.intersect = function (point) {
     const pos = intersect.polygon(node, points, point);

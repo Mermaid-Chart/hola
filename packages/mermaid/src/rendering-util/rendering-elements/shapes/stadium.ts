@@ -1,15 +1,11 @@
-import {
-  labelHelper,
-  updateNodeBounds,
-  getNodeClasses,
-  generateCirclePoints,
-  createPathFromPoints,
-} from './util.js';
+import { labelHelper, updateNodeBounds, getNodeClasses } from './util.js';
 import intersect from '../intersect/index.js';
 import type { Node } from '../../types.js';
 import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
 import rough from 'roughjs';
+import { createRoundedRectPathD } from './roundedRectPath.js';
 import type { D3Selection } from '../../../types.js';
+import { handleUndefinedAttr } from '../../../utils.js';
 
 export const createStadiumPathD = (
   x: number,
@@ -85,41 +81,66 @@ export async function stadium<T extends SVGGraphicsElement>(parent: D3Selection<
   const w = (node?.width ? node?.width : bbox.width) + labelPaddingX * 2;
   const h = (node?.height ? node?.height : bbox.height) + labelPaddingY * 2;
 
-  const radius = h / 2;
+  let rect;
   const { cssStyles } = node;
-  // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
-  const rc = rough.svg(shapeSvg);
-  const options = userNodeOverrides(node, {});
+  if (node.look === 'handDrawn') {
+    // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
+    const rc = rough.svg(shapeSvg);
+    const options = userNodeOverrides(node, {});
 
-  if (node.look !== 'handDrawn') {
-    options.roughness = 0;
-    options.fillStyle = 'solid';
-    options.stroke = 'none';
+    const pathData = createRoundedRectPathD(-w / 2, -h / 2, w, h, h / 2);
+    const roughNode = rc.path(pathData, options);
+
+    rect = shapeSvg.insert(() => roughNode, ':first-child');
+    rect.attr('class', 'basic label-container').attr('style', handleUndefinedAttr(cssStyles));
+  } else {
+    rect = shapeSvg.insert('rect', ':first-child');
+
+    rect
+      .attr('class', 'basic label-container')
+      .attr('style', nodeStyles)
+      .attr('rx', h / 2)
+      .attr('ry', h / 2)
+      .attr('x', -w / 2)
+      .attr('y', -h / 2)
+      .attr('width', w)
+      .attr('height', h);
+  }
+
+  updateNodeBounds(node, rect);
+
+  // Calculate points for stadium shape (for intersection)
+  const radius = h / 2;
+
+  // Generate points for right semicircle (top to bottom, 270° to 90°)
+  const rightSemicirclePoints = [];
+  const numPoints = 25;
+  for (let i = 0; i < numPoints; i++) {
+    const angle = (270 + (180 * i) / (numPoints - 1)) * (Math.PI / 180); // 270° to 90° (450°)
+    const x = w / 2 - radius + radius * Math.cos(angle);
+    const y = 0 + radius * Math.sin(angle);
+    rightSemicirclePoints.push({ x, y });
+  }
+
+  // Generate points for left semicircle (bottom to top, 90° to 270°)
+  const leftSemicirclePoints = [];
+  for (let i = 0; i < numPoints; i++) {
+    const angle = (90 + (180 * i) / (numPoints - 1)) * (Math.PI / 180); // 90° to 270°
+    const x = -w / 2 + radius + radius * Math.cos(angle);
+    const y = 0 + radius * Math.sin(angle);
+    leftSemicirclePoints.push({ x, y });
   }
 
   const points = [
+    // Top edge (left to right)
     { x: -w / 2 + radius, y: -h / 2 },
     { x: w / 2 - radius, y: -h / 2 },
-    ...generateCirclePoints(-w / 2 + radius, 0, radius, 50, 90, 270),
+    ...rightSemicirclePoints, // Right semicircle (top to bottom)
+    // Bottom edge (right to left)
     { x: w / 2 - radius, y: h / 2 },
-    ...generateCirclePoints(w / 2 - radius, 0, radius, 50, 270, 450),
+    { x: -w / 2 + radius, y: h / 2 },
+    ...leftSemicirclePoints, // Left semicircle (bottom to top)
   ];
-
-  const pathData = createPathFromPoints(points);
-  const shapeNode = rc.path(pathData, options);
-
-  const polygon = shapeSvg.insert(() => shapeNode, ':first-child');
-  polygon.attr('class', 'basic label-container outer-path');
-
-  if (cssStyles && node.look !== 'handDrawn') {
-    polygon.selectChildren('path').attr('style', cssStyles);
-  }
-
-  if (nodeStyles && node.look !== 'handDrawn') {
-    polygon.selectChildren('path').attr('style', nodeStyles);
-  }
-
-  updateNodeBounds(node, polygon);
 
   node.intersect = function (point) {
     const pos = intersect.polygon(node, points, point);
