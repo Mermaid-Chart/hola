@@ -465,10 +465,16 @@ Bob->>Alice: Fine!
       Alice->>+Bob: Hi Bob
 `,
   },
-  // {
-  //   name: 'Grouping with box statements ',
-  //   input: ` `,
-  // },
+  {
+    name: 'Grouping with box statements ',
+    input: `sequenceDiagram
+%% comment 1
+        Alice ->>  John: Hello John, how are you?
+    Alice->>John: John, can you hear me?
+%% comment 2
+    John  -->>  Alice:    Hi Alice, I can hear you!
+    John-->>Alice: I feel great!`,
+  },
 ];
 
 describe('Sequence ANTLR round-trip codegen', () => {

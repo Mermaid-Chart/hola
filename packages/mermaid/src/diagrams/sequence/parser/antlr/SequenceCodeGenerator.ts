@@ -31,6 +31,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   private currentJoinedLineText = '';
   private lineSeparator = ';';
   private lastPhysicalLineEmitted = 0;
+  private emittedLines = new Set<number>();
 
   // AST building properties
   private ast: SequenceAST;
@@ -285,6 +286,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   private addOriginalLine(lineNumber: number): void {
     this.addRawLine(this.getOriginalLine(lineNumber));
     this.lastPhysicalLineEmitted = lineNumber;
+    this.emittedLines.add(lineNumber);
   }
 
   /**
@@ -737,9 +739,20 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
         this.flushJoinedLine();
       }
       // Preserve wrap directive line immediately after SD if present and not captured by the parser
-      const maybeWrap = this.getOriginalLine(sdLine + 1);
+      const nextLineNum = sdLine + 1;
+      const maybeWrap = this.getOriginalLine(nextLineNum);
       if (maybeWrap && maybeWrap.trim() === '%%{wrap}%%') {
-        this.addOriginalLine(sdLine + 1);
+        this.addOriginalLine(nextLineNum);
+      } else {
+        // If the very next line is a top-level comment (%% ... or # ...), ensure it is preserved.
+        // We proactively emit it here and guard against duplication in visitCommentStatement.
+        try {
+          const lineText = this.getOriginalLine(nextLineNum);
+          const trimmed = lineText.trimStart();
+          if (trimmed.startsWith('%%') || trimmed.startsWith('#')) {
+            this.addOriginalLine(nextLineNum);
+          }
+        } catch {}
       }
     } catch {
       // Fallback: put bare sequenceDiagram at top
@@ -794,6 +807,13 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   }
   // Comment statement (%% ...)
   visitCommentStatement(ctx: any): string {
+    try {
+      const ln = ctx?.start?.line ?? 0;
+      if (ln && this.emittedLines.has(ln)) {
+        // Already emitted verbatim (e.g., immediately after SD); skip to avoid duplication
+        return '';
+      }
+    } catch {}
     this.emitOriginalSegmentFromCtx(ctx);
     return '';
   }
