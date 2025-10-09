@@ -1,4 +1,4 @@
-import type { CommonTokenStream } from 'antlr4ng';
+/* eslint-disable no-console */
 import { HybridDiagramEditor } from './HybridDiagramEditor.js';
 import type {
   SequenceAST,
@@ -7,9 +7,12 @@ import type {
   MessageData,
   NoteData,
   LoopData,
+  ActivateData,
+  DeactivateData,
 } from './SequenceAST.js';
 import { SequenceASTHelper } from './SequenceAST.js';
 import { createSequenceParser } from './antlr-parser.js';
+import type { SequenceParser } from './generated/SequenceParser.js';
 
 /**
  * Hybrid editor specifically for sequence diagrams
@@ -23,7 +26,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   /**
    * Create ANTLR parser for sequence diagrams
    */
-  protected createParser(input: string): { parser: any; tokenStream: CommonTokenStream } {
+  protected createParser(input: string): ReturnType<typeof createSequenceParser> {
     console.log('🔧 Creating sequence diagram parser');
     return createSequenceParser(input);
   }
@@ -31,7 +34,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   /**
    * Build sequence-specific AST from parse tree
    */
-  protected buildAST(parser: any): SequenceAST {
+  protected buildAST(parser: SequenceParser): SequenceAST {
     console.log('🌳 Building sequence AST from parse tree');
 
     const builder = new SequenceASTBuilder();
@@ -59,9 +62,9 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
       (a, b) => a.originalIndex - b.originalIndex
     );
 
-    for (const stmt of sortedStatements) {
-      if (stmt.type === 'loop') {
-        const l = stmt.data as LoopData;
+    for (const statement of sortedStatements) {
+      if (statement.type === 'loop') {
+        const l = statement.data as LoopData;
         // Start of loop
         code += '  ' + `loop ${l.condition}` + '\n';
         // Nested statements inside loop
@@ -74,7 +77,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
         // End of loop
         code += '    end\n';
       } else {
-        const line = this.generateStatementCode(stmt);
+        const line = this.generateStatementCode(statement);
         if (line) {
           code += '  ' + line + '\n';
         }
@@ -87,33 +90,31 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   /**
    * Generate code for a single statement
    */
-  private generateStatementCode(stmt: SequenceStatement): string {
-    switch (stmt.type) {
-      case 'participant':
-        const p = stmt.data as ParticipantData;
+  private generateStatementCode(statement: SequenceStatement): string {
+    switch (statement.type) {
+      case 'participant': {
+        const p = statement.data as ParticipantData;
         return p.alias ? `participant ${p.id} as ${p.alias}` : `participant ${p.id}`;
-
-      case 'message':
-        const m = stmt.data as MessageData;
+      }
+      case 'message': {
+        const m = statement.data as MessageData;
         return `${m.from}${m.arrow}${m.to}: ${m.message}`;
-
-      case 'note':
-        const n = stmt.data as NoteData;
+      }
+      case 'note': {
+        const n = statement.data as NoteData;
         return `Note ${n.position} of ${n.participant}: ${n.message}`;
-
+      }
       case 'activate':
-        return `activate ${(stmt.data as any).participant}`;
-
+        return `activate ${(statement.data as ActivateData).participant}`;
       case 'deactivate':
-        return `deactivate ${(stmt.data as any).participant}`;
-
-      case 'loop':
-        const l = stmt.data as LoopData;
+        return `deactivate ${(statement.data as DeactivateData).participant}`;
+      case 'loop': {
+        const l = statement.data as LoopData;
         // For now, simplified loop handling - would need more complex logic for nested statements
         return `loop ${l.condition}`;
-
+      }
       default:
-        console.warn(`⚠️ Unknown statement type: ${stmt.type}`);
+        console.warn(`⚠️ Unknown statement type: ${statement.type}`);
         return '';
     }
   }
@@ -158,16 +159,16 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   updateParticipantAlias(participantId: string, newAlias: string): void {
     console.log(`✏️ Updating participant ${participantId} alias to: ${newAlias}`);
 
-    const stmt = this.ast.statements.find(
+    const statement = this.ast.statements.find(
       (s) => s.type === 'participant' && (s.data as ParticipantData).id === participantId
     );
 
-    if (!stmt) {
+    if (!statement) {
       console.warn(`⚠️ Participant ${participantId} not found`);
       return;
     }
 
-    this.updateStatement(stmt.originalIndex, { alias: newAlias });
+    this.updateStatement(statement.originalIndex, { alias: newAlias });
   }
 
   /**
@@ -193,8 +194,8 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   updateMessageText(messageIndex: number, newText: string): void {
     console.log(`✏️ Updating message at index ${messageIndex} to: ${newText}`);
 
-    const stmt = this.getStatement(messageIndex);
-    if (!stmt || stmt.type !== 'message') {
+    const statement = this.getStatement(messageIndex);
+    if (!statement || statement.type !== 'message') {
       console.warn(`⚠️ Message at index ${messageIndex} not found`);
       return;
     }
@@ -325,7 +326,6 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
  */
 class SequenceASTBuilder {
   private ast: SequenceAST;
-  private currentIndex = 0;
 
   constructor() {
     this.ast = SequenceASTHelper.createEmpty();
@@ -337,8 +337,8 @@ class SequenceASTBuilder {
 
   // This would be implemented with proper visitor pattern
   // For now, placeholder that would integrate with your existing SequenceCodeGenerator
-  visit(parseTree: any): void {
-    // TODO: Implement proper AST building from parse tree
+  visit(_parseTree: unknown): void {
+    // To do: Implement proper AST building from parse tree
     // This would use the visitor pattern to traverse the parse tree
     // and build the structured AST
     console.log('🚧 AST building from parse tree - to be implemented');
