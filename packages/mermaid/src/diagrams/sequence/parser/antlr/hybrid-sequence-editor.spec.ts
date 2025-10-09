@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HybridSequenceEditor } from './HybridSequenceEditor.js';
+import { HybridSequenceEditor } from './SequenceASTService.js';
 import { parser as antlrParser } from './antlr-parser.js';
 
 /**
@@ -48,7 +48,37 @@ describe('HybridSequenceEditor usage', () => {
 
     // Current HybridSequenceEditor normalizes to the keyword "participant"
     // and indents statements by two spaces.
-    const expected = `sequenceDiagram\n  participant Alice as Alicia\n  Alice->>Bob: Hi Bob`;
+    const expected = `sequenceDiagram\n  actor Alice as Alicia\n  Alice->>Bob: Hi Bob`;
+
+    expect(out).toBe(expected);
+  });
+  it('adds a participant XYZ12', () => {
+    const input = `sequenceDiagram
+    actor Alice
+    Alice->>Bob: Hi Bob`;
+
+    // Create the editor with the input diagram
+    const editor = new HybridSequenceEditor(input);
+
+    // Parse input with ANTLRSequenceParser to get a full AST built by SequenceCodeGenerator
+    antlrParser.parse(input);
+    const ast = antlrParser.getAST();
+
+    // Inject the parsed AST into the editor
+    (editor as any).ast = ast;
+
+    // Perform the alias update
+    editor.addParticipant('John');
+
+    // Regenerate code using the AST strategy
+    const out = editor.regenerateCode('ast');
+
+    // Current HybridSequenceEditor normalizes to the keyword "participant"
+    // and indents statements by two spaces.
+    const expected = `sequenceDiagram
+    participant John
+    actor Alice
+    Alice->>Bob: Hi Bob`;
 
     expect(out).toBe(expected);
   });

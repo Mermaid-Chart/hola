@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HybridSequenceEditor } from './HybridSequenceEditor.js';
+import { HybridSequenceEditor } from './SequenceASTService.js';
 import { parser as antlrParser } from './antlr-parser.js';
 
 /**

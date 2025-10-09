@@ -1,4 +1,4 @@
-import { DiagramAST, DiagramStatement } from './HybridDiagramEditor.js';
+import { DiagramAST, DiagramStatement } from './DiagramASTService.js';
 
 /**
  * Sequence diagram specific AST interfaces
@@ -63,6 +63,7 @@ export interface RectData {
  */
 export type SequenceStatementType =
   | 'participant'
+  | 'actor'
   | 'message'
   | 'note'
   | 'activate'
@@ -166,7 +167,7 @@ export class SequenceASTHelper {
    */
   static getParticipants(ast: SequenceAST): ParticipantData[] {
     return ast.statements
-      .filter((stmt) => stmt.type === 'participant')
+      .filter((stmt) => stmt.type === 'participant' || stmt.type === 'actor')
       .map((stmt) => stmt.data as ParticipantData);
   }
 
@@ -202,7 +203,9 @@ export class SequenceASTHelper {
    */
   static findParticipant(ast: SequenceAST, id: string): ParticipantData | undefined {
     const stmt = ast.statements.find(
-      (stmt) => stmt.type === 'participant' && (stmt.data as ParticipantData).id === id
+      (stmt) =>
+        (stmt.type === 'participant' || stmt.type === 'actor') &&
+        (stmt.data as ParticipantData).id === id
     );
     return stmt ? (stmt.data as ParticipantData) : undefined;
   }
@@ -290,7 +293,8 @@ export class SequenceASTHelper {
   } {
     const stats = {
       totalStatements: ast.statements.length,
-      participants: ast.statements.filter((s) => s.type === 'participant').length,
+      participants: ast.statements.filter((s) => s.type === 'participant' || s.type === 'actor')
+        .length,
       messages: ast.statements.filter((s) => s.type === 'message').length,
       notes: ast.statements.filter((s) => s.type === 'note').length,
       loops: ast.statements.filter((s) => s.type === 'loop').length,

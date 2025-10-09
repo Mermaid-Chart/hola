@@ -1,4 +1,6 @@
-import { CommonTokenStream, TokenStreamRewriter } from 'antlr4ng';
+/* eslint-disable no-console */
+import { TokenStreamRewriter } from 'antlr4ng';
+import type { CommonTokenStream } from 'antlr4ng';
 
 /**
  * Base interfaces for diagram editing
@@ -6,20 +8,20 @@ import { CommonTokenStream, TokenStreamRewriter } from 'antlr4ng';
 export interface DiagramStatement {
   type: string;
   originalIndex: number;
-  data: any;
-  sourceTokens?: { start: any; stop: any }; // Reference to original tokens
+  data: unknown;
+  sourceTokens?: { start: unknown; stop: unknown }; // Reference to original tokens
 }
 
 export interface DiagramAST {
   header: string;
   statements: DiagramStatement[];
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EditOperation {
   type: 'insert' | 'update' | 'delete' | 'move';
   index: number;
-  data?: any;
+  data?: unknown;
   targetIndex?: number; // for move operations
   timestamp: number;
 }
@@ -29,13 +31,16 @@ export interface EditOperation {
  * Combines AST-based structural editing with TokenStreamRewriter for performance
  */
 export abstract class HybridDiagramEditor<T extends DiagramAST> {
-  protected ast: T;
-  protected tokenRewriter: TokenStreamRewriter;
-  protected originalTokenStream: CommonTokenStream;
+  protected ast!: T;
+  protected tokenRewriter!: TokenStreamRewriter;
+  protected originalTokenStream!: CommonTokenStream;
   protected pendingOperations: EditOperation[] = [];
   protected operationHistory: EditOperation[][] = []; // For undo/redo
 
-  constructor(protected input: string, protected diagramType: string) {
+  constructor(
+    protected input: string,
+    protected diagramType: string
+  ) {
     console.log(`🏗️ Initializing ${diagramType} hybrid editor`);
     this.parseAndBuildAST();
   }
@@ -54,7 +59,7 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
 
       console.log(`✅ ${this.diagramType} AST built successfully:`, {
         statements: this.ast.statements.length,
-        header: this.ast.header
+        header: this.ast.header,
       });
     } catch (error) {
       console.error(`❌ Failed to parse ${this.diagramType}:`, error);
@@ -65,15 +70,18 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
   /**
    * Abstract methods each diagram type must implement
    */
-  protected abstract createParser(input: string): { parser: any; tokenStream: CommonTokenStream };
-  protected abstract buildAST(parser: any): T;
+  protected abstract createParser(input: string): {
+    parser: unknown;
+    tokenStream: CommonTokenStream;
+  };
+  protected abstract buildAST(parser: unknown): T;
   protected abstract regenerateFromAST(): string;
   protected abstract getStatementCount(): number;
 
   /**
    * Get current AST (read-only)
    */
-  getAST(): Readonly<T> {
+  getAST(): T {
     return this.ast;
   }
 
@@ -81,14 +89,14 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
    * Get statement by index
    */
   getStatement(index: number): DiagramStatement | undefined {
-    return this.ast.statements.find(stmt => stmt.originalIndex === index);
+    return this.ast.statements.find((statement) => statement.originalIndex === index);
   }
 
   /**
    * Get all statements of a specific type
    */
   getStatementsByType(type: string): DiagramStatement[] {
-    return this.ast.statements.filter(stmt => stmt.type === type);
+    return this.ast.statements.filter((statement) => statement.type === type);
   }
 
   /**
@@ -98,19 +106,21 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
     console.log(`📝 Inserting ${statement.type} statement after index ${afterIndex}`);
 
     // Update indices of statements after insertion point
-    this.ast.statements.forEach(stmt => {
-      if (stmt.originalIndex > afterIndex) {
-        stmt.originalIndex++;
+    this.ast.statements.forEach((statement) => {
+      if (statement.originalIndex > afterIndex) {
+        statement.originalIndex++;
       }
     });
 
     const newStatement: DiagramStatement = {
       ...statement,
-      originalIndex: afterIndex + 1
+      originalIndex: afterIndex + 1,
     };
 
     // Find insertion position in array
-    const insertPos = this.ast.statements.findIndex(stmt => stmt.originalIndex > afterIndex + 1);
+    const insertPos = this.ast.statements.findIndex(
+      (statement) => statement.originalIndex > afterIndex + 1
+    );
     if (insertPos === -1) {
       this.ast.statements.push(newStatement);
     } else {
@@ -122,31 +132,34 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
       type: 'insert',
       index: afterIndex + 1,
       data: statement,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
   /**
    * Update an existing statement
    */
-  updateStatement(index: number, newData: Partial<any>): void {
+  updateStatement(index: number, newData: Partial<Record<string, unknown>>): void {
     console.log(`✏️ Updating statement at index ${index}`);
 
-    const statement = this.ast.statements.find(stmt => stmt.originalIndex === index);
+    const statement = this.ast.statements.find((statement) => statement.originalIndex === index);
     if (!statement) {
       console.warn(`⚠️ Statement at index ${index} not found`);
       return;
     }
 
-    const oldData = { ...statement.data };
-    statement.data = { ...statement.data, ...newData };
+    const oldData = { ...(statement.data as Record<string, unknown>) };
+    statement.data = {
+      ...(statement.data as Record<string, unknown>),
+      ...(newData as Record<string, unknown>),
+    };
 
     // Record operation
     this.recordOperation({
       type: 'update',
       index,
       data: { old: oldData, new: statement.data },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -156,19 +169,21 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
   removeStatement(index: number): void {
     console.log(`🗑️ Removing statement at index ${index}`);
 
-    const stmtIndex = this.ast.statements.findIndex(stmt => stmt.originalIndex === index);
-    if (stmtIndex === -1) {
+    const statementIndex = this.ast.statements.findIndex(
+      (statement) => statement.originalIndex === index
+    );
+    if (statementIndex === -1) {
       console.warn(`⚠️ Statement at index ${index} not found`);
       return;
     }
 
-    const removedStatement = this.ast.statements[stmtIndex];
-    this.ast.statements.splice(stmtIndex, 1);
+    const removedStatement = this.ast.statements[statementIndex];
+    this.ast.statements.splice(statementIndex, 1);
 
     // Update indices of statements after removal
-    this.ast.statements.forEach(stmt => {
-      if (stmt.originalIndex > index) {
-        stmt.originalIndex--;
+    this.ast.statements.forEach((statement) => {
+      if (statement.originalIndex > index) {
+        statement.originalIndex--;
       }
     });
 
@@ -177,7 +192,7 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
       type: 'delete',
       index,
       data: removedStatement,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -187,9 +202,13 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
   moveStatement(fromIndex: number, toIndex: number): void {
     console.log(`🔄 Moving statement from index ${fromIndex} to ${toIndex}`);
 
-    if (fromIndex === toIndex) return;
+    if (fromIndex === toIndex) {
+      return;
+    }
 
-    const statement = this.ast.statements.find(stmt => stmt.originalIndex === fromIndex);
+    const statement = this.ast.statements.find(
+      (statement) => statement.originalIndex === fromIndex
+    );
     if (!statement) {
       console.warn(`⚠️ Statement at index ${fromIndex} not found`);
       return;
@@ -205,7 +224,7 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
     this.insertStatement(adjustedToIndex, {
       type: statement.type,
       data: statement.data,
-      sourceTokens: statement.sourceTokens
+      sourceTokens: statement.sourceTokens,
     });
 
     // Record operation (override the individual remove/insert operations)
@@ -215,7 +234,7 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
       type: 'move',
       index: fromIndex,
       targetIndex: toIndex,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
   }
 
@@ -231,9 +250,8 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
     }
 
     try {
-      const result = strategy === 'tokens'
-        ? this.regenerateUsingTokens()
-        : this.regenerateFromAST();
+      const result =
+        strategy === 'tokens' ? this.regenerateUsingTokens() : this.regenerateFromAST();
 
       console.log(`✅ Code regenerated successfully (${result.split('\n').length} lines)`);
       return result;
@@ -258,8 +276,8 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
     const statementCount = this.getStatementCount();
     const changeRatio = this.pendingOperations.length / Math.max(statementCount, 1);
 
-    const hasStructuralChanges = this.pendingOperations.some(op =>
-      op.type === 'insert' || op.type === 'delete' || op.type === 'move'
+    const hasStructuralChanges = this.pendingOperations.some(
+      (op) => op.type === 'insert' || op.type === 'delete' || op.type === 'move'
     );
 
     console.log(`📊 Strategy selection metrics:`, {
@@ -267,7 +285,7 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
       statementCount,
       pendingOperations: this.pendingOperations.length,
       changeRatio: changeRatio.toFixed(2),
-      hasStructuralChanges
+      hasStructuralChanges,
     });
 
     // Use tokens for large files with minimal text-only changes
@@ -303,7 +321,7 @@ export abstract class HybridDiagramEditor<T extends DiagramAST> {
   /**
    * Get operation history for debugging
    */
-  getOperationHistory(): ReadonlyArray<EditOperation> {
+  getOperationHistory(): readonly EditOperation[] {
     return this.pendingOperations;
   }
 
