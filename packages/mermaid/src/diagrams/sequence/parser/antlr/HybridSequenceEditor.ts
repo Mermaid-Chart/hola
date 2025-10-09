@@ -1,14 +1,14 @@
-import { CommonTokenStream } from 'antlr4ng';
+import type { CommonTokenStream } from 'antlr4ng';
 import { HybridDiagramEditor } from './HybridDiagramEditor.js';
-import {
+import type {
   SequenceAST,
   SequenceStatement,
   ParticipantData,
   MessageData,
   NoteData,
   LoopData,
-  SequenceASTHelper
 } from './SequenceAST.js';
+import { SequenceASTHelper } from './SequenceAST.js';
 import { createSequenceParser } from './antlr-parser.js';
 
 /**
@@ -16,7 +16,6 @@ import { createSequenceParser } from './antlr-parser.js';
  * Combines AST-based editing with TokenStreamRewriter for optimal performance
  */
 export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
-
   constructor(input: string) {
     super(input, 'sequence');
   }
@@ -56,13 +55,29 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
     let code = this.ast.header + '\n';
 
     // Sort statements by original index to maintain order
-    const sortedStatements = [...this.ast.statements]
-      .sort((a, b) => a.originalIndex - b.originalIndex);
+    const sortedStatements = [...this.ast.statements].sort(
+      (a, b) => a.originalIndex - b.originalIndex
+    );
 
     for (const stmt of sortedStatements) {
-      const line = this.generateStatementCode(stmt);
-      if (line) {
-        code += '  ' + line + '\n';
+      if (stmt.type === 'loop') {
+        const l = stmt.data as LoopData;
+        // Start of loop
+        code += '  ' + `loop ${l.condition}` + '\n';
+        // Nested statements inside loop
+        for (const inner of l.statements || []) {
+          const innerLine = this.generateStatementCode(inner as SequenceStatement);
+          if (innerLine) {
+            code += '      ' + innerLine + '\n';
+          }
+        }
+        // End of loop
+        code += '    end\n';
+      } else {
+        const line = this.generateStatementCode(stmt);
+        if (line) {
+          code += '  ' + line + '\n';
+        }
       }
     }
 
@@ -133,7 +148,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
 
     this.insertStatement(insertIndex, {
       type: 'participant',
-      data: participantData
+      data: participantData,
     });
   }
 
@@ -143,8 +158,8 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   updateParticipantAlias(participantId: string, newAlias: string): void {
     console.log(`✏️ Updating participant ${participantId} alias to: ${newAlias}`);
 
-    const stmt = this.ast.statements.find(s =>
-      s.type === 'participant' && (s.data as ParticipantData).id === participantId
+    const stmt = this.ast.statements.find(
+      (s) => s.type === 'participant' && (s.data as ParticipantData).id === participantId
     );
 
     if (!stmt) {
@@ -158,7 +173,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   /**
    * Add a new message
    */
-  addMessage(from: string, to: string, message: string, arrow: string = '->>', afterIndex?: number): void {
+  addMessage(from: string, to: string, message: string, arrow = '->>', afterIndex?: number): void {
     console.log(`💬 Adding message: ${from}${arrow}${to}: ${message}`);
 
     const messageData: MessageData = { from, to, arrow, message };
@@ -168,7 +183,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
 
     this.insertStatement(insertIndex, {
       type: 'message',
-      data: messageData
+      data: messageData,
     });
   }
 
@@ -190,7 +205,12 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
   /**
    * Add a note
    */
-  addNote(position: 'left' | 'right' | 'over', participant: string, message: string, afterIndex?: number): void {
+  addNote(
+    position: 'left' | 'right' | 'over',
+    participant: string,
+    message: string,
+    afterIndex?: number
+  ): void {
     console.log(`📝 Adding note: Note ${position} of ${participant}: ${message}`);
 
     const noteData: NoteData = { position, participant, message };
@@ -199,7 +219,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
 
     this.insertStatement(insertIndex, {
       type: 'note',
-      data: noteData
+      data: noteData,
     });
   }
 
@@ -213,7 +233,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
 
     this.insertStatement(insertIndex, {
       type: 'activate',
-      data: { participant }
+      data: { participant },
     });
   }
 
@@ -227,7 +247,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
 
     this.insertStatement(insertIndex, {
       type: 'deactivate',
-      data: { participant }
+      data: { participant },
     });
   }
 
@@ -243,7 +263,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
 
     this.insertStatement(startIndex - 1, {
       type: 'loop',
-      data: loopData
+      data: loopData,
     });
   }
 
@@ -255,8 +275,10 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
    * Get the index of the last statement
    */
   private getLastStatementIndex(): number {
-    if (this.ast.statements.length === 0) return -1;
-    return Math.max(...this.ast.statements.map(s => s.originalIndex));
+    if (this.ast.statements.length === 0) {
+      return -1;
+    }
+    return Math.max(...this.ast.statements.map((s) => s.originalIndex));
   }
 
   /**
@@ -285,7 +307,7 @@ export class HybridSequenceEditor extends HybridDiagramEditor<SequenceAST> {
    */
   getSummary(): string {
     const stats = this.getStatistics();
-    const participants = Array.from(this.getAllParticipants()).join(', ');
+    const participants = [...this.getAllParticipants()].join(', ');
 
     return `Sequence Diagram Summary:
 - ${stats.totalStatements} total statements

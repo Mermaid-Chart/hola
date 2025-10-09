@@ -11,6 +11,8 @@ function generateViaAntlr(input: string): string {
   const parser = new SequenceParser(tokenStream);
   const tree = parser.start();
 
+  console.debug('Generating code from parse tree with position tracking', tree);
+
   const generator = new SequenceCodeGenerator(input);
   const { code } = generator.generateCode(tree);
   return code;
@@ -26,7 +28,7 @@ function normalizeLines(txt: string): string {
 }
 
 // Add more diagrams to this array. Each entry should include the full diagram text.
-const CASES: { name: string; input: string }[] = [
+export const ROUNDTRIP_CASES: { name: string; input: string }[] = [
   {
     name: 'basic actor and message',
     input: `sequenceDiagram
@@ -475,10 +477,17 @@ Bob->>Alice: Fine!
     John  -->>  Alice:    Hi Alice, I can hear you!
     John-->>Alice: I feel great!`,
   },
+  {
+    name: 'Preserve indentation ',
+    input: `sequenceDiagram
+%% I am a comment
+ participant Alice as Alicia
+   Alice   ->>  Bob: Hi Bob`,
+  },
 ];
 
 describe('Sequence ANTLR round-trip codegen', () => {
-  for (const { name, input } of CASES) {
+  for (const { name, input } of ROUNDTRIP_CASES) {
     it(`round-trips code for: ${name}`, () => {
       const generated = generateViaAntlr(input);
 

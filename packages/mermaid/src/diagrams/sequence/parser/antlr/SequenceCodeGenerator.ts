@@ -6,8 +6,9 @@ import type {
   NoteData,
   ElementMapping,
   ElementPosition,
+  SequenceStatement,
 } from './SequenceAST.js';
-import { SequenceStatement, SequenceASTHelper } from './SequenceAST.js';
+import { SequenceASTHelper } from './SequenceAST.js';
 import { ElementMappingUtils } from './SequenceElementMapper.js';
 
 /**
@@ -36,6 +37,12 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   // AST building properties
   private ast: SequenceAST;
   private currentIndex = 0;
+
+  // Suppress code emission when building nested AST (e.g., visiting children inside blocks)
+  private suppressEmission = false;
+
+  // Stack for collecting nested statements within control structures
+  private blockStack: { type: SequenceStatement['type']; statements: SequenceStatement[] }[] = [];
 
   // Position tracking for bidirectional synchronization
   private originalText = '';
@@ -74,6 +81,8 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
    * Generate code from the parse tree with position tracking
    */
   generateCode(tree: any): { code: string; lines: string[]; ast: SequenceAST } {
+    console.log('🌳 Generating code from parse tree with position tracking', tree);
+
     this.lines = [];
     this.currentIndent = 0;
     this.ast = SequenceASTHelper.createEmpty();
@@ -104,6 +113,8 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
       statements: this.ast.statements.length,
       mappings: this.elementMappings.length,
     });
+
+    // Manipulate ast
 
     return {
       code,
@@ -260,6 +271,17 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
   /**
    * Add a line with current indentation
    */
+  /**
+   * Push a statement into the current container (top-level or current block).
+   */
+  private pushStatement(stmt: SequenceStatement): void {
+    if (this.blockStack.length > 0) {
+      this.blockStack[this.blockStack.length - 1].statements.push(stmt);
+    } else {
+      this.ast.statements.push(stmt);
+    }
+  }
+
   private addLine(text: string): void {
     const indent = ' '.repeat(this.currentIndent);
     this.lines.push(indent + text);
@@ -284,6 +306,9 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
   /** Add an original source line by line number and update lastPhysicalLineEmitted */
   private addOriginalLine(lineNumber: number): void {
+    if (this.suppressEmission) {
+      return;
+    }
     this.addRawLine(this.getOriginalLine(lineNumber));
     this.lastPhysicalLineEmitted = lineNumber;
     this.emittedLines.add(lineNumber);
@@ -321,6 +346,9 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
    * Supports semicolon-joined lines by appending with ';' when multiple segments share the same source line.
    */
   private emitOriginalSegmentFromCtx(ctx: any): void {
+    if (this.suppressEmission) {
+      return;
+    }
     if (!ctx?.start || !ctx?.stop || !this.originalText) {
       const txt = this.getContextText(ctx);
       this.addLineWithCtxIndent(txt, ctx);
@@ -372,6 +400,12 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
   /** Flush any pending semicolon-joined line into the output */
   private flushJoinedLine(): void {
+    if (this.suppressEmission) {
+      // Still reset the buffer to avoid leaking state
+      this.currentSourceLineNumber = null;
+      this.currentJoinedLineText = '';
+      return;
+    }
     if (this.currentSourceLineNumber !== null) {
       // If the original line ends with a semicolon, mirror that in output
       const origLine = this.getOriginalLine(this.currentSourceLineNumber);
@@ -860,7 +894,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
         // Build AST entry
         const participantData: ParticipantData = { id, alias: alias || undefined };
-        this.ast.statements.push({
+        this.pushStatement({
           type: 'participant',
           originalIndex: this.currentIndex,
           data: participantData,
@@ -923,7 +957,7 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
         // Build AST entry
         const messageData: MessageData = { from, arrow: fullArrow, to, message: cleanMessage };
-        this.ast.statements.push({
+        this.pushStatement({
           type: 'message',
           originalIndex: this.currentIndex,
           data: messageData,
@@ -976,7 +1010,38 @@ export class SequenceCodeGenerator implements SequenceParserVisitor<string> {
 
   // Loop block
   visitLoopBlock(ctx: any): string {
-    // Emit the entire loop block exactly as in the source
+    // 1) Build AST for the loop (condition + nested statements)
+    const condition =
+      typeof ctx.restOfLine === 'function' && ctx.restOfLine()
+        ? this.getContextText(ctx.restOfLine()).trim()
+        : '';
+
+    // Collect nested statements while suppressing emission
+    const nested: SequenceStatement[] = [];
+    this.blockStack.push({ type: 'loop', statements: nested });
+    const prevSuppress = this.suppressEmission;
+    this.suppressEmission = true;
+    try {
+      if (typeof ctx.document === 'function' && ctx.document()) {
+        this.visit(ctx.document());
+      } else {
+        this.visitChildren(ctx);
+      }
+    } finally {
+      this.suppressEmission = prevSuppress;
+      this.blockStack.pop();
+    }
+
+    const loopData = { condition, statements: nested } as any;
+    this.pushStatement({
+      type: 'loop',
+      originalIndex: this.currentIndex,
+      data: loopData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+    });
+    this.createElementMapping('loop', ctx, loopData);
+
+    // 2) Emit the entire loop block exactly as in the source for code reproduction
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
     for (let ln = this.lastPhysicalLineEmitted + 1; ln < ctx.start.line; ln++) {
