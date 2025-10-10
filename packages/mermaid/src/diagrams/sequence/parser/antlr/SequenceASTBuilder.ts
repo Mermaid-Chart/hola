@@ -29,8 +29,6 @@ import type {
   AltBlockContext,
   ParBlockContext,
   ParOverBlockContext,
-  BreakBlockContext,
-  CriticalBlockContext,
   AltSectionsContext,
   ElseSectionContext,
   ParSectionsContext,
@@ -51,13 +49,12 @@ import type {
   ParticipantData,
   MessageData,
   NoteData,
-  LoopData,
   ElementMapping,
   ElementPosition,
   SequenceStatement,
   SequenceStatementType,
-} from './SequenceAST.js';
-import { SequenceASTHelper } from './SequenceAST.js';
+} from '../../types.ts';
+
 import { ElementMappingUtils } from './SequenceElementMapper.js';
 
 import { log } from '../../../../logger.js';
@@ -73,7 +70,7 @@ import { log } from '../../../../logger.js';
  *
  * Now also builds a structured AST for the hybrid editor approach.
  */
-export class SequenceCodeGenerator extends SequenceParserVisitor<string> {
+export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   private lines: string[] = [];
   private currentIndent = 0;
   private indentSize = 2;
@@ -105,13 +102,26 @@ export class SequenceCodeGenerator extends SequenceParserVisitor<string> {
   // Track the actual rendered message index (accounts for activation/deactivation messages)
   private renderedMessageIndex = 0;
 
+  /**
+   * Create a minimal valid sequence AST
+   */
+  static createEmpty(): SequenceAST {
+    return {
+      header: 'sequenceDiagram',
+      statements: [],
+      metadata: {
+        participants: new Map(),
+      },
+    };
+  }
+
   constructor(originalText?: string) {
     super();
 
     // Initialize with empty lines array
     this.lines = [];
     // Initialize AST
-    this.ast = SequenceASTHelper.createEmpty();
+    this.ast = SequenceASTBuilder.createEmpty();
     this.currentIndex = 0;
 
     // Store original text for position tracking
@@ -133,12 +143,15 @@ export class SequenceCodeGenerator extends SequenceParserVisitor<string> {
   /**
    * Generate code from the parse tree with position tracking
    */
-  generateCode(tree: any): { code: string; lines: string[]; ast: SequenceAST } {
+  generateAST(
+    tree: any
+    // visitor: SequenceParserVisitor
+  ): { code: string; lines: string[]; ast: SequenceAST } {
     log.debug('🌳 Generating code from parse tree with position tracking', tree);
 
     this.lines = [];
     this.currentIndent = 0;
-    this.ast = SequenceASTHelper.createEmpty();
+    this.ast = SequenceASTBuilder.createEmpty();
     this.currentIndex = 0;
     this.elementMappings = [];
     this.svgIdCounter = 0;

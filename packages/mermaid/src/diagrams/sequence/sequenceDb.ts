@@ -15,8 +15,9 @@ import {
 } from '../common/commonDb.js';
 import type { Actor, AddMessageParams, Box, Message, Note } from './types.js';
 import type { ParticipantMetaData } from '../../types.js';
-
+import type { SequenceAST } from './types.ts';
 interface SequenceState {
+  ast: SequenceAST;
   prevActor?: string;
   actors: Map<string, Actor>;
   createdActors: Map<string, number>;
@@ -102,6 +103,7 @@ export class SequenceDB implements DiagramDB {
     currentBox: undefined,
     lastCreated: undefined,
     lastDestroyed: undefined,
+    ast: undefined,
   }));
 
   constructor() {
@@ -292,6 +294,12 @@ export class SequenceDB implements DiagramDB {
   }
   public getActors() {
     return this.state.records.actors;
+  }
+  public setAST(_ast: SequenceAST) {
+    this.state.records.ast = _ast;
+  }
+  public getAST() {
+    return this.state.records.ast;
   }
   public getCreatedActors() {
     return this.state.records.createdActors;

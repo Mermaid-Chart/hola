@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SequenceElementMapper, ElementMappingUtils } from './SequenceElementMapper.js';
-import type { SequenceAST, ElementMapping } from './SequenceAST.js';
+import type { SequenceAST, ElementMapping } from '../../types.js';
 
 describe('SequenceElementMapper', () => {
   // Sample AST with element mappings

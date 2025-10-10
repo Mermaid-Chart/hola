@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createSequenceParser } from './antlr-parser.js';
 import { SequenceCodeGenerator } from './SequenceCodeGenerator.js';
-import type { SequenceAST, ElementMapping } from './SequenceAST.js';
+import type { SequenceAST, ElementMapping } from '../../types.js';
 
 describe('SequenceAST Bidirectional Synchronization', () => {
   let ast: SequenceAST;

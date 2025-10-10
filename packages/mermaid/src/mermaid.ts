@@ -476,10 +476,3 @@ export {
   calcNodeIntersections,
   calcIntersect,
 } from './rendering-util/layout-algorithms/fixed/index.js';
-
-// Export sequence diagram AST types for bidirectional synchronization
-export type {
-  SequenceAST,
-  ElementMapping,
-  ElementPosition,
-} from './diagrams/sequence/parser/antlr/SequenceAST.js';

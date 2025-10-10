@@ -1,4 +1,9 @@
-import type { SequenceAST, ElementMapping, ElementPosition, SequenceStatement } from './SequenceAST.js';
+import type {
+  SequenceAST,
+  ElementMapping,
+  ElementPosition,
+  SequenceStatement,
+} from '../../types.ts';
 
 /**
  * Bidirectional mapping between sequence diagram code and SVG elements
@@ -10,8 +15,8 @@ import type { SequenceAST, ElementMapping, ElementPosition, SequenceStatement } 
  */
 export class SequenceElementMapper {
   private ast: SequenceAST;
-  private mappings: Map<string, ElementMapping> = new Map();
-  private svgToCodeMap: Map<string, string> = new Map();
+  private mappings = new Map<string, ElementMapping>();
+  private svgToCodeMap = new Map<string, string>();
   private positionIndex: ElementMapping[] = [];
 
   constructor(ast: SequenceAST) {
@@ -115,7 +120,7 @@ export class SequenceElementMapper {
    * Get all elements of a specific type
    */
   getElementsByType(type: string): ElementMapping[] {
-    return Array.from(this.mappings.values()).filter(mapping => mapping.type === type);
+    return [...this.mappings.values()].filter((mapping) => mapping.type === type);
   }
 
   /**
@@ -143,7 +148,7 @@ export class SequenceElementMapper {
    * Get all loop/control structure elements
    */
   getControlStructures(): ElementMapping[] {
-    return Array.from(this.mappings.values()).filter(mapping =>
+    return [...this.mappings.values()].filter((mapping) =>
       ['loop', 'alt', 'opt', 'par', 'rect', 'break', 'critical'].includes(mapping.type)
     );
   }
@@ -179,7 +184,7 @@ export class SequenceElementMapper {
    * Get all mappings as array
    */
   getAllMappings(): ElementMapping[] {
-    return Array.from(this.mappings.values());
+    return [...this.mappings.values()];
   }
 
   /**
@@ -253,7 +258,7 @@ export class SequenceElementMapper {
       messages: this.getMessages().length,
       notes: this.getNotes().length,
       controlStructures: this.getControlStructures().length,
-      withSvgIds: all.filter(m => m.svgId).length,
+      withSvgIds: all.filter((m) => m.svgId).length,
     };
   }
 }
@@ -310,13 +315,19 @@ export class ElementMappingUtils {
   static mergePositions(pos1: ElementPosition, pos2: ElementPosition): ElementPosition {
     return {
       startLine: Math.min(pos1.startLine, pos2.startLine),
-      startColumn: pos1.startLine < pos2.startLine ? pos1.startColumn :
-                   pos1.startLine > pos2.startLine ? pos2.startColumn :
-                   Math.min(pos1.startColumn, pos2.startColumn),
+      startColumn:
+        pos1.startLine < pos2.startLine
+          ? pos1.startColumn
+          : pos1.startLine > pos2.startLine
+            ? pos2.startColumn
+            : Math.min(pos1.startColumn, pos2.startColumn),
       endLine: Math.max(pos1.endLine, pos2.endLine),
-      endColumn: pos1.endLine > pos2.endLine ? pos1.endColumn :
-                 pos1.endLine < pos2.endLine ? pos2.endColumn :
-                 Math.max(pos1.endColumn, pos2.endColumn),
+      endColumn:
+        pos1.endLine > pos2.endLine
+          ? pos1.endColumn
+          : pos1.endLine < pos2.endLine
+            ? pos2.endColumn
+            : Math.max(pos1.endColumn, pos2.endColumn),
       startIndex: Math.min(pos1.startIndex, pos2.startIndex),
       endIndex: Math.max(pos1.endIndex, pos2.endIndex),
     };

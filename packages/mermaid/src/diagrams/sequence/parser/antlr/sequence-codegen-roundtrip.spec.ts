@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { CharStream, CommonTokenStream } from 'antlr4ng';
 import { SequenceLexer } from './generated/SequenceLexer.js';
 import { SequenceParser } from './generated/SequenceParser.js';
-import { SequenceCodeGenerator } from './SequenceCodeGenerator.js';
+import { SequenceASTBuilder } from './SequenceASTBuilder.js';
 
 function generateViaAntlr(input: string): string {
   const inputStream = CharStream.fromString(input);
@@ -13,8 +13,8 @@ function generateViaAntlr(input: string): string {
 
   console.debug('Generating code from parse tree with position tracking', tree);
 
-  const generator = new SequenceCodeGenerator(input);
-  const { code } = generator.generateCode(tree);
+  const generator = new SequenceASTBuilder(input);
+  const { code } = generator.generateAST(tree);
   return code;
 }
 
