@@ -476,3 +476,5 @@ export {
   calcNodeIntersections,
   calcIntersect,
 } from './rendering-util/layout-algorithms/fixed/index.js';
+
+export { parser as sequenceParser } from './diagrams/sequence/parser/antlr/antlr-parser.js';
