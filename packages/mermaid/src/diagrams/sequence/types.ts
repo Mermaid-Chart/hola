@@ -91,7 +91,19 @@ export interface Note {
   wrap: boolean;
 }
 
-import type { DiagramAST, DiagramStatement } from './DiagramASTService.js';
+export interface DiagramStatement {
+  type: string;
+  originalIndex: number;
+  data: unknown;
+  sourceTokens?: { start: unknown; stop: unknown }; // Reference to original tokens
+  sourceLine?: string; // Original source text for this statement - allows regenerating unchanged code
+}
+
+export interface DiagramAST {
+  header: string;
+  statements: DiagramStatement[];
+  metadata?: Record<string, unknown>;
+}
 
 /**
  * Sequence diagram specific AST interfaces
@@ -151,6 +163,71 @@ export interface RectData {
   statements: DiagramStatement[];
 }
 
+export interface BreakData {
+  condition: string;
+  statements: DiagramStatement[];
+}
+
+export interface CriticalData {
+  condition: string;
+  statements: DiagramStatement[][];
+}
+
+export interface BoxData {
+  name?: string;
+  participants: string[];
+}
+
+export interface CreateData {
+  participant: string;
+}
+
+export interface DestroyData {
+  participant: string;
+}
+
+export interface LinksData {
+  participant: string;
+  links: Record<string, string>;
+}
+
+export interface LinkData {
+  participant: string;
+  linkName: string;
+  linkUrl: string;
+}
+
+export interface PropertiesData {
+  participant: string;
+  properties: Record<string, string>;
+}
+
+export interface DetailsData {
+  participant: string;
+  details: string;
+}
+
+export interface AutonumberData {
+  start?: number;
+  step?: number;
+}
+
+export interface TitleData {
+  title: string;
+}
+
+export interface AccTitleData {
+  title: string;
+}
+
+export interface AccDescrData {
+  description: string;
+}
+
+export interface CommentData {
+  text: string;
+}
+
 /**
  * Sequence diagram statement types
  */
@@ -166,9 +243,20 @@ export type SequenceStatementType =
   | 'opt'
   | 'par'
   | 'rect'
+  | 'box'
   | 'break'
   | 'critical'
-  | 'autonumber';
+  | 'create'
+  | 'destroy'
+  | 'links'
+  | 'link'
+  | 'properties'
+  | 'details'
+  | 'autonumber'
+  | 'title'
+  | 'accTitle'
+  | 'accDescr'
+  | 'comment';
 
 export interface SequenceStatement extends DiagramStatement {
   type: SequenceStatementType;
@@ -182,7 +270,21 @@ export interface SequenceStatement extends DiagramStatement {
     | AltData
     | OptData
     | ParData
-    | RectData;
+    | RectData
+    | BreakData
+    | CriticalData
+    | BoxData
+    | CreateData
+    | DestroyData
+    | LinksData
+    | LinkData
+    | PropertiesData
+    | DetailsData
+    | AutonumberData
+    | TitleData
+    | AccTitleData
+    | AccDescrData
+    | CommentData;
 }
 
 /**

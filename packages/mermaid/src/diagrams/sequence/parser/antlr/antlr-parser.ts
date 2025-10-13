@@ -73,7 +73,7 @@ export class ANTLRSequenceParser {
         this.yy._tokenRewriter = new TokenStreamRewriter(tokenStream);
         this.yy._tokenMap = new Map(); // Map statement indices to token positions
 
-        const generator = new SequenceASTBuilder();
+        const generator = new SequenceASTBuilder(input);
         const result = generator.generateAST(tree);
         this.yy.setAST(result.ast);
       } catch (error) {
@@ -82,7 +82,6 @@ export class ANTLRSequenceParser {
         // Don't throw - AST building is optional, parsing should still succeed
       }
 
-      console.log('returning DB');
       return this.yy;
     } catch (error) {
       // eslint-disable-next-line no-console

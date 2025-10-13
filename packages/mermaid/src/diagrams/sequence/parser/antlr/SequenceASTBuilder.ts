@@ -147,7 +147,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     tree: any
     // visitor: SequenceParserVisitor
   ): { code: string; lines: string[]; ast: SequenceAST } {
-    log.debug('🌳 Generating code from parse tree with position tracking', tree);
+    log.info('🌳 Generating code from parse tree with position tracking', tree);
 
     this.lines = [];
     this.currentIndent = 0;
@@ -386,6 +386,19 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     }
     const lines = this.originalText.replace(/\r\n?/g, '\n').split('\n');
     return lines[lineNumber - 1] ?? '';
+  }
+
+  /**
+   * Extract the original source text for a statement from the context.
+   * This allows regenerating the code using the original text when there are no changes.
+   */
+  private getOriginalSourceFromCtx(ctx: ParserRuleContext): string {
+    if (!ctx?.start || !ctx?.stop || !this.originalText) {
+      return '';
+    }
+    const startIdx = ctx.start.start;
+    const stopIdx = ctx.stop.stop;
+    return this.originalText.slice(startIdx, stopIdx + 1);
   }
 
   /**
@@ -872,14 +885,29 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   }
   // Comment statement (%% ...)
   visitCommentStatement(ctx: CommentStatementContext): string {
+    let alreadyEmitted = false;
     try {
       const ln = ctx?.start?.line ?? 0;
       if (ln && this.emittedLines.has(ln)) {
-        // Already emitted verbatim (e.g., immediately after SD); skip to avoid duplication
-        return '';
+        // Already emitted verbatim (e.g., immediately after SD); skip code emission to avoid duplication
+        alreadyEmitted = true;
       }
     } catch {}
-    this.emitOriginalSegmentFromCtx(ctx);
+
+    if (!alreadyEmitted) {
+      this.emitOriginalSegmentFromCtx(ctx);
+    }
+
+    // Always add comment to AST (even if already emitted for code generation)
+    const commentText = this.getOriginalSourceFromCtx(ctx);
+    this.pushStatement({
+      type: 'comment',
+      originalIndex: this.currentIndex,
+      data: { text: commentText },
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: commentText,
+    });
+
     return '';
   }
 
@@ -891,7 +919,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
   // Participant statement
   visitParticipantStatement(ctx: ParticipantStatementContext): string {
-    log.debug('🎯 visitParticipantStatement:', ctx);
+    log.debug('🎯 visitParticipantStatement');
 
     // Prefer structured reconstruction using tokens/children to preserve whitespace semantics
     try {
@@ -929,6 +957,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
           originalIndex: this.currentIndex,
           data: participantData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
+          sourceLine: this.getOriginalSourceFromCtx(ctx),
         });
 
         // Create element mapping for bidirectional synchronization
@@ -955,6 +984,20 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   visitCreateStatement(ctx: CreateStatementContext): string {
     log.debug('🎯 visitCreateStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const createMatch = /^create\s+participant\s+(\w+)/.exec(fullText);
+    if (createMatch) {
+      const [, participant] = createMatch;
+      this.pushStatement({
+        type: 'create',
+        originalIndex: this.currentIndex,
+        data: { participant },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
@@ -962,6 +1005,20 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   visitDestroyStatement(ctx: DestroyStatementContext): string {
     log.debug('🎯 visitDestroyStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const destroyMatch = /^destroy\s+(\w+)/.exec(fullText);
+    if (destroyMatch) {
+      const [, participant] = destroyMatch;
+      this.pushStatement({
+        type: 'destroy',
+        originalIndex: this.currentIndex,
+        data: { participant },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
@@ -993,6 +1050,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
           originalIndex: this.currentIndex,
           data: messageData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
+          sourceLine: this.getOriginalSourceFromCtx(ctx),
         });
 
         // Create fine-grained element mappings for each component
@@ -1031,6 +1089,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
           originalIndex: this.currentIndex,
           data: noteData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
+          sourceLine: this.getOriginalSourceFromCtx(ctx),
         });
         this.createElementMapping('note', ctx, noteData);
       }
@@ -1069,6 +1128,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       originalIndex: this.currentIndex,
       data: loopData,
       sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
     });
     this.createElementMapping('loop', ctx, loopData);
 
@@ -1101,6 +1161,20 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const optMatch = /^opt\s+(.+?)(?:end|$)/s.exec(fullText);
+    if (optMatch) {
+      const [, content] = optMatch;
+      this.pushStatement({
+        type: 'opt',
+        originalIndex: this.currentIndex,
+        data: { condition: content.trim(), statements: [] },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
@@ -1117,6 +1191,20 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     }
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
+    }
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const altMatch = /^alt\s+(.+?)(?:else|end)/s.exec(fullText);
+    if (altMatch) {
+      const [, condition] = altMatch;
+      this.pushStatement({
+        type: 'alt',
+        originalIndex: this.currentIndex,
+        data: { condition: condition.trim(), statements: [[]], elseStatements: [] },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
     }
     return '';
   }
@@ -1141,6 +1229,15 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
+
+    // Build AST entry
+    this.pushStatement({
+      type: 'par',
+      originalIndex: this.currentIndex,
+      data: { statements: [[]] },
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
     return '';
   }
 
@@ -1164,6 +1261,20 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const rectMatch = /^rect\s+(?:rgb\(([^)]+)\)\s*)?(.*)end$/s.exec(fullText);
+    if (rectMatch) {
+      const [, color] = rectMatch;
+      this.pushStatement({
+        type: 'rect',
+        originalIndex: this.currentIndex,
+        data: { color: color?.trim(), statements: [] },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
@@ -1181,11 +1292,25 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const boxMatch = /^box\s+(?:"([^"]+)"\s*)?(.*)end$/s.exec(fullText);
+    if (boxMatch) {
+      const [, name] = boxMatch;
+      this.pushStatement({
+        type: 'box',
+        originalIndex: this.currentIndex,
+        data: { name: name?.trim(), participants: [] },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Break block
-  visitBreakBlock(ctx: any): string {
+  visitBreakBlock(ctx: ParserRuleContext): string {
     // Emit the entire break block exactly as in the source
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
@@ -1198,11 +1323,25 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const breakMatch = /^break\s+(.+?)(?:end|$)/s.exec(fullText);
+    if (breakMatch) {
+      const [, condition] = breakMatch;
+      this.pushStatement({
+        type: 'break',
+        originalIndex: this.currentIndex,
+        data: { condition: condition.trim(), statements: [] },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Critical block
-  visitCriticalBlock(ctx: any): string {
+  visitCriticalBlock(ctx: ParserRuleContext): string {
     // Emit the entire critical block exactly as in the source
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
@@ -1214,6 +1353,20 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     }
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
+    }
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const criticalMatch = /^critical\s+(.+?)(?:option|end)/s.exec(fullText);
+    if (criticalMatch) {
+      const [, condition] = criticalMatch;
+      this.pushStatement({
+        type: 'critical',
+        originalIndex: this.currentIndex,
+        data: { condition: condition.trim(), statements: [[]] },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
     }
     return '';
   }
@@ -1244,42 +1397,161 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   // Links statement
   visitLinksStatement(ctx: LinksStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const linksMatch = /^links\s+(\w+)\s*:\s*(.+)$/.exec(fullText);
+    if (linksMatch) {
+      const [, participant, linksStr] = linksMatch;
+      // Parse links as key-value pairs
+      const links: Record<string, string> = {};
+      const linkPairs = linksStr.split(',');
+      for (const pair of linkPairs) {
+        const [key, value] = pair.split(':').map((s) => s.trim());
+        if (key && value) {
+          links[key] = value;
+        }
+      }
+      this.pushStatement({
+        type: 'links',
+        originalIndex: this.currentIndex,
+        data: { participant, links },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Link statement
   visitLinkStatement(ctx: LinkStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const linkMatch = /^link\s+(\w+)\s*:\s*(\w+)\s*@\s*(.+)$/.exec(fullText);
+    if (linkMatch) {
+      const [, participant, linkName, linkUrl] = linkMatch;
+      this.pushStatement({
+        type: 'link',
+        originalIndex: this.currentIndex,
+        data: { participant, linkName: linkName.trim(), linkUrl: linkUrl.trim() },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Properties statement
   visitPropertiesStatement(ctx: PropertiesStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const propertiesMatch = /^properties\s+(\w+)\s*:\s*(.+)$/.exec(fullText);
+    if (propertiesMatch) {
+      const [, participant, propertiesStr] = propertiesMatch;
+      // Parse properties as key-value pairs
+      const properties: Record<string, string> = {};
+      const propPairs = propertiesStr.split(',');
+      for (const pair of propPairs) {
+        const [key, value] = pair.split(':').map((s) => s.trim());
+        if (key && value) {
+          properties[key] = value;
+        }
+      }
+      this.pushStatement({
+        type: 'properties',
+        originalIndex: this.currentIndex,
+        data: { participant, properties },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Details statement
   visitDetailsStatement(ctx: DetailsStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const detailsMatch = /^details\s+(\w+)\s*:\s*(.+)$/.exec(fullText);
+    if (detailsMatch) {
+      const [, participant, details] = detailsMatch;
+      this.pushStatement({
+        type: 'details',
+        originalIndex: this.currentIndex,
+        data: { participant, details: details.trim() },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Activation statement (activate/deactivate)
   visitActivationStatement(ctx: ActivationStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const activateMatch = /^(activate|deactivate)\s+(\w+)/.exec(fullText);
+    if (activateMatch) {
+      const [, action, participant] = activateMatch;
+      this.pushStatement({
+        type: action as 'activate' | 'deactivate',
+        originalIndex: this.currentIndex,
+        data: { participant },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Autonumber statement
   visitAutonumberStatement(ctx: AutonumberStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const autonumberMatch = /^autonumber(?:\s+(\d+))?(?:\s+(\d+))?/.exec(fullText);
+    if (autonumberMatch) {
+      const [, start, step] = autonumberMatch;
+      this.pushStatement({
+        type: 'autonumber',
+        originalIndex: this.currentIndex,
+        data: {
+          start: start ? parseInt(start, 10) : undefined,
+          step: step ? parseInt(step, 10) : undefined,
+        },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Title statement
   visitTitleStatement(ctx: TitleStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const titleMatch = /^title\s+(.+)$/.exec(fullText);
+    if (titleMatch) {
+      const [, title] = titleMatch;
+      this.pushStatement({
+        type: 'title',
+        originalIndex: this.currentIndex,
+        data: { title: title.trim() },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
@@ -1292,12 +1564,40 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   // Accessibility title statement
   visitAccTitleStatement(ctx: AccTitleStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const accTitleMatch = /^accTitle\s*:\s*(.+)$/.exec(fullText);
+    if (accTitleMatch) {
+      const [, title] = accTitleMatch;
+      this.pushStatement({
+        type: 'accTitle',
+        originalIndex: this.currentIndex,
+        data: { title: title.trim() },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
   // Accessibility description statement
   visitAccDescrStatement(ctx: AccDescrStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
+
+    // Build AST entry
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const accDescrMatch = /^accDescr\s*:\s*(.+)$/.exec(fullText);
+    if (accDescrMatch) {
+      const [, description] = accDescrMatch;
+      this.pushStatement({
+        type: 'accDescr',
+        originalIndex: this.currentIndex,
+        data: { description: description.trim() },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: this.getOriginalSourceFromCtx(ctx),
+      });
+    }
     return '';
   }
 
