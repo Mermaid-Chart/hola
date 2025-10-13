@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SequenceElementMapper, ElementMappingUtils } from './SequenceElementMapper.js';
-import type { SequenceAST, ElementMapping } from '../../types.js';
+import type { SequenceAST, ElementMapping } from '../../types.ts';
 
 describe('SequenceElementMapper', () => {
   // Sample AST with element mappings
@@ -277,13 +277,8 @@ describe('SequenceElementMapper', () => {
 
   describe('ElementMappingUtils', () => {
     describe('createPosition', () => {
-      it('should create position from context with token', () => {
-        const mockContext = {
-          start: { line: 2, column: 5, start: 10 },
-          stop: { line: 2, column: 15, stop: 20 },
-        };
-
-        const position = ElementMappingUtils.createPosition(mockContext);
+      it('should create position from line/column info', () => {
+        const position = ElementMappingUtils.createPosition(2, 5, 2, 15, 10, 20);
         expect(position).toEqual({
           startLine: 2,
           startColumn: 5,
@@ -294,50 +289,81 @@ describe('SequenceElementMapper', () => {
         });
       });
 
-      it('should return null for context without tokens', () => {
-        const mockContext = {};
-
-        const position = ElementMappingUtils.createPosition(mockContext);
-        expect(position).toBeNull();
+      it('should create position with different start and end lines', () => {
+        const position = ElementMappingUtils.createPosition(2, 5, 4, 10, 10, 50);
+        expect(position).toEqual({
+          startLine: 2,
+          startColumn: 5,
+          endLine: 4,
+          endColumn: 10,
+          startIndex: 10,
+          endIndex: 50,
+        });
       });
     });
 
     describe('generateElementId', () => {
-      it('should generate ID for participant', () => {
-        const id = ElementMappingUtils.generateElementId('participant', 'Alice');
-        expect(id).toBe('participant_Alice');
+      it('should generate ID with type and index', () => {
+        const id = ElementMappingUtils.generateElementId('participant', 0);
+        expect(id).toMatch(/^participant_0_\d+$/);
       });
 
       it('should generate ID for message with index', () => {
         const id = ElementMappingUtils.generateElementId('message', 5);
-        expect(id).toBe('message_5');
+        expect(id).toMatch(/^message_5_\d+$/);
       });
 
       it('should generate ID for note with index', () => {
         const id = ElementMappingUtils.generateElementId('note', 3);
-        expect(id).toBe('note_3');
+        expect(id).toMatch(/^note_3_\d+$/);
+      });
+
+      it('should generate IDs with timestamp suffix', () => {
+        const id = ElementMappingUtils.generateElementId('participant', 0);
+        // ID should have format: type_index_timestamp
+        const parts = id.split('_');
+        expect(parts.length).toBe(3);
+        expect(parts[0]).toBe('participant');
+        expect(parts[1]).toBe('0');
+        expect(parseInt(parts[2])).toBeGreaterThan(0);
       });
     });
 
-    describe('generateSvgSelector', () => {
-      it('should generate selector for participant', () => {
-        const selector = ElementMappingUtils.generateSvgSelector('participant', 'Alice');
-        expect(selector).toBe('[data-et="participant"][data-id="Alice"]');
+    describe('generateSvgId', () => {
+      it('should generate SVG ID from element ID', () => {
+        const elementId = 'participant_0_123456';
+        const svgId = ElementMappingUtils.generateSvgId(elementId);
+        expect(svgId).toBe('svg_participant_0_123456');
+      });
+    });
+
+    describe('positionsOverlap', () => {
+      it('should detect overlapping positions', () => {
+        const pos1 = ElementMappingUtils.createPosition(1, 0, 2, 10, 0, 30);
+        const pos2 = ElementMappingUtils.createPosition(2, 5, 3, 5, 25, 50);
+        expect(ElementMappingUtils.positionsOverlap(pos1, pos2)).toBe(true);
       });
 
-      it('should generate selector for message', () => {
-        const selector = ElementMappingUtils.generateSvgSelector('message', 5);
-        expect(selector).toBe('[data-et="message"][data-id="i5"]');
+      it('should detect non-overlapping positions', () => {
+        const pos1 = ElementMappingUtils.createPosition(1, 0, 2, 10, 0, 30);
+        const pos2 = ElementMappingUtils.createPosition(3, 0, 4, 10, 40, 60);
+        expect(ElementMappingUtils.positionsOverlap(pos1, pos2)).toBe(false);
       });
+    });
 
-      it('should generate selector for note', () => {
-        const selector = ElementMappingUtils.generateSvgSelector('note', 3);
-        expect(selector).toBe('[data-et="note"][data-id="i3"]');
-      });
-
-      it('should generate selector for control structure', () => {
-        const selector = ElementMappingUtils.generateSvgSelector('loop', 2);
-        expect(selector).toBe('[data-et="control-structure"][data-id="i2"]');
+    describe('mergePositions', () => {
+      it('should merge two positions into encompassing range', () => {
+        const pos1 = ElementMappingUtils.createPosition(1, 5, 2, 10, 5, 30);
+        const pos2 = ElementMappingUtils.createPosition(2, 5, 3, 15, 25, 50);
+        const merged = ElementMappingUtils.mergePositions(pos1, pos2);
+        expect(merged).toEqual({
+          startLine: 1,
+          startColumn: 5,
+          endLine: 3,
+          endColumn: 15,
+          startIndex: 5,
+          endIndex: 50,
+        });
       });
     });
   });

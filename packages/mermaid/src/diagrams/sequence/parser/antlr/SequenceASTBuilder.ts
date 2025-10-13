@@ -527,14 +527,14 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     const svgId = ElementMappingUtils.generateSvgId(elementId);
 
     // Generate SVG selector based on data-et attribute (used by sequence renderer)
-    // For participants: [data-et="participant"][data-id="participantId"]
+    // For participants/actors: [data-et="participant"][data-id="participantId"] or [data-et="actor"][data-id="actorId"]
     // For messages: [data-et="message"][data-id="i0"]
     // For notes: [data-et="note"][data-id="i0"]
     let svgSelector = `[data-et="${type}"]`;
 
     // Add data-id for more specific selection
-    if (type === 'participant' && 'id' in data) {
-      svgSelector = `[data-et="participant"][data-id="${data.id}"]`;
+    if ((type === 'participant' || type === 'actor') && 'id' in data) {
+      svgSelector = `[data-et="${type}"][data-id="${data.id}"]`;
     } else if (type === 'message' || type === 'note') {
       // Messages and notes share the same index counter (i0, i1, i2, etc.)
       // Count how many messages and notes we already have
@@ -560,119 +560,124 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   }
 
   /**
-   * Create fine-grained element mappings for message components
+   * Create fine-grained element mappings for message components using actual ANTLR token positions
    * This allows highlighting specific parts: from participant, to participant, or message text
+   * This version uses the actual token positions from the parse tree to handle extra whitespace correctly
    */
-  private createFineGrainedMessageMappings(
-    ctx: ParserRuleContext,
+  private createFineGrainedMessageMappingsFromTokens(
+    ctx: any,
     from: string,
     arrow: string,
     to: string,
     message: string,
     messageData: MessageData
   ): void {
-    const basePosition = this.getPositionFromContext(ctx);
-    if (!basePosition) {
-      log.debug('⚠️ No position from context, skipping fine-grained mappings');
-      return;
-    }
+    log.debug('🔧 createFineGrainedMessageMappingsFromTokens called');
 
     // Use the renderedMessageIndex which accounts for activation/deactivation messages
     const messageIndex = this.renderedMessageIndex;
 
     // Check if this message has an activation or deactivation marker
-    // Note: We need to check for '+' or '-' at the END of the arrow, not just anywhere in it
-    // because arrows like '->>' and '-->>' contain dashes but are not activation markers
     const hasActivationMarker = arrow.endsWith('+') || arrow.endsWith('-');
 
     log.debug(
-      `📊 [MessageIndex] Line ${basePosition.startLine}: arrow="${arrow}", hasActivationMarker=${hasActivationMarker}, messageIndex=${messageIndex}`
+      `📊 [MessageIndex] arrow="${arrow}", hasActivationMarker=${hasActivationMarker}, messageIndex=${messageIndex}`
     );
 
     // Increment the rendered message index
-    // If there's an activation marker, the DB creates 2 messages (the message + activation/deactivation)
-    // So we increment by 2, otherwise by 1
     this.renderedMessageIndex += hasActivationMarker ? 2 : 1;
 
     log.debug(
       `📊 [MessageIndex] After increment: renderedMessageIndex=${this.renderedMessageIndex}`
     );
 
-    // Calculate positions for each component
-    // Format: "Alice->>+John: Hello John, how are you?"
-    const startCol = basePosition.startColumn;
-    const startIdx = basePosition.startIndex;
-    const line = basePosition.startLine;
+    // Grammar: signalStatement: actor signaltype (PLUS actor | MINUS actor | actor) text2
+    // ctx.children should contain: [fromActorCtx, signaltypeCtx, toActorCtx (or PLUS/MINUS + toActorCtx), text2Ctx]
 
-    // 1. From participant (e.g., "Alice")
-    const fromEndCol = startCol + from.length;
-    const fromEndIdx = startIdx + from.length;
-    const fromMapping: ElementMapping = {
-      id: ElementMappingUtils.generateElementId('participant', this.currentIndex++),
-      type: 'participant',
-      position: {
-        startLine: line,
-        startColumn: startCol,
-        endLine: line,
-        endColumn: fromEndCol,
-        startIndex: startIdx,
-        endIndex: fromEndIdx,
-      },
-      svgId: ElementMappingUtils.generateSvgId(`participant_${from}`),
-      svgSelector: `[data-et="participant"][data-id="${from}"]`,
-      data: { id: from } as ParticipantData,
-    };
-    this.elementMappings.push(fromMapping);
-    log.debug('✅ Created FROM participant mapping:', fromMapping);
+    try {
+      // Get the FROM actor context (first child)
+      const fromActorCtx = ctx.actor && typeof ctx.actor === 'function' ? ctx.actor(0) : null;
+      if (fromActorCtx) {
+        const fromPosition = this.getPositionFromContext(fromActorCtx);
+        if (fromPosition) {
+          const fromMapping: ElementMapping = {
+            id: ElementMappingUtils.generateElementId('participant', this.currentIndex++),
+            type: 'participant',
+            position: fromPosition,
+            svgId: ElementMappingUtils.generateSvgId(`participant_${from}`),
+            svgSelector: `[data-et="participant"][data-id="${from}"]`,
+            data: { id: from, role: 'from' },
+          };
+          this.elementMappings.push(fromMapping);
+          log.debug('✅ Created FROM participant mapping from token:', fromMapping);
+        }
+      }
 
-    // 2. To participant (e.g., "John")
-    const toStartCol = fromEndCol + arrow.length;
-    const toStartIdx = fromEndIdx + arrow.length;
-    const toEndCol = toStartCol + to.length;
-    const toEndIdx = toStartIdx + to.length;
-    const toMapping: ElementMapping = {
-      id: ElementMappingUtils.generateElementId('participant', this.currentIndex++),
-      type: 'participant',
-      position: {
-        startLine: line,
-        startColumn: toStartCol,
-        endLine: line,
-        endColumn: toEndCol,
-        startIndex: toStartIdx,
-        endIndex: toEndIdx,
-      },
-      svgId: ElementMappingUtils.generateSvgId(`participant_${to}`),
-      svgSelector: `[data-et="participant"][data-id="${to}"]`,
-      data: { id: to } as ParticipantData,
-    };
-    this.elementMappings.push(toMapping);
-    log.debug('✅ Created TO participant mapping:', toMapping);
+      // Get the TO actor context (second actor call)
+      const toActorCtx = ctx.actor && typeof ctx.actor === 'function' ? ctx.actor(1) : null;
+      if (toActorCtx) {
+        const toPosition = this.getPositionFromContext(toActorCtx);
+        if (toPosition) {
+          const toMapping: ElementMapping = {
+            id: ElementMappingUtils.generateElementId('participant', this.currentIndex++),
+            type: 'participant',
+            position: toPosition,
+            svgId: ElementMappingUtils.generateSvgId(`participant_${to}`),
+            svgSelector: `[data-et="participant"][data-id="${to}"]`,
+            data: { id: to, role: 'to' },
+          };
+          this.elementMappings.push(toMapping);
+          log.debug('✅ Created TO participant mapping from token:', toMapping);
+        }
+      }
 
-    // 3. Message text (after the colon and space)
-    const colonPos = toEndCol + 1; // +1 for the colon
-    const messageStartCol = colonPos + 1; // +1 for the space after colon
-    const messageStartIdx = toEndIdx + 2; // +2 for ": "
-    const messageEndCol = messageStartCol + message.length;
-    const messageEndIdx = messageStartIdx + message.length;
-    const messageMapping: ElementMapping = {
-      id: ElementMappingUtils.generateElementId('message', this.currentIndex++),
-      type: 'message',
-      position: {
-        startLine: line,
-        startColumn: messageStartCol,
-        endLine: line,
-        endColumn: messageEndCol,
-        startIndex: messageStartIdx,
-        endIndex: messageEndIdx,
-      },
-      svgId: ElementMappingUtils.generateSvgId(`message_${messageIndex}`),
-      svgSelector: `[data-et="message"][data-id="i${messageIndex}"]`,
-      data: messageData,
-    };
-    this.elementMappings.push(messageMapping);
-    log.debug('✅ Created MESSAGE text mapping:', messageMapping);
+      // Get the text2 context (message text)
+      const text2Ctx = ctx.text2 && typeof ctx.text2 === 'function' ? ctx.text2() : null;
+      if (text2Ctx) {
+        const messagePosition = this.getPositionFromContext(text2Ctx);
+        if (messagePosition) {
+          // The text2 token includes the colon and any leading/trailing whitespace
+          // We need to find where the actual message text starts
+          const text2Text = this.getContextText(text2Ctx);
+          log.debug('🔍 text2 raw text:', JSON.stringify(text2Text));
 
-    log.debug('📊 Total mappings now:', this.elementMappings.length);
+          // Find the colon position
+          const colonIndex = text2Text.indexOf(':');
+          if (colonIndex >= 0) {
+            // Find where the actual message starts (after colon and whitespace)
+            const afterColon = text2Text.substring(colonIndex + 1);
+            const leadingWhitespace = afterColon.length - afterColon.trimStart().length;
+
+            // Calculate the actual message start position
+            const messageStartOffset = colonIndex + 1 + leadingWhitespace;
+            const messageStartColumn = messagePosition.startColumn + messageStartOffset;
+            const messageStartIndex = messagePosition.startIndex + messageStartOffset;
+            const messageEndColumn = messageStartColumn + message.length;
+            const messageEndIndex = messageStartIndex + message.length;
+
+            const messageMapping: ElementMapping = {
+              id: ElementMappingUtils.generateElementId('message', this.currentIndex++),
+              type: 'message',
+              position: {
+                startLine: messagePosition.startLine,
+                startColumn: messageStartColumn,
+                endLine: messagePosition.endLine,
+                endColumn: messageEndColumn,
+                startIndex: messageStartIndex,
+                endIndex: messageEndIndex,
+              },
+              svgId: ElementMappingUtils.generateSvgId(`message_${messageIndex}`),
+              svgSelector: `[data-et="message"][data-id="i${messageIndex}"]`,
+              data: messageData,
+            };
+            this.elementMappings.push(messageMapping);
+            log.debug('✅ Created MESSAGE text mapping from token:', messageMapping);
+          }
+        }
+      }
+    } catch (error) {
+      log.error('❌ Error creating fine-grained mappings from tokens:', error);
+    }
   }
 
   /**
@@ -961,8 +966,8 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         });
 
         // Create element mapping for bidirectional synchronization
-        const statementTypeForMap = hasActor ? 'actor' : 'participant';
-        this.createElementMapping(statementTypeForMap as any, ctx, participantData);
+        // Use actorCtx instead of ctx to highlight only the participant name, not the keyword
+        this.createElementMapping('participant', actorCtx || ctx, participantData);
         log.debug('📝 Added participant to AST:', participantData);
         return '';
       }
@@ -1055,7 +1060,14 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
         // Create fine-grained element mappings for each component
         log.debug('  - Creating fine-grained element mappings');
-        this.createFineGrainedMessageMappings(ctx, from, fullArrow, to, cleanMessage, messageData);
+        this.createFineGrainedMessageMappingsFromTokens(
+          ctx,
+          from,
+          fullArrow,
+          to,
+          cleanMessage,
+          messageData
+        );
 
         log.debug('📝 Added message to AST:', messageData);
       } else {

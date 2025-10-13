@@ -15,8 +15,8 @@ import type {
  */
 export class SequenceElementMapper {
   private ast: SequenceAST;
-  private mappings = new Map<string, ElementMapping>();
-  private svgToCodeMap = new Map<string, string>();
+  private mappings: Map<string, ElementMapping> = new Map();
+  private svgToCodeMap: Map<string, string> = new Map();
   private positionIndex: ElementMapping[] = [];
 
   constructor(ast: SequenceAST) {
@@ -120,7 +120,7 @@ export class SequenceElementMapper {
    * Get all elements of a specific type
    */
   getElementsByType(type: string): ElementMapping[] {
-    return [...this.mappings.values()].filter((mapping) => mapping.type === type);
+    return Array.from(this.mappings.values()).filter((mapping) => mapping.type === type);
   }
 
   /**
@@ -148,7 +148,7 @@ export class SequenceElementMapper {
    * Get all loop/control structure elements
    */
   getControlStructures(): ElementMapping[] {
-    return [...this.mappings.values()].filter((mapping) =>
+    return Array.from(this.mappings.values()).filter((mapping) =>
       ['loop', 'alt', 'opt', 'par', 'rect', 'break', 'critical'].includes(mapping.type)
     );
   }
@@ -184,7 +184,7 @@ export class SequenceElementMapper {
    * Get all mappings as array
    */
   getAllMappings(): ElementMapping[] {
-    return [...this.mappings.values()];
+    return Array.from(this.mappings.values());
   }
 
   /**
