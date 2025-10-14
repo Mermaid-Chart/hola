@@ -131,7 +131,8 @@ export interface LoopData {
 
 export interface NoteData {
   position: 'left' | 'right' | 'over';
-  participant: string;
+  participant: string; // Deprecated: use participants array instead
+  participants?: string[]; // Array of participants (for "over" notes with multiple actors)
   message: string;
 }
 

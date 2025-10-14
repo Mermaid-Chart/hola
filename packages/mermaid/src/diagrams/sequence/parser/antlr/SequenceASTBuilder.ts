@@ -1116,27 +1116,43 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     // Emit exact original segment for output
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST mapping info using a permissive regex on ctx.getText
-    const fullText = ctx.getText ? ctx.getText() : '';
-    if (fullText) {
-      const noteMatch = /^note\s*(left|right|over)\s*of\s*(\w+)\s*:\s*(.+)$/i.exec(fullText);
-      if (noteMatch) {
-        const [, position, participant, message] = noteMatch;
-        const noteData: NoteData = {
-          position: position as 'left' | 'right' | 'over',
-          participant,
-          message: message.trim(),
-        };
-        this.ast.statements.push({
-          type: 'note',
-          originalIndex: this.currentIndex++,
-          data: noteData,
-          sourceTokens: { start: ctx.start, stop: ctx.stop },
-          sourceLine: this.getOriginalSourceFromCtx(ctx),
-        });
-        this.createElementMapping('note', ctx, noteData);
-      }
+    // Extract position (left, right, or over)
+    let position: 'left' | 'right' | 'over' = 'left';
+    if (ctx.RIGHT_OF()) {
+      position = 'right';
+    } else if (ctx.LEFT_OF()) {
+      position = 'left';
+    } else if (ctx.OVER()) {
+      position = 'over';
     }
+
+    // Extract actor(s)
+    const actors = ctx.actor();
+    const participants = actors.map((actor) => this.getContextText(actor));
+
+    // Extract message text (text2 includes the leading ':' so we need to strip it)
+    const text2Ctx = ctx.text2();
+    let message = text2Ctx ? this.getContextText(text2Ctx).trim() : '';
+    // Remove leading ':' if present
+    if (message.startsWith(':')) {
+      message = message.substring(1).trim();
+    }
+
+    const noteData: NoteData = {
+      position,
+      participant: participants[0] || '', // Keep for backward compatibility
+      participants, // Array of all participants
+      message,
+    };
+
+    this.pushStatement({
+      type: 'note',
+      originalIndex: this.currentIndex++,
+      data: noteData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+    this.createElementMapping('note', ctx, noteData);
 
     return '';
   }
@@ -1539,19 +1555,22 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   visitActivationStatement(ctx: ActivationStatementContext): string {
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const activateMatch = /^(activate|deactivate)\s+(\w+)/.exec(fullText);
-    if (activateMatch) {
-      const [, action, participant] = activateMatch;
-      this.pushStatement({
-        type: action as 'activate' | 'deactivate',
-        originalIndex: this.currentIndex++,
-        data: { participant },
-        sourceTokens: { start: ctx.start, stop: ctx.stop },
-        sourceLine: this.getOriginalSourceFromCtx(ctx),
-      });
-    }
+    // Determine if this is activate or deactivate
+    const isActivate = ctx.ACTIVATE() !== null;
+    const action = isActivate ? 'activate' : 'deactivate';
+
+    // Extract the actor
+    const actorCtx = ctx.actor();
+    const participant = actorCtx ? this.getContextText(actorCtx) : '';
+
+    this.pushStatement({
+      type: action,
+      originalIndex: this.currentIndex++,
+      data: { participant },
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+
     return '';
   }
 
