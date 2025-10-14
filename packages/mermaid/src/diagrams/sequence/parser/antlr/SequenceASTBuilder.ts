@@ -96,6 +96,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   private originalText = '';
   private elementMappings: ElementMapping[] = [];
   private svgIdCounter = 0;
+  private elementMappingCounter = 0; // Separate counter for element mapping IDs
   private currentLine = 1;
   private currentColumn = 1;
   private currentCharIndex = 0;
@@ -155,6 +156,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     this.currentIndex = 0;
     this.elementMappings = [];
     this.svgIdCounter = 0;
+    this.elementMappingCounter = 0;
     this.resetPositionTracking();
 
     log.debug('🎯 Starting code generation with AST building and position tracking');
@@ -523,7 +525,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       return null;
     }
 
-    const elementId = ElementMappingUtils.generateElementId(type, this.currentIndex++);
+    const elementId = ElementMappingUtils.generateElementId(type, this.elementMappingCounter++);
     const svgId = ElementMappingUtils.generateSvgId(elementId);
 
     // Generate SVG selector based on data-et attribute (used by sequence renderer)
@@ -601,7 +603,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         const fromPosition = this.getPositionFromContext(fromActorCtx);
         if (fromPosition) {
           const fromMapping: ElementMapping = {
-            id: ElementMappingUtils.generateElementId('participant', this.currentIndex++),
+            id: ElementMappingUtils.generateElementId('participant', this.elementMappingCounter++),
             type: 'participant',
             position: fromPosition,
             svgId: ElementMappingUtils.generateSvgId(`participant_${from}`),
@@ -619,7 +621,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         const toPosition = this.getPositionFromContext(toActorCtx);
         if (toPosition) {
           const toMapping: ElementMapping = {
-            id: ElementMappingUtils.generateElementId('participant', this.currentIndex++),
+            id: ElementMappingUtils.generateElementId('participant', this.elementMappingCounter++),
             type: 'participant',
             position: toPosition,
             svgId: ElementMappingUtils.generateSvgId(`participant_${to}`),
@@ -656,7 +658,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
             const messageEndIndex = messageStartIndex + message.length;
 
             const messageMapping: ElementMapping = {
-              id: ElementMappingUtils.generateElementId('message', this.currentIndex++),
+              id: ElementMappingUtils.generateElementId('message', this.elementMappingCounter++),
               type: 'message',
               position: {
                 startLine: messagePosition.startLine,
@@ -885,7 +887,36 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
   // Line - individual lines in the document
   visitLine(ctx: LineContext): string {
-    this.visitChildren(ctx);
+    const statementCtx = ctx.statement();
+
+    // First, visit the statement if it exists (this will add it to the AST)
+    if (statementCtx) {
+      this.visitChildren(ctx);
+    }
+
+    // Now check the NEWLINE token to see if there are blank lines after this line
+    // The NEWLINE token might contain multiple \n characters (e.g., "\n\n" for a blank line)
+    const newlineText = this.getOriginalSourceFromCtx(ctx);
+    const newlineCount = (newlineText.match(/\n/g) || []).length;
+
+    // The first newline ends the current line
+    // Each additional newline represents a blank line
+    // For example: "\n\n" means 1 blank line, "\n\n\n" means 2 blank lines
+    const blankLineCount = Math.max(0, newlineCount - 1);
+
+    if (blankLineCount > 0) {
+      // Create blank line statements for the extra newlines
+      for (let i = 0; i < blankLineCount; i++) {
+        this.pushStatement({
+          type: 'blankLine',
+          originalIndex: this.currentIndex++, // Increment index for each blank line
+          data: {},
+          sourceTokens: { start: ctx.start, stop: ctx.stop },
+          sourceLine: '\n', // Each blank line is represented by a single newline
+        });
+      }
+    }
+
     return '';
   }
   // Comment statement (%% ...)
@@ -907,7 +938,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     const commentText = this.getOriginalSourceFromCtx(ctx);
     this.pushStatement({
       type: 'comment',
-      originalIndex: this.currentIndex,
+      originalIndex: this.currentIndex++,
       data: { text: commentText },
       sourceTokens: { start: ctx.start, stop: ctx.stop },
       sourceLine: commentText,
@@ -959,7 +990,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         const statementType = hasActor ? 'actor' : 'participant';
         this.pushStatement({
           type: statementType as any,
-          originalIndex: this.currentIndex,
+          originalIndex: this.currentIndex++,
           data: participantData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
           sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -997,7 +1028,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, participant] = createMatch;
       this.pushStatement({
         type: 'create',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { participant },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1018,7 +1049,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, participant] = destroyMatch;
       this.pushStatement({
         type: 'destroy',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { participant },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1052,7 +1083,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         const messageData: MessageData = { from, arrow: fullArrow, to, message: cleanMessage };
         this.pushStatement({
           type: 'message',
-          originalIndex: this.currentIndex,
+          originalIndex: this.currentIndex++,
           data: messageData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
           sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1098,7 +1129,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         };
         this.ast.statements.push({
           type: 'note',
-          originalIndex: this.currentIndex,
+          originalIndex: this.currentIndex++,
           data: noteData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
           sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1137,7 +1168,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     const loopData = { condition, statements: nested } as any;
     this.pushStatement({
       type: 'loop',
-      originalIndex: this.currentIndex,
+      originalIndex: this.currentIndex++,
       data: loopData,
       sourceTokens: { start: ctx.start, stop: ctx.stop },
       sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1181,7 +1212,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, content] = optMatch;
       this.pushStatement({
         type: 'opt',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { condition: content.trim(), statements: [] },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1212,7 +1243,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, condition] = altMatch;
       this.pushStatement({
         type: 'alt',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { condition: condition.trim(), statements: [[]], elseStatements: [] },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1245,7 +1276,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     // Build AST entry
     this.pushStatement({
       type: 'par',
-      originalIndex: this.currentIndex,
+      originalIndex: this.currentIndex++,
       data: { statements: [[]] },
       sourceTokens: { start: ctx.start, stop: ctx.stop },
       sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1281,7 +1312,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, color] = rectMatch;
       this.pushStatement({
         type: 'rect',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { color: color?.trim(), statements: [] },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1312,7 +1343,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, name] = boxMatch;
       this.pushStatement({
         type: 'box',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { name: name?.trim(), participants: [] },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1343,7 +1374,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, condition] = breakMatch;
       this.pushStatement({
         type: 'break',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { condition: condition.trim(), statements: [] },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1374,7 +1405,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, condition] = criticalMatch;
       this.pushStatement({
         type: 'critical',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { condition: condition.trim(), statements: [[]] },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1426,7 +1457,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       }
       this.pushStatement({
         type: 'links',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { participant, links },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1446,7 +1477,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, participant, linkName, linkUrl] = linkMatch;
       this.pushStatement({
         type: 'link',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { participant, linkName: linkName.trim(), linkUrl: linkUrl.trim() },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1475,7 +1506,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       }
       this.pushStatement({
         type: 'properties',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { participant, properties },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1495,7 +1526,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, participant, details] = detailsMatch;
       this.pushStatement({
         type: 'details',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { participant, details: details.trim() },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1515,7 +1546,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, action, participant] = activateMatch;
       this.pushStatement({
         type: action as 'activate' | 'deactivate',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { participant },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1535,7 +1566,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, start, step] = autonumberMatch;
       this.pushStatement({
         type: 'autonumber',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: {
           start: start ? parseInt(start, 10) : undefined,
           step: step ? parseInt(step, 10) : undefined,
@@ -1558,7 +1589,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, title] = titleMatch;
       this.pushStatement({
         type: 'title',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { title: title.trim() },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1584,7 +1615,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, title] = accTitleMatch;
       this.pushStatement({
         type: 'accTitle',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { title: title.trim() },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
@@ -1604,7 +1635,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const [, description] = accDescrMatch;
       this.pushStatement({
         type: 'accDescr',
-        originalIndex: this.currentIndex,
+        originalIndex: this.currentIndex++,
         data: { description: description.trim() },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),

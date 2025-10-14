@@ -19,16 +19,19 @@ describe('Sequence AST sourceLine property', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    // Check that we have 2 statements
-    expect(ast.statements).toHaveLength(2);
+    // Filter out blank lines for this test
+    const nonBlankStatements = ast.statements.filter((s) => s.type !== 'blankLine');
+
+    // Check that we have 2 non-blank statements
+    expect(nonBlankStatements).toHaveLength(2);
 
     // Check first statement (actor Alice)
-    const aliceStatement = ast.statements[0];
+    const aliceStatement = nonBlankStatements[0];
     expect(aliceStatement.type).toBe('actor');
     expect(aliceStatement.sourceLine).toBe('actor Alice');
 
     // Check second statement (participant Bob)
-    const bobStatement = ast.statements[1];
+    const bobStatement = nonBlankStatements[1];
     expect(bobStatement.type).toBe('participant');
     expect(bobStatement.sourceLine).toBe('participant Bob');
   });
@@ -46,11 +49,14 @@ describe('Sequence AST sourceLine property', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    // Check that we have 1 statement
-    expect(ast.statements).toHaveLength(1);
+    // Filter out blank lines for this test
+    const nonBlankStatements = ast.statements.filter((s) => s.type !== 'blankLine');
+
+    // Check that we have 1 non-blank statement
+    expect(nonBlankStatements).toHaveLength(1);
 
     // Check message statement
-    const messageStatement = ast.statements[0];
+    const messageStatement = nonBlankStatements[0];
     expect(messageStatement.type).toBe('message');
     expect(messageStatement.sourceLine).toBe('Alice->>Bob: Hello Bob');
   });
@@ -68,11 +74,14 @@ describe('Sequence AST sourceLine property', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    // Check that we have 1 statement
-    expect(ast.statements).toHaveLength(1);
+    // Filter out blank lines for this test
+    const nonBlankStatements = ast.statements.filter((s) => s.type !== 'blankLine');
+
+    // Check that we have 1 non-blank statement
+    expect(nonBlankStatements).toHaveLength(1);
 
     // Check note statement
-    const noteStatement = ast.statements[0];
+    const noteStatement = nonBlankStatements[0];
     expect(noteStatement.type).toBe('note');
     expect(noteStatement.sourceLine).toBe('note right of Alice: This is a note');
   });
@@ -92,11 +101,14 @@ describe('Sequence AST sourceLine property', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    // Check that we have 1 statement (the loop)
-    expect(ast.statements).toHaveLength(1);
+    // Filter out blank lines for this test
+    const nonBlankStatements = ast.statements.filter((s) => s.type !== 'blankLine');
+
+    // Check that we have 1 non-blank statement (the loop)
+    expect(nonBlankStatements).toHaveLength(1);
 
     // Check loop statement
-    const loopStatement = ast.statements[0];
+    const loopStatement = nonBlankStatements[0];
     expect(loopStatement.type).toBe('loop');
     expect(loopStatement.sourceLine).toContain('loop Every minute');
     expect(loopStatement.sourceLine).toContain('Alice->>Bob: Great!');

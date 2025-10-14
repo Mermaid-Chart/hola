@@ -228,6 +228,10 @@ export interface CommentData {
   text: string;
 }
 
+export interface BlankLineData {
+  // Empty - just represents a blank line
+}
+
 /**
  * Sequence diagram statement types
  */
@@ -256,7 +260,8 @@ export type SequenceStatementType =
   | 'title'
   | 'accTitle'
   | 'accDescr'
-  | 'comment';
+  | 'comment'
+  | 'blankLine';
 
 export interface SequenceStatement extends DiagramStatement {
   type: SequenceStatementType;
@@ -284,7 +289,8 @@ export interface SequenceStatement extends DiagramStatement {
     | TitleData
     | AccTitleData
     | AccDescrData
-    | CommentData;
+    | CommentData
+    | BlankLineData;
 }
 
 /**
