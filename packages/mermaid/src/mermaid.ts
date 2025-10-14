@@ -20,9 +20,12 @@ import type { LayoutData } from './rendering-util/types.js';
 import type { ParseOptions, ParseResult, RenderResult } from './types.js';
 import type { DetailedError } from './utils.js';
 import utils, { isDetailedError } from './utils.js';
+import type { SequenceAST, ElementMapping, ElementPosition } from './diagrams/sequence/types.js';
 
 export type {
   DetailedError,
+  ElementMapping,
+  ElementPosition,
   ExternalDiagramDefinition,
   InternalHelpers,
   LayoutData,
@@ -33,6 +36,7 @@ export type {
   ParseResult,
   RenderOptions,
   RenderResult,
+  SequenceAST,
   SVG,
   SVGGroup,
   UnknownDiagramError,
