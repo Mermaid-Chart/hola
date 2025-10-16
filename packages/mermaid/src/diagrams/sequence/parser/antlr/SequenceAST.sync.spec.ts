@@ -26,47 +26,47 @@ describe('SequenceAST Bidirectional Synchronization', () => {
 
   describe('AST Method Attachment', () => {
     it('should attach getElementAtPosition method', () => {
-      expect(ast.getElementAtPosition).toBeDefined();
+      expect(ast).toHaveProperty('getElementAtPosition');
       expect(typeof ast.getElementAtPosition).toBe('function');
     });
 
     it('should attach getElementByDataId method', () => {
-      expect(ast.getElementByDataId).toBeDefined();
+      expect(ast).toHaveProperty('getElementByDataId');
       expect(typeof ast.getElementByDataId).toBe('function');
     });
 
     it('should attach getElementById method', () => {
-      expect(ast.getElementById).toBeDefined();
+      expect(ast).toHaveProperty('getElementById');
       expect(typeof ast.getElementById).toBe('function');
     });
 
     it('should attach getElementAtIndex method', () => {
-      expect(ast.getElementAtIndex).toBeDefined();
+      expect(ast).toHaveProperty('getElementAtIndex');
       expect(typeof ast.getElementAtIndex).toBe('function');
     });
 
     it('should attach getParticipants method', () => {
-      expect(ast.getParticipants).toBeDefined();
+      expect(ast).toHaveProperty('getParticipants');
       expect(typeof ast.getParticipants).toBe('function');
     });
 
     it('should attach getMessages method', () => {
-      expect(ast.getMessages).toBeDefined();
+      expect(ast).toHaveProperty('getMessages');
       expect(typeof ast.getMessages).toBe('function');
     });
 
     it('should attach getNotes method', () => {
-      expect(ast.getNotes).toBeDefined();
+      expect(ast).toHaveProperty('getNotes');
       expect(typeof ast.getNotes).toBe('function');
     });
 
     it('should attach getControlStructures method', () => {
-      expect(ast.getControlStructures).toBeDefined();
+      expect(ast).toHaveProperty('getControlStructures');
       expect(typeof ast.getControlStructures).toBe('function');
     });
 
     it('should attach getStats method', () => {
-      expect(ast.getStats).toBeDefined();
+      expect(ast).toHaveProperty('getStats');
       expect(typeof ast.getStats).toBe('function');
     });
 
@@ -131,6 +131,11 @@ describe('SequenceAST Bidirectional Synchronization', () => {
     });
 
     it('should find message by data-id with "i" prefix', () => {
+      // The test diagram has (DB message array indices):
+      // - Alice->>Bob message (index 0) → i0
+      // - Note (index 1) → i1
+      // - Bob-->>Alice message (index 2) → i2
+      // Note: Participants are NOT in the DB messages array
       const element = ast.getElementByDataId?.('i0');
       expect(element).toBeDefined();
       expect(element?.type).toBe('message');

@@ -1,3 +1,5 @@
+import type { MermaidConfig } from '../../config.type.js';
+
 export interface Box {
   name: string;
   wrap: boolean;
@@ -97,6 +99,7 @@ export interface DiagramStatement {
   data: unknown;
   sourceTokens?: { start: unknown; stop: unknown }; // Reference to original tokens
   sourceLine?: string; // Original source text for this statement - allows regenerating unchanged code
+  dbIndex?: number; // DB message array index (includes control structure markers) - used for SVG data-id matching
 }
 
 export interface DiagramAST {
@@ -229,9 +232,7 @@ export interface CommentData {
   text: string;
 }
 
-export interface BlankLineData {
-  // Empty - just represents a blank line
-}
+export type BlankLineData = Record<string, never>;
 
 /**
  * Sequence diagram statement types
@@ -339,7 +340,7 @@ export interface SequenceAST extends DiagramAST {
     title?: string;
     participants?: Map<string, ParticipantData>;
     theme?: string;
-    config?: any;
+    config?: MermaidConfig;
   };
 
   // Bidirectional synchronization methods

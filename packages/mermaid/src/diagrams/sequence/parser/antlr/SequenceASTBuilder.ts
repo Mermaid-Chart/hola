@@ -49,6 +49,9 @@ import type {
   ParticipantData,
   MessageData,
   NoteData,
+  LoopData,
+  OptData,
+  AltData,
   ElementMapping,
   ElementPosition,
   SequenceStatement,
@@ -84,7 +87,8 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
   // AST building properties
   private ast: SequenceAST;
-  private currentIndex = 0;
+  private currentIndex = 0; // Logical order for code regeneration (sequential)
+  private dbIndex = 0; // DB message array index (includes control structure markers for SVG matching)
 
   // Suppress code emission when building nested AST (e.g., visiting children inside blocks)
   private suppressEmission = false;
@@ -145,7 +149,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
    * Generate code from the parse tree with position tracking
    */
   generateAST(
-    tree: any
+    tree: ParseTree
     // visitor: SequenceParserVisitor
   ): { code: string; lines: string[]; ast: SequenceAST } {
     log.info('🌳 Generating code from parse tree with position tracking', tree);
@@ -268,19 +272,17 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       }
 
       // For messages and notes, data-id is 'i' + index (i0, i1, i2, etc.)
-      // The index is shared across messages and notes in order of appearance
+      // Match against the svgSelector which contains the correct data-id
       if (dataId.startsWith('i')) {
-        const requestedIndex = parseInt(dataId.substring(1), 10);
-
-        // Count messages and notes together in order of appearance
-        let currentIndex = 0;
+        const expectedSelector = `[data-et="message"][data-id="${dataId}"]`;
+        const expectedNoteSelector = `[data-et="note"][data-id="${dataId}"]`;
 
         for (const mapping of mappings) {
-          if (mapping.type === 'message' || mapping.type === 'note') {
-            if (currentIndex === requestedIndex) {
-              return mapping;
-            }
-            currentIndex++;
+          if (
+            (mapping.type === 'message' && mapping.svgSelector === expectedSelector) ||
+            (mapping.type === 'note' && mapping.svgSelector === expectedNoteSelector)
+          ) {
+            return mapping;
           }
         }
       }
@@ -513,9 +515,10 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   private createElementMapping(
     type: SequenceStatementType,
     ctx: ParserRuleContext,
-    data: ElementMapping['data']
+    data: ElementMapping['data'],
+    dbIndex?: number
   ): ElementMapping | null {
-    log.debug('🔧 createElementMapping called:', { type, hasCtx: !!ctx, data });
+    log.debug('🔧 createElementMapping called:', { type, hasCtx: !!ctx, data, dbIndex });
 
     const position = this.getPositionFromContext(ctx);
     log.debug('🔧 Position from context:', position);
@@ -539,10 +542,12 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       svgSelector = `[data-et="${type}"][data-id="${data.id}"]`;
     } else if (type === 'message' || type === 'note') {
       // Messages and notes share the same index counter (i0, i1, i2, etc.)
-      // Count how many messages and notes we already have
-      const index = this.elementMappings.filter(
-        (m) => m.type === 'message' || m.type === 'note'
-      ).length;
+      // Use the DB index which matches how the renderer sets data-id attributes
+      // The DB assigns IDs based on the total count of ALL items in the messages array,
+      // including control structures (alt, opt, loop, etc.)
+      const index =
+        dbIndex ??
+        this.elementMappings.filter((m) => m.type === 'message' || m.type === 'note').length;
       svgSelector = `[data-et="${type}"][data-id="i${index}"]`;
     }
 
@@ -562,35 +567,71 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   }
 
   /**
+   * Create an element mapping with a specific SVG ID and selector
+   * This is used for participant aliases to ensure both the ID and alias mappings
+   * have the same SVG ID so they highlight the same element in the diagram
+   */
+  private createElementMappingWithSvgId(
+    type: SequenceStatementType,
+    ctx: ParserRuleContext,
+    data: ElementMapping['data'],
+    svgId: string,
+    svgSelector: string
+  ): ElementMapping | null {
+    log.debug('🔧 createElementMappingWithSvgId called:', {
+      type,
+      hasCtx: !!ctx,
+      data,
+      svgId,
+      svgSelector,
+    });
+
+    const position = this.getPositionFromContext(ctx);
+    log.debug('🔧 Position from context:', position);
+
+    if (!position) {
+      log.debug('⚠️ No position from context, skipping element mapping');
+      return null;
+    }
+
+    const elementId = ElementMappingUtils.generateElementId(type, this.elementMappingCounter++);
+
+    const mapping: ElementMapping = {
+      id: elementId,
+      type,
+      position,
+      svgId, // Use the provided SVG ID instead of generating a new one
+      svgSelector, // Use the provided SVG selector
+      data,
+    };
+
+    log.debug('✅ Created element mapping with specific SVG ID:', mapping);
+    this.elementMappings.push(mapping);
+    log.debug('📊 Total mappings now:', this.elementMappings.length);
+    return mapping;
+  }
+
+  /**
    * Create fine-grained element mappings for message components using actual ANTLR token positions
    * This allows highlighting specific parts: from participant, to participant, or message text
    * This version uses the actual token positions from the parse tree to handle extra whitespace correctly
    */
   private createFineGrainedMessageMappingsFromTokens(
-    ctx: any,
+    ctx: SignalStatementContext,
     from: string,
     arrow: string,
     to: string,
     message: string,
-    messageData: MessageData
+    messageData: MessageData,
+    dbIndex: number
   ): void {
-    log.debug('🔧 createFineGrainedMessageMappingsFromTokens called');
+    log.debug('🔧 createFineGrainedMessageMappingsFromTokens called with dbIndex:', dbIndex);
 
-    // Use the renderedMessageIndex which accounts for activation/deactivation messages
-    const messageIndex = this.renderedMessageIndex;
-
-    // Check if this message has an activation or deactivation marker
-    const hasActivationMarker = arrow.endsWith('+') || arrow.endsWith('-');
+    // Use the DB index which matches how the renderer sets data-id attributes
+    const messageIndex = dbIndex;
 
     log.debug(
-      `📊 [MessageIndex] arrow="${arrow}", hasActivationMarker=${hasActivationMarker}, messageIndex=${messageIndex}`
-    );
-
-    // Increment the rendered message index
-    this.renderedMessageIndex += hasActivationMarker ? 2 : 1;
-
-    log.debug(
-      `📊 [MessageIndex] After increment: renderedMessageIndex=${this.renderedMessageIndex}`
+      `📊 [MessageIndex] arrow="${arrow}", dbIndex=${dbIndex}, messageIndex=${messageIndex}`
     );
 
     // Grammar: signalStatement: actor signaltype (PLUS actor | MINUS actor | actor) text2
@@ -897,7 +938,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     // Now check the NEWLINE token to see if there are blank lines after this line
     // The NEWLINE token might contain multiple \n characters (e.g., "\n\n" for a blank line)
     const newlineText = this.getOriginalSourceFromCtx(ctx);
-    const newlineCount = (newlineText.match(/\n/g) || []).length;
+    const newlineCount = (newlineText.match(/\n/g) ?? []).length;
 
     // The first newline ends the current line
     // Each additional newline represents a blank line
@@ -973,11 +1014,13 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       const id = actorCtx ? this.getContextText(actorCtx).trim() : '';
 
       let alias = '';
+      let aliasCtx: RestOfLineContext | null = null;
       const hasAS = !!(ctx.AS && typeof ctx.AS === 'function' && ctx.AS());
       if (hasAS && ctx.restOfLine && typeof ctx.restOfLine === 'function' && ctx.restOfLine()) {
         // For aliases, the grammar uses: (AS restOfLine)?
         // restOfLine should already be the alias text without a leading colon
         const rol = ctx.restOfLine();
+        aliasCtx = rol;
         alias = rol ? this.getContextText(rol).trim() : '';
       }
 
@@ -987,9 +1030,9 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
         // Build AST entry
         const participantData: ParticipantData = { id, alias: alias || undefined };
-        const statementType = hasActor ? 'actor' : 'participant';
+        const statementType: SequenceStatementType = hasActor ? 'actor' : 'participant';
         this.pushStatement({
-          type: statementType as any,
+          type: statementType,
           originalIndex: this.currentIndex++,
           data: participantData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
@@ -998,7 +1041,26 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
         // Create element mapping for bidirectional synchronization
         // Use actorCtx instead of ctx to highlight only the participant name, not the keyword
-        this.createElementMapping('participant', actorCtx || ctx, participantData);
+        const participantMapping = this.createElementMapping(
+          'participant',
+          actorCtx ?? ctx,
+          participantData
+        );
+
+        // If there's an alias, create an additional element mapping for it
+        // This allows bidirectional highlighting to work when cursor is on the alias
+        // Both mappings should have the same SVG ID so they highlight the same element
+        if (alias && aliasCtx && participantMapping) {
+          log.debug('Creating additional element mapping for alias:', alias);
+          this.createElementMappingWithSvgId(
+            'participant',
+            aliasCtx,
+            participantData,
+            participantMapping.svgId,
+            participantMapping.svgSelector
+          );
+        }
+
         log.debug('📝 Added participant to AST:', participantData);
         return '';
       }
@@ -1081,23 +1143,27 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
         // Build AST entry
         const messageData: MessageData = { from, arrow: fullArrow, to, message: cleanMessage };
+        // Capture the DB index before incrementing dbIndex
+        const currentDbIndex = this.dbIndex;
         this.pushStatement({
           type: 'message',
           originalIndex: this.currentIndex++,
+          dbIndex: this.dbIndex++,
           data: messageData,
           sourceTokens: { start: ctx.start, stop: ctx.stop },
           sourceLine: this.getOriginalSourceFromCtx(ctx),
         });
 
         // Create fine-grained element mappings for each component
-        log.debug('  - Creating fine-grained element mappings');
+        log.debug('  - Creating fine-grained element mappings with DB index:', currentDbIndex);
         this.createFineGrainedMessageMappingsFromTokens(
           ctx,
           from,
           fullArrow,
           to,
           cleanMessage,
-          messageData
+          messageData,
+          currentDbIndex
         );
 
         log.debug('📝 Added message to AST:', messageData);
@@ -1145,14 +1211,17 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       message,
     };
 
+    // Capture the DB index before incrementing dbIndex
+    const currentDbIndex = this.dbIndex;
     this.pushStatement({
       type: 'note',
       originalIndex: this.currentIndex++,
+      dbIndex: this.dbIndex++,
       data: noteData,
       sourceTokens: { start: ctx.start, stop: ctx.stop },
       sourceLine: this.getOriginalSourceFromCtx(ctx),
     });
-    this.createElementMapping('note', ctx, noteData);
+    this.createElementMapping('note', ctx, noteData, currentDbIndex);
 
     return '';
   }
@@ -1164,6 +1233,9 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       typeof ctx.restOfLine === 'function' && ctx.restOfLine()
         ? this.getContextText(ctx.restOfLine() ?? undefined).trim()
         : '';
+
+    // Increment dbIndex for LOOP_START marker (matches DB behavior)
+    this.dbIndex++;
 
     // Collect nested statements while suppressing emission
     const nested: SequenceStatement[] = [];
@@ -1181,7 +1253,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       this.blockStack.pop();
     }
 
-    const loopData = { condition, statements: nested } as any;
+    const loopData: LoopData = { condition, statements: nested };
     this.pushStatement({
       type: 'loop',
       originalIndex: this.currentIndex++,
@@ -1190,6 +1262,9 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       sourceLine: this.getOriginalSourceFromCtx(ctx),
     });
     this.createElementMapping('loop', ctx, loopData);
+
+    // Increment dbIndex for LOOP_END marker
+    this.dbIndex++;
 
     // 2) Emit the entire loop block exactly as in the source for code reproduction
     this.flushJoinedLine();
@@ -1208,7 +1283,45 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
   // Opt block
   visitOptBlock(ctx: OptBlockContext): string {
-    // Emit the entire opt block exactly as in the source
+    // 1) Build AST for the opt block (condition + nested statements)
+    const condition =
+      typeof ctx.restOfLine === 'function' && ctx.restOfLine()
+        ? this.getContextText(ctx.restOfLine() ?? undefined).trim()
+        : '';
+
+    // Increment dbIndex for OPT_START marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Collect nested statements while suppressing emission
+    const nested: SequenceStatement[] = [];
+    this.blockStack.push({ type: 'opt', statements: nested });
+    const prevSuppress = this.suppressEmission;
+    this.suppressEmission = true;
+    try {
+      if (typeof ctx.document === 'function' && ctx.document()) {
+        this.visit(ctx.document());
+      } else {
+        this.visitChildren(ctx);
+      }
+    } finally {
+      this.suppressEmission = prevSuppress;
+      this.blockStack.pop();
+    }
+
+    const optData: OptData = { condition, statements: nested };
+    this.pushStatement({
+      type: 'opt',
+      originalIndex: this.currentIndex++,
+      data: optData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+    this.createElementMapping('opt', ctx, optData);
+
+    // Increment dbIndex for OPT_END marker
+    this.dbIndex++;
+
+    // 2) Emit the entire opt block exactly as in the source for code reproduction
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
     for (let ln = this.lastPhysicalLineEmitted + 1; ln < ctx.start!.line; ln++) {
@@ -1219,27 +1332,53 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     }
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
-    }
-
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const optMatch = /^opt\s+(.+?)(?:end|$)/s.exec(fullText);
-    if (optMatch) {
-      const [, content] = optMatch;
-      this.pushStatement({
-        type: 'opt',
-        originalIndex: this.currentIndex++,
-        data: { condition: content.trim(), statements: [] },
-        sourceTokens: { start: ctx.start, stop: ctx.stop },
-        sourceLine: this.getOriginalSourceFromCtx(ctx),
-      });
     }
     return '';
   }
 
   // Alt block
   visitAltBlock(ctx: AltBlockContext): string {
-    // Emit the entire alt block exactly as in the source (including else sections)
+    // 1) Build AST for the alt block (condition + nested statements + else sections)
+    const condition =
+      typeof ctx.restOfLine === 'function' && ctx.restOfLine()
+        ? this.getContextText(ctx.restOfLine() ?? undefined).trim()
+        : '';
+
+    // Increment dbIndex for ALT_START marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Collect nested statements for the main alt branch
+    const nested: SequenceStatement[] = [];
+    this.blockStack.push({ type: 'alt', statements: nested });
+    const prevSuppress = this.suppressEmission;
+    this.suppressEmission = true;
+
+    try {
+      // Visit the altSections which contains the main document and else sections
+      if (typeof ctx.altSections === 'function' && ctx.altSections()) {
+        this.visit(ctx.altSections());
+      } else {
+        this.visitChildren(ctx);
+      }
+    } finally {
+      this.suppressEmission = prevSuppress;
+      this.blockStack.pop();
+    }
+
+    const altData: AltData = { condition, statements: [...nested], elseStatements: [] };
+    this.pushStatement({
+      type: 'alt',
+      originalIndex: this.currentIndex++,
+      data: altData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+    this.createElementMapping('alt', ctx, altData);
+
+    // Increment dbIndex for ALT_END marker
+    this.dbIndex++;
+
+    // 2) Emit the entire alt block exactly as in the source for code reproduction
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
     for (let ln = this.lastPhysicalLineEmitted + 1; ln < ctx.start!.line; ln++) {
@@ -1251,26 +1390,22 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
-
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const altMatch = /^alt\s+(.+?)(?:else|end)/s.exec(fullText);
-    if (altMatch) {
-      const [, condition] = altMatch;
-      this.pushStatement({
-        type: 'alt',
-        originalIndex: this.currentIndex++,
-        data: { condition: condition.trim(), statements: [[]], elseStatements: [] },
-        sourceTokens: { start: ctx.start, stop: ctx.stop },
-        sourceLine: this.getOriginalSourceFromCtx(ctx),
-      });
-    }
     return '';
   }
 
   // Else section within alt block
-  visitElseSection(_ctx: ElseSectionContext): string {
-    // Handled by parent alt block emission
+  visitElseSection(ctx: ElseSectionContext): string {
+    // Increment dbIndex for ALT_ELSE marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Visit the document inside the else section to process nested statements
+    // The emission is suppressed by the parent alt block, so we just need to
+    // ensure the nested statements are visited for element mapping creation
+    if (typeof ctx.document === 'function' && ctx.document()) {
+      this.visit(ctx.document());
+    } else {
+      this.visitChildren(ctx);
+    }
     return '';
   }
 
@@ -1571,6 +1706,10 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
       sourceLine: this.getOriginalSourceFromCtx(ctx),
     });
 
+    // Increment dbIndex for ACTIVE_START or ACTIVE_END marker (matches DB behavior)
+    // The DB adds an entry to the messages array for both activate and deactivate
+    this.dbIndex++;
+
     return '';
   }
 
@@ -1671,38 +1810,38 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
   // Additional visitor methods for completeness
   visitActorWithConfig(ctx: ActorWithConfigContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitConfigObject(ctx: ConfigObjectContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitSignaltype(ctx: SignaltypeContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitText2(ctx: Text2Context): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitRestOfLine(ctx: RestOfLineContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitAltSections(ctx: AltSectionsContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitParSections(ctx: ParSectionsContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitOptionSections(ctx: OptionSectionsContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 
   visitActor(ctx: ActorContext): string {
-    return this.visitChildren(ctx);
+    return this.visitChildren(ctx) ?? '';
   }
 }
