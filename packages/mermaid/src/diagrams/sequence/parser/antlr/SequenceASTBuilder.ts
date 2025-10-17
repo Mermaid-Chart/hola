@@ -29,6 +29,8 @@ import type {
   AltBlockContext,
   ParBlockContext,
   ParOverBlockContext,
+  BreakBlockContext,
+  CriticalBlockContext,
   AltSectionsContext,
   ElseSectionContext,
   ParSectionsContext,
@@ -95,6 +97,9 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
   // Stack for collecting nested statements within control structures
   private blockStack: { type: SequenceStatement['type']; statements: SequenceStatement[] }[] = [];
+
+  // Stack for collecting sections in multi-section blocks (par, critical)
+  private sectionStack: SequenceStatement[][][] = [];
 
   // Position tracking for bidirectional synchronization
   private originalText = '';
@@ -1411,7 +1416,52 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
   // Par block
   visitParBlock(ctx: ParBlockContext): string {
-    // Emit the entire par block exactly as in the source (including 'and' sections)
+    // 1) Build AST for the par block (sections with nested statements)
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const parMatch = /^par\s+(.+?)(?:\n|$)/s.exec(fullText);
+    const condition = parMatch?.[1]?.trim() || '';
+
+    // Increment dbIndex for PAR_START marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Collect sections (par has multiple sections separated by 'and')
+    const sections: SequenceStatement[][] = [];
+
+    // Collect nested statements for the first section while suppressing emission
+    const firstSection: SequenceStatement[] = [];
+    sections.push(firstSection);
+    this.sectionStack.push(sections);
+    this.blockStack.push({ type: 'par', statements: firstSection });
+    const prevSuppress = this.suppressEmission;
+    this.suppressEmission = true;
+
+    try {
+      // Visit parSections which contains the main document and 'and' sections
+      if (typeof ctx.parSections === 'function' && ctx.parSections()) {
+        this.visit(ctx.parSections());
+      } else {
+        this.visitChildren(ctx);
+      }
+    } finally {
+      this.suppressEmission = prevSuppress;
+      this.blockStack.pop();
+      this.sectionStack.pop();
+    }
+
+    const parData = { condition, statements: sections };
+    this.pushStatement({
+      type: 'par',
+      originalIndex: this.currentIndex++,
+      data: parData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+    this.createElementMapping('par', ctx, parData);
+
+    // Increment dbIndex for PAR_END marker
+    this.dbIndex++;
+
+    // 2) Emit the entire par block exactly as in the source for code reproduction
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
     for (let ln = this.lastPhysicalLineEmitted + 1; ln < ctx.start!.line; ln++) {
@@ -1423,27 +1473,77 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
-
-    // Build AST entry
-    this.pushStatement({
-      type: 'par',
-      originalIndex: this.currentIndex++,
-      data: { statements: [[]] },
-      sourceTokens: { start: ctx.start, stop: ctx.stop },
-      sourceLine: this.getOriginalSourceFromCtx(ctx),
-    });
     return '';
   }
 
   // And section within par block
-  visitAndSection(_ctx: AndSectionContext): string {
-    // Handled by parent par block emission
+  visitAndSection(ctx: AndSectionContext): string {
+    // Increment dbIndex for PAR_AND marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Create a new section for the 'and' branch
+    const newSection: SequenceStatement[] = [];
+
+    // Add the new section to the current sections array
+    const currentSections = this.sectionStack[this.sectionStack.length - 1];
+    if (currentSections) {
+      currentSections.push(newSection);
+
+      // Switch to collecting statements for the new section
+      this.blockStack.pop();
+      this.blockStack.push({ type: 'par', statements: newSection });
+
+      // Visit the document inside the 'and' section
+      if (typeof ctx.document === 'function' && ctx.document()) {
+        this.visit(ctx.document());
+      } else {
+        this.visitChildren(ctx);
+      }
+    }
+
     return '';
   }
 
   // Rect block
   visitRectBlock(ctx: RectBlockContext): string {
-    // Emit the entire rect block exactly as in the source
+    // 1) Build AST for the rect block (color + nested statements)
+    const fullText = ctx.getText ? ctx.getText() : '';
+    const rectMatch = /^rect\s+(?:rgb\(([^)]+)\))?/.exec(fullText);
+    const color = rectMatch?.[1]?.trim();
+
+    // Increment dbIndex for RECT_START marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Collect nested statements while suppressing emission
+    const nested: SequenceStatement[] = [];
+    this.blockStack.push({ type: 'rect', statements: nested });
+    const prevSuppress = this.suppressEmission;
+    this.suppressEmission = true;
+    try {
+      if (typeof ctx.document === 'function' && ctx.document()) {
+        this.visit(ctx.document());
+      } else {
+        this.visitChildren(ctx);
+      }
+    } finally {
+      this.suppressEmission = prevSuppress;
+      this.blockStack.pop();
+    }
+
+    const rectData = { color, statements: nested };
+    this.pushStatement({
+      type: 'rect',
+      originalIndex: this.currentIndex++,
+      data: rectData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+    this.createElementMapping('rect', ctx, rectData);
+
+    // Increment dbIndex for RECT_END marker
+    this.dbIndex++;
+
+    // 2) Emit the entire rect block exactly as in the source for code reproduction
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
     for (let ln = this.lastPhysicalLineEmitted + 1; ln < ctx.start!.line; ln++) {
@@ -1454,20 +1554,6 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     }
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
-    }
-
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const rectMatch = /^rect\s+(?:rgb\(([^)]+)\)\s*)?(.*)end$/s.exec(fullText);
-    if (rectMatch) {
-      const [, color] = rectMatch;
-      this.pushStatement({
-        type: 'rect',
-        originalIndex: this.currentIndex++,
-        data: { color: color?.trim(), statements: [] },
-        sourceTokens: { start: ctx.start, stop: ctx.stop },
-        sourceLine: this.getOriginalSourceFromCtx(ctx),
-      });
     }
     return '';
   }
@@ -1504,8 +1590,46 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   }
 
   // Break block
-  visitBreakBlock(ctx: ParserRuleContext): string {
-    // Emit the entire break block exactly as in the source
+  visitBreakBlock(ctx: BreakBlockContext): string {
+    // 1) Build AST for the break block (condition + nested statements)
+    const restOfLineCtx = ctx.restOfLine();
+    const condition = restOfLineCtx ? this.getContextText(restOfLineCtx).trim() : '';
+
+    // Increment dbIndex for BREAK_START marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Collect nested statements while suppressing emission
+    const nested: SequenceStatement[] = [];
+    this.blockStack.push({ type: 'break', statements: nested });
+    const prevSuppress = this.suppressEmission;
+    this.suppressEmission = true;
+    try {
+      // Break block has a document child with nested statements
+      const docCtx = ctx.document();
+      if (docCtx) {
+        this.visit(docCtx);
+      } else {
+        this.visitChildren(ctx);
+      }
+    } finally {
+      this.suppressEmission = prevSuppress;
+      this.blockStack.pop();
+    }
+
+    const breakData = { condition, statements: nested };
+    this.pushStatement({
+      type: 'break',
+      originalIndex: this.currentIndex++,
+      data: breakData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+    this.createElementMapping('break', ctx, breakData);
+
+    // Increment dbIndex for BREAK_END marker
+    this.dbIndex++;
+
+    // 2) Emit the entire break block exactly as in the source for code reproduction
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
     for (let ln = this.lastPhysicalLineEmitted + 1; ln < ctx.start!.line; ln++) {
@@ -1516,27 +1640,58 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     }
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
-    }
-
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const breakMatch = /^break\s+(.+?)(?:end|$)/s.exec(fullText);
-    if (breakMatch) {
-      const [, condition] = breakMatch;
-      this.pushStatement({
-        type: 'break',
-        originalIndex: this.currentIndex++,
-        data: { condition: condition.trim(), statements: [] },
-        sourceTokens: { start: ctx.start, stop: ctx.stop },
-        sourceLine: this.getOriginalSourceFromCtx(ctx),
-      });
     }
     return '';
   }
 
   // Critical block
-  visitCriticalBlock(ctx: ParserRuleContext): string {
-    // Emit the entire critical block exactly as in the source
+  visitCriticalBlock(ctx: CriticalBlockContext): string {
+    // 1) Build AST for the critical block (sections with nested statements)
+    const restOfLineCtx = ctx.restOfLine();
+    const condition = restOfLineCtx ? this.getContextText(restOfLineCtx).trim() : '';
+
+    // Increment dbIndex for CRITICAL_START marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Collect sections (critical has multiple sections separated by 'option')
+    const sections: SequenceStatement[][] = [];
+
+    // Collect nested statements for the first section while suppressing emission
+    const firstSection: SequenceStatement[] = [];
+    sections.push(firstSection);
+    this.sectionStack.push(sections);
+    this.blockStack.push({ type: 'critical', statements: firstSection });
+    const prevSuppress = this.suppressEmission;
+    this.suppressEmission = true;
+
+    try {
+      // Visit optionSections which contains the main document and 'option' sections
+      const optionSectionsCtx = ctx.optionSections();
+      if (optionSectionsCtx) {
+        this.visit(optionSectionsCtx);
+      } else {
+        this.visitChildren(ctx);
+      }
+    } finally {
+      this.suppressEmission = prevSuppress;
+      this.blockStack.pop();
+      this.sectionStack.pop();
+    }
+
+    const criticalData = { condition, statements: sections };
+    this.pushStatement({
+      type: 'critical',
+      originalIndex: this.currentIndex++,
+      data: criticalData,
+      sourceTokens: { start: ctx.start, stop: ctx.stop },
+      sourceLine: this.getOriginalSourceFromCtx(ctx),
+    });
+    this.createElementMapping('critical', ctx, criticalData);
+
+    // Increment dbIndex for CRITICAL_END marker
+    this.dbIndex++;
+
+    // 2) Emit the entire critical block exactly as in the source for code reproduction
     this.flushJoinedLine();
     // Emit any intervening blank lines before the block
     for (let ln = this.lastPhysicalLineEmitted + 1; ln < ctx.start!.line; ln++) {
@@ -1548,26 +1703,34 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     for (let ln = ctx.start!.line; ln <= ctx.stop!.line; ln++) {
       this.addOriginalLine(ln);
     }
-
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const criticalMatch = /^critical\s+(.+?)(?:option|end)/s.exec(fullText);
-    if (criticalMatch) {
-      const [, condition] = criticalMatch;
-      this.pushStatement({
-        type: 'critical',
-        originalIndex: this.currentIndex++,
-        data: { condition: condition.trim(), statements: [[]] },
-        sourceTokens: { start: ctx.start, stop: ctx.stop },
-        sourceLine: this.getOriginalSourceFromCtx(ctx),
-      });
-    }
     return '';
   }
 
   // Option section within critical block
-  visitOptionSection(_ctx: OptionSectionContext): string {
-    // Handled by parent critical block emission
+  visitOptionSection(ctx: OptionSectionContext): string {
+    // Increment dbIndex for CRITICAL_OPTION marker (matches DB behavior)
+    this.dbIndex++;
+
+    // Create a new section for the 'option' branch
+    const newSection: SequenceStatement[] = [];
+
+    // Add the new section to the current sections array
+    const currentSections = this.sectionStack[this.sectionStack.length - 1];
+    if (currentSections) {
+      currentSections.push(newSection);
+
+      // Switch to collecting statements for the new section
+      this.blockStack.pop();
+      this.blockStack.push({ type: 'critical', statements: newSection });
+
+      // Visit the document inside the 'option' section
+      if (typeof ctx.document === 'function' && ctx.document()) {
+        this.visit(ctx.document());
+      } else {
+        this.visitChildren(ctx);
+      }
+    }
+
     return '';
   }
 
