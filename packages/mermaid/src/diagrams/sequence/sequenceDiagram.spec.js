@@ -1828,12 +1828,11 @@ Alice->Bob: Hello Bob, how are you?`;
     theme: base
     themeVariables:
       primaryColor: "#00ff00"
-  ---
+---
   sequenceDiagram
   Alice->Bob: Hello Bob`;
 
-    await mermaidAPI.parse(str);
-    const diagram = await Diagram.fromText(str);
+    const diagram = await mermaidAPI.getDiagramFromText(str);
     await diagram.renderer.draw(str, 'tst', '1.2.3', diagram);
 
     const messages = diagram.db.getMessages();

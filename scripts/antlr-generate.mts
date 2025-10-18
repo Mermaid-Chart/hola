@@ -147,8 +147,11 @@ function generateAntlrFiles(grammar: GrammarInfo): void {
       ? 'src/diagrams/common/parser/antlr'
       : 'packages/mermaid/src/diagrams/common/parser/antlr';
 
+    // TODO: Use JS api instead of CLI
     // Generate ANTLR files
     const command = [
+      'pnpm',
+      'dlx',
       'antlr-ng',
       '-Dlanguage=TypeScript',
       '-l',
@@ -172,7 +175,7 @@ function generateAntlrFiles(grammar: GrammarInfo): void {
 /**
  * Main function
  */
-function main(): void {
+export function generateAntlr(): void {
   console.log('🚀 ANTLR Generator - Finding and generating all grammar files...\n');
 
   try {
@@ -223,5 +226,5 @@ function main(): void {
 
 // Run the script
 if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+  generateAntlr();
 }

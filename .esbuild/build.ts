@@ -4,6 +4,7 @@ import { packageOptions } from '../.build/common.js';
 import { generateLangium } from '../.build/generateLangium.js';
 import type { MermaidBuildOptions } from './util.js';
 import { defaultOptions, getBuildConfig } from './util.js';
+import { generateAntlr } from '../scripts/antlr-generate.mjs';
 
 const shouldVisualize = process.argv.includes('--visualize');
 
@@ -95,6 +96,7 @@ const buildTinyMermaid = async () => {
 
 const main = async () => {
   await generateLangium();
+  generateAntlr();
   await mkdir('stats', { recursive: true });
   const packageNames = Object.keys(packageOptions) as (keyof typeof packageOptions)[];
   // it should build `parser` before `mermaid` because it's a dependency

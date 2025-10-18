@@ -354,6 +354,14 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
           If set to `false`, the absolute space required is used.
         type: boolean
         default: true
+      parser:
+        description: The parser to use for this diagram type
+        type: string
+        enum:
+          - jison
+          - antlr
+          - langium
+        default: jison
   C4DiagramConfig:
     title: C4 Diagram Config
     allOf: [{ $ref: '#/$defs/BaseDiagramConfig' }]

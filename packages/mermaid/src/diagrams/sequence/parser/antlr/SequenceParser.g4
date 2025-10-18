@@ -134,10 +134,6 @@ optionSections: document (optionSection)*;
 optionSection: OPTION restOfLine? document;
 
 
-
-
-
-
 actor: ACTOR;
 
 signaltype

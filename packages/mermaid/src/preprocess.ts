@@ -1,6 +1,6 @@
 import { cleanupComments } from './diagram-api/comments.js';
 import { extractFrontMatter } from './diagram-api/frontmatter.js';
-import type { DiagramMetadata } from './diagram-api/types.js';
+import type { DiagramCode, DiagramMetadata } from './diagram-api/types.js';
 import utils, { cleanAndMerge, removeDirectives } from './utils.js';
 import { detectType } from './diagram-api/detectType';
 
@@ -22,9 +22,7 @@ const processFrontmatter = (code: string) => {
   const { displayMode, title, config = {} } = metadata;
   if (displayMode) {
     // Needs to be supported for legacy reasons
-    if (!config.gantt) {
-      config.gantt = {};
-    }
+    config.gantt ??= {};
     config.gantt.displayMode = displayMode;
   }
 
@@ -53,31 +51,18 @@ export const antlrDiagram = (diagramType: string) =>
  * @returns The object containing the preprocessed code, title, and configuration.
  */
 export function preprocessDiagram(code: string) {
-  const orgCode = code;
-  const diagramType = detectType(code);
-  if (!antlrDiagram(diagramType)) {
-    const cleanedCode = cleanupText(code);
-    const frontMatterResult = processFrontmatter(cleanedCode);
-    const directiveResult = processDirectives(frontMatterResult.text);
-    const config = cleanAndMerge(frontMatterResult.config, directiveResult.directive);
-    code = cleanupComments(directiveResult.text);
-    return {
-      code,
-      title: frontMatterResult.title,
-      config,
-      diagramType,
-    } satisfies DiagramMetadata & { code: string };
-  } else {
-    // Do not pre-process the ANTLR
-    const cleanedCode = cleanupText(code);
-    const frontMatterResult = processFrontmatter(cleanedCode);
-    const directiveResult = processDirectives(frontMatterResult.text);
-    const config = cleanAndMerge(frontMatterResult.config, directiveResult.directive);
-    return {
-      code: orgCode,
-      title: frontMatterResult.title,
-      config,
-      diagramType,
-    } satisfies DiagramMetadata & { code: string };
-  }
+  const rawCode = code;
+  let cleanedCode = cleanupText(code);
+  const frontMatterResult = processFrontmatter(cleanedCode);
+  const directiveResult = processDirectives(frontMatterResult.text);
+  const config = cleanAndMerge(frontMatterResult.config, directiveResult.directive);
+  cleanedCode = cleanupComments(directiveResult.text);
+  return {
+    code: {
+      raw: rawCode,
+      cleaned: cleanedCode,
+    },
+    title: frontMatterResult.title,
+    config,
+  } satisfies DiagramMetadata & { code: DiagramCode };
 }

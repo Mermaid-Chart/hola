@@ -5,7 +5,8 @@ import { UnknownDiagramError } from './errors.js';
 import { encodeEntities } from './utils.js';
 import { log } from './logger.js';
 import type { DetailedError } from './utils.js';
-import type { DiagramDefinition, DiagramMetadata } from './diagram-api/types.js';
+import type { DiagramCode, DiagramDefinition, DiagramMetadata } from './diagram-api/types.js';
+import type { BaseDiagramConfig, MermaidConfig } from './config.type.js';
 
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type ParseErrorFunction = (err: string | DetailedError | unknown, hash?: any) => void;
@@ -15,10 +16,16 @@ export type ParseErrorFunction = (err: string | DetailedError | unknown, hash?: 
  * @privateRemarks This is exported as part of the public mermaidAPI.
  */
 export class Diagram {
-  public static async fromText(text: string, metadata: Pick<DiagramMetadata, 'title'> = {}) {
+  public static async fromText(
+    codeObjectOrText: DiagramCode | string,
+    metadata: Pick<DiagramMetadata, 'title'> = {}
+  ) {
+    const code =
+      typeof codeObjectOrText === 'string'
+        ? { raw: codeObjectOrText, cleaned: codeObjectOrText }
+        : codeObjectOrText;
     const config = configApi.getConfig();
-    const type = detectType(text, config);
-    text = encodeEntities(text) + '\n';
+    const type = detectType(code.cleaned, config);
     try {
       getDiagram(type);
     } catch {
@@ -31,7 +38,11 @@ export class Diagram {
       const { id, diagram } = await loader();
       registerDiagram(id, diagram);
     }
-    const { db, parser, renderer, init } = getDiagram(type);
+    const { db, parser: defaultParser, renderer, init, getParser } = getDiagram(type);
+    // Check if a parser is configured for this diagram type
+    const parserInConfig = (config[type as keyof MermaidConfig] as BaseDiagramConfig)?.parser;
+    // If a parser is configured, use the getParser function to get the parser instance
+    const parser = (parserInConfig && getParser?.(parserInConfig)) ?? defaultParser;
     if (parser.parser) {
       // The parser.parser.yy is only present in JISON parsers. So, we'll only set if required.
       parser.parser.yy = db;
@@ -42,6 +53,7 @@ export class Diagram {
     if (metadata.title) {
       db.setDiagramTitle?.(metadata.title);
     }
+    const text = encodeEntities(parser.features?.processRawText ? code.raw : code.cleaned) + '\n';
     await parser.parse(text);
     return new Diagram(type, text, db, parser, renderer);
   }

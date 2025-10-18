@@ -7,7 +7,7 @@ import { select } from 'd3';
 import { compile, serialize, stringify } from 'stylis';
 import DOMPurify from 'dompurify';
 import isEmpty from 'lodash-es/isEmpty.js';
-import packageJson from '../package.json' assert { type: 'json' };
+import packageJson from '../package.json' with { type: 'json' };
 import { addSVGa11yTitleDescription, setA11yDiagramInfo } from './accessibility.js';
 import assignWithDepth from './assignWithDepth.js';
 import * as configApi from './config.js';
@@ -74,16 +74,14 @@ async function parse(
   parseOptions?: ParseOptions
 ): Promise<ParseResult & { error?: unknown }> {
   addDiagrams();
-  let code = '';
-  let title = undefined;
-  let config: MermaidConfig = {};
   try {
-    ({ code, config, title } = processAndSetConfigs(text));
-    const diagram = await getDiagramFromText(code);
-    return { diagram, code, config, title, success: true };
+    const { code, config, title } = processAndSetConfigs(text);
+    console.log('code', code);
+    const diagram = await Diagram.fromText(code, { title });
+    return { diagram, code: code.cleaned, config, title, success: true };
   } catch (error) {
     if (parseOptions?.suppressErrors) {
-      return { code, config, title, success: false, error };
+      return { code: '', config: {}, success: false, error };
     }
     throw error;
   }
@@ -310,15 +308,13 @@ export const removeExistingElements = (
 
 const render = async function (
   id: string,
-  text: string,
+  inputText: string,
   svgContainingElement?: Element,
   positions?: Positions
 ): Promise<RenderResult> {
   addDiagrams();
 
-  const processed = processAndSetConfigs(text);
-  text = processed.code;
-
+  const processed = processAndSetConfigs(inputText);
   const config = configApi.getConfig();
   log.debug(config);
   if (config.securityLevel === 'parseOnly') {
@@ -326,8 +322,8 @@ const render = async function (
     return { svg: '<!-- security level is parseOnly -->', diagramType: 'unknown' };
   }
   // Check the maximum allowed text size
-  if (text.length > (config?.maxTextSize ?? MAX_TEXTLENGTH)) {
-    text = MAX_TEXTLENGTH_EXCEEDED_MSG;
+  if (inputText.length > (config?.maxTextSize ?? MAX_TEXTLENGTH)) {
+    inputText = MAX_TEXTLENGTH_EXCEEDED_MSG;
   }
 
   const idSelector = '#' + id;
@@ -400,7 +396,7 @@ const render = async function (
   let parseEncounteredException;
 
   try {
-    diag = await Diagram.fromText(text, { title: processed.title });
+    diag = await Diagram.fromText(processed.code, { title: processed.title });
   } catch (error) {
     if (config.suppressErrorRendering) {
       removeTempElements();
@@ -420,7 +416,7 @@ const render = async function (
   // Insert an element into svg. This is where we put the styles
   const svg = element.firstChild;
   const firstChild = svg.firstChild;
-  const diagramClassDefs = diag.renderer.getClasses?.(text, diag);
+  const diagramClassDefs = diag.renderer.getClasses?.(processed.code.cleaned, diag);
 
   const rules = createUserStyles(config, diagramType, diagramClassDefs, idSelector);
 
@@ -431,12 +427,12 @@ const render = async function (
   // -------------------------------------------------------------------------------
   // Draw the diagram with the renderer
   try {
-    await diag.renderer.draw(text, id, packageJson.version, diag, positions);
+    await diag.renderer.draw(processed.code.cleaned, id, packageJson.version, diag, positions);
   } catch (e) {
     if (config.suppressErrorRendering) {
       removeTempElements();
     } else {
-      errorRenderer.draw(text, id, packageJson.version);
+      errorRenderer.draw(processed.code.cleaned, id, packageJson.version);
     }
     throw e;
   }
@@ -490,9 +486,7 @@ function initialize(userOptions: MermaidConfig = {}) {
   const options: MermaidConfig = assignWithDepth({}, userOptions);
   // Handle legacy location of font-family configuration
   if (options?.fontFamily && !options.themeVariables?.fontFamily) {
-    if (!options.themeVariables) {
-      options.themeVariables = {};
-    }
+    options.themeVariables ??= {};
     options.themeVariables.fontFamily = options.fontFamily;
   }
 
