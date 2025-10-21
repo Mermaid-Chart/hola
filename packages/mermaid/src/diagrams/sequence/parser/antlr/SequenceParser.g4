@@ -60,7 +60,10 @@ configObject
   ;
 
 signalStatement
-  : actor signaltype (PLUS actor | MINUS actor | actor) text2
+  : actor signaltype PAREN actor text2                    // actor ->>() actor (CENTRAL_CONNECTION)
+  | actor PAREN signaltype actor text2                    // actor ()->> actor (CENTRAL_CONNECTION_REVERSE)
+  | actor PAREN signaltype PAREN actor text2              // actor ()->>() actor (CENTRAL_CONNECTION_DUAL)
+  | actor signaltype (PLUS actor | MINUS actor | actor) text2
   ;
 noteStatement
   : NOTE RIGHT_OF actor text2
@@ -147,6 +150,24 @@ signaltype
   | DOTTED_POINT
   | BIDIRECTIONAL_SOLID_ARROW
   | BIDIRECTIONAL_DOTTED_ARROW
+  // Half-arrows - solid variants
+  | SOLID_ARROW_TOP
+  | SOLID_ARROW_BOTTOM
+  | STICK_ARROW_TOP
+  | STICK_ARROW_BOTTOM
+  | SOLID_ARROW_TOP_REVERSE
+  | SOLID_ARROW_BOTTOM_REVERSE
+  | STICK_ARROW_TOP_REVERSE
+  | STICK_ARROW_BOTTOM_REVERSE
+  // Half-arrows - dotted variants
+  | SOLID_ARROW_TOP_DOTTED
+  | SOLID_ARROW_BOTTOM_DOTTED
+  | STICK_ARROW_TOP_DOTTED
+  | STICK_ARROW_BOTTOM_DOTTED
+  | SOLID_ARROW_TOP_REVERSE_DOTTED
+  | SOLID_ARROW_BOTTOM_REVERSE_DOTTED
+  | STICK_ARROW_TOP_REVERSE_DOTTED
+  | STICK_ARROW_BOTTOM_REVERSE_DOTTED
   ;
 
 restOfLine: TXT;

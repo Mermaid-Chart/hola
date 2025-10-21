@@ -1136,17 +1136,74 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
     if (fullText) {
       // Parse the signal pattern: from + arrow + to + : + message
-      // Updated regex to handle activation/deactivation markers (+ and -)
-      // Arrow types: ->, ->>, -->, -->>, -), --), -x, --x
-      const signalMatch = /^(\w+)(->|-->>|->>|-->|--\)|--x|-\)|-x)([+-]?)(\w+):(.+)$/.exec(
-        fullText
-      );
-      log.debug('  - Regex match result:', signalMatch);
+      // Updated regex to handle:
+      // 1. activation/deactivation markers (+ and -)
+      // 2. central connection patterns: (), ()->, ->(), ()->()
+      // 3. half-arrow types: -|\, -|/, -\\, -//, /|-, \|-, //-, \\-
+      // Arrow types: ->, ->>, -->, -->>, -), --), -x, --x, <<->>, <<-->>
+
+      // Define comprehensive arrow pattern including half-arrows
+      // Order matters: longer patterns first to avoid partial matches
+      const arrowPattern =
+        '(<<-->>|<<->>|-->>|-->>|->>|-->|->|' + // Standard arrows
+        '--x|--\\)|--\\\\\\\\|--\\/\\/|--\\|\\/|--\\|\\\\|' + // Dotted variants
+        '-x|-\\)|-\\\\\\\\|-\\/\\/|-\\|\\/|-\\|\\\\|' + // Solid variants
+        '\\/\\|--|\\\\\\|--|\\\\\\\\--|\\\\\\\\-|\\/\\/--|\\/\\/\\-|\\\\\\|-|\\/\\|-)'; // Reverse variants
+
+      // Try central connection patterns first
+      // Pattern 1: actor () signaltype () actor (CENTRAL_CONNECTION_DUAL)
+      let signalMatch = new RegExp(`^(\\w+)\\(\\)${arrowPattern}\\(\\)(\\w+):(.+)$`).exec(fullText);
+      let centralPattern: 'dual' | 'reverse' | 'forward' | null = null;
 
       if (signalMatch) {
-        const [, from, arrow, activationMarker, to, message] = signalMatch;
+        centralPattern = 'dual';
+      } else {
+        // Pattern 2: actor () signaltype actor (CENTRAL_CONNECTION_REVERSE)
+        signalMatch = new RegExp(`^(\\w+)\\(\\)${arrowPattern}(\\w+):(.+)$`).exec(fullText);
+        if (signalMatch) {
+          centralPattern = 'reverse';
+        } else {
+          // Pattern 3: actor signaltype () actor (CENTRAL_CONNECTION)
+          signalMatch = new RegExp(`^(\\w+)${arrowPattern}\\(\\)(\\w+):(.+)$`).exec(fullText);
+          if (signalMatch) {
+            centralPattern = 'forward';
+          } else {
+            // Standard pattern: actor signaltype [+-]? actor
+            signalMatch = new RegExp(`^(\\w+)${arrowPattern}([+-]?)(\\w+):(.+)$`).exec(fullText);
+          }
+        }
+      }
+
+      log.debug('  - Regex match result:', signalMatch);
+      log.debug('  - Central pattern:', centralPattern);
+
+      if (signalMatch) {
+        let from: string,
+          arrow: string,
+          to: string,
+          message: string,
+          activationMarker = '';
+
+        if (centralPattern === 'dual') {
+          // Pattern: actor () arrow () actor
+          [, from, arrow, to, message] = signalMatch;
+          arrow = `()${arrow}()`;
+        } else if (centralPattern === 'reverse') {
+          // Pattern: actor () arrow actor
+          [, from, arrow, to, message] = signalMatch;
+          arrow = `()${arrow}`;
+        } else if (centralPattern === 'forward') {
+          // Pattern: actor arrow () actor
+          [, from, arrow, to, message] = signalMatch;
+          arrow = `${arrow}()`;
+        } else {
+          // Standard pattern
+          [, from, arrow, activationMarker, to, message] = signalMatch;
+        }
+
         const cleanMessage = message.trim();
-        const fullArrow = arrow + activationMarker;
+        const fullArrow = centralPattern ? arrow : arrow + activationMarker;
+
         // Emit exact original text (preserves spaces and colon spacing)
         this.emitOriginalSegmentFromCtx(ctx);
 

@@ -1,9 +1,4 @@
-import type {
-  SequenceAST,
-  ElementMapping,
-  ElementPosition,
-  SequenceStatement,
-} from '../../types.ts';
+import type { SequenceAST, ElementMapping, ElementPosition } from '../../types.ts';
 
 /**
  * Bidirectional mapping between sequence diagram code and SVG elements
@@ -15,8 +10,8 @@ import type {
  */
 export class SequenceElementMapper {
   private ast: SequenceAST;
-  private mappings: Map<string, ElementMapping> = new Map();
-  private svgToCodeMap: Map<string, string> = new Map();
+  private mappings = new Map<string, ElementMapping>();
+  private svgToCodeMap = new Map<string, string>();
   private positionIndex: ElementMapping[] = [];
 
   constructor(ast: SequenceAST) {
@@ -120,7 +115,7 @@ export class SequenceElementMapper {
    * Get all elements of a specific type
    */
   getElementsByType(type: string): ElementMapping[] {
-    return Array.from(this.mappings.values()).filter((mapping) => mapping.type === type);
+    return [...this.mappings.values()].filter((mapping) => mapping.type === type);
   }
 
   /**
@@ -148,7 +143,7 @@ export class SequenceElementMapper {
    * Get all loop/control structure elements
    */
   getControlStructures(): ElementMapping[] {
-    return Array.from(this.mappings.values()).filter((mapping) =>
+    return [...this.mappings.values()].filter((mapping) =>
       ['loop', 'alt', 'opt', 'par', 'rect', 'break', 'critical'].includes(mapping.type)
     );
   }
@@ -184,7 +179,7 @@ export class SequenceElementMapper {
    * Get all mappings as array
    */
   getAllMappings(): ElementMapping[] {
-    return Array.from(this.mappings.values());
+    return [...this.mappings.values()];
   }
 
   /**

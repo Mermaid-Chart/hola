@@ -1,15 +1,17 @@
 import type { SequenceParserVisitor } from './generated/SequenceParserVisitor.js';
+import type { SequenceDB } from '../../sequenceDb.js';
+import type { ParseTree, TerminalNode, ErrorNode } from 'antlr4ng';
 import { SequenceParserCore } from './SequenceParserCore.js';
 
 /**
  * Visitor implementation that builds the sequence diagram model
  * Uses the same core logic as the Listener for compatibility
  */
-export class SequenceVisitor extends SequenceParserCore implements SequenceParserVisitor<any> {
+export class SequenceVisitor extends SequenceParserCore implements SequenceParserVisitor<void> {
   private visitCount = 0;
-  private performanceLog: { [key: string]: { count: number; totalTime: number } } = {};
+  private performanceLog: Record<string, { count: number; totalTime: number }> = {};
 
-  constructor(db: any) {
+  constructor(db: SequenceDB) {
     super(db);
     // Only log for debug mode
     if (this.getEnvVar('ANTLR_DEBUG') === 'true') {
@@ -19,12 +21,12 @@ export class SequenceVisitor extends SequenceParserCore implements SequenceParse
   }
 
   // Default visit method
-  visit(tree: any): any {
+  visit(tree: ParseTree): void {
     this.visitCount++;
     const startTime = performance.now();
 
     try {
-      const result = tree.accept(this);
+      tree.accept(this);
 
       // Performance tracking for debug mode
       if (this.getEnvVar('ANTLR_DEBUG') === 'true') {
@@ -38,8 +40,6 @@ export class SequenceVisitor extends SequenceParserCore implements SequenceParse
         this.performanceLog[ruleName].count++;
         this.performanceLog[ruleName].totalTime += duration;
       }
-
-      return result;
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('❌ SequenceVisitor: Error visiting node:', error);
@@ -48,26 +48,21 @@ export class SequenceVisitor extends SequenceParserCore implements SequenceParse
   }
 
   // Default visit methods
-  visitChildren(node: any): any {
-    if (!node || !node.children) {
-      return null;
+  visitChildren(node: ParseTree): void {
+    if (!node?.children) {
+      return;
     }
 
-    let result = null;
     for (const child of node.children) {
-      const childResult = child.accept(this);
-      if (childResult !== null) {
-        result = childResult;
-      }
+      child.accept(this);
     }
-    return result;
   }
 
-  visitTerminal(_node: any): any {
-    return null;
+  visitTerminal(_node: TerminalNode): void {
+    // Terminal nodes don't need processing
   }
 
-  visitErrorNode(_node: any): any {
+  visitErrorNode(_node: ErrorNode): void {
     // eslint-disable-next-line no-console
     console.log('❌ SequenceVisitor: Error node encountered');
     // Throw error to match Jison parser behavior for syntax errors
@@ -75,257 +70,229 @@ export class SequenceVisitor extends SequenceParserCore implements SequenceParse
   }
 
   // Loop block visitors
-  visitLoopBlock(ctx: any): any {
+  visitLoopBlock(ctx: ParseTree): void {
     this.processLoopBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processLoopBlockExit();
-    return null;
   }
 
   // Participant statement visitors
-  visitParticipantStatement(ctx: any): any {
+  visitParticipantStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processParticipantStatement(ctx);
-    return null;
   }
 
   // Create statement visitors
-  visitCreateStatement(ctx: any): any {
+  visitCreateStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processCreateStatement(ctx);
-    return null;
   }
 
   // Destroy statement visitors
-  visitDestroyStatement(ctx: any): any {
+  visitDestroyStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processDestroyStatement(ctx);
-    return null;
   }
 
   // Opt block visitors
-  visitOptBlock(ctx: any): any {
+  visitOptBlock(ctx: ParseTree): void {
     this.processOptBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processOptBlockExit();
-    return null;
   }
 
   // Alt block visitors
-  visitAltBlock(ctx: any): any {
+  visitAltBlock(ctx: ParseTree): void {
     this.processAltBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processAltBlockExit();
-    return null;
   }
 
-  visitElseSection(ctx: any): any {
+  visitElseSection(ctx: ParseTree): void {
     this.processElseSection(ctx);
     this.visitChildren(ctx);
-    return null;
   }
 
   // Par block visitors
-  visitParBlock(ctx: any): any {
+  visitParBlock(ctx: ParseTree): void {
     this.processParBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processParBlockExit();
-    return null;
   }
 
-  visitAndSection(ctx: any): any {
+  visitAndSection(ctx: ParseTree): void {
     this.processAndSection(ctx);
     this.visitChildren(ctx);
-    return null;
   }
 
   // ParOver block visitors
-  visitParOverBlock(ctx: any): any {
+  visitParOverBlock(ctx: ParseTree): void {
     this.processParOverBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processParOverBlockExit();
-    return null;
   }
 
   // Rect block visitors
-  visitRectBlock(ctx: any): any {
+  visitRectBlock(ctx: ParseTree): void {
     this.processRectBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processRectBlockExit();
-    return null;
   }
 
   // Box block visitors
-  visitBoxBlock(ctx: any): any {
+  visitBoxBlock(ctx: ParseTree): void {
     this.processBoxBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processBoxBlockExit();
-    return null;
   }
 
   // Break block visitors
-  visitBreakBlock(ctx: any): any {
+  visitBreakBlock(ctx: ParseTree): void {
     this.processBreakBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processBreakBlockExit();
-    return null;
   }
 
   // Critical block visitors
-  visitCriticalBlock(ctx: any): any {
+  visitCriticalBlock(ctx: ParseTree): void {
     this.processCriticalBlockEnter(ctx);
     this.visitChildren(ctx);
     this.processCriticalBlockExit();
-    return null;
   }
 
-  visitOptionSection(ctx: any): any {
+  visitOptionSection(ctx: ParseTree): void {
     this.processOptionSection(ctx);
     this.visitChildren(ctx);
-    return null;
   }
 
   // Signal statement visitors
-  visitSignalStatement(ctx: any): any {
+  visitSignalStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processSignalStatement(ctx);
-    return null;
   }
 
   // Note statement visitors
-  visitNoteStatement(ctx: any): any {
+  visitNoteStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processNoteStatement(ctx);
-    return null;
   }
 
   // Links statement visitors
-  visitLinksStatement(ctx: any): any {
+  visitLinksStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processLinksStatement(ctx);
-    return null;
   }
 
   // Link statement visitors
-  visitLinkStatement(ctx: any): any {
+  visitLinkStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processLinkStatement(ctx);
-    return null;
   }
 
   // Properties statement visitors
-  visitPropertiesStatement(ctx: any): any {
+  visitPropertiesStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processPropertiesStatement(ctx);
-    return null;
   }
 
   // Details statement visitors
-  visitDetailsStatement(ctx: any): any {
+  visitDetailsStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processDetailsStatement(ctx);
-    return null;
   }
 
   // Activation statement visitors
-  visitActivationStatement(ctx: any): any {
+  visitActivationStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processActivationStatement(ctx);
-    return null;
   }
 
   // Autonumber statement visitors
-  visitAutonumberStatement(ctx: any): any {
+  visitAutonumberStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processAutonumberStatement(ctx);
-    return null;
   }
 
   // Title statement visitors
-  visitTitleStatement(ctx: any): any {
+  visitTitleStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processTitleStatement(ctx);
-    return null;
   }
 
   // Legacy title statement visitors
-  visitLegacyTitleStatement(ctx: any): any {
+  visitLegacyTitleStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processLegacyTitleStatement(ctx);
-    return null;
   }
 
   // Accessibility title statement visitors
-  visitAccTitleStatement(ctx: any): any {
+  visitAccTitleStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processAccTitleStatement(ctx);
-    return null;
   }
 
   // Accessibility description statement visitors
-  visitAccDescrStatement(ctx: any): any {
+  visitAccDescrStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processAccDescrStatement(ctx);
-    return null;
   }
 
   // Accessibility multiline description statement visitors
-  visitAccDescrMultilineStatement(ctx: any): any {
+  visitAccDescrMultilineStatement(ctx: ParseTree): void {
     this.visitChildren(ctx);
     this.processAccDescrMultilineStatement(ctx);
-    return null;
   }
 
   // Default visitors for other rules
-  visitStart(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitStart(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitDocument(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitDocument(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitLine(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitLine(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitStatement(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitStatement(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitActorWithConfig(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitActorWithConfig(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitConfigObject(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitConfigObject(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitSignaltype(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitSignaltype(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitText2(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitText2(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitRestOfLine(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitRestOfLine(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitAltSections(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitAltSections(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitParSections(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitParSections(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitOptionSections(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitOptionSections(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 
-  visitActor(ctx: any): any {
-    return this.visitChildren(ctx);
+  visitActor(ctx: ParseTree): void {
+    this.visitChildren(ctx);
   }
 }

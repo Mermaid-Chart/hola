@@ -19,6 +19,7 @@ COMMA: ',';
 SEMI: ';' -> type(NEWLINE);
 PLUS: '+';
 MINUS: '-';
+PAREN: '()';
 
 // Core keywords
 SD: 'sequenceDiagram' { this.headerMode = false; } -> pushMode(AFTER_SD);
@@ -83,11 +84,32 @@ DOTTED_CROSS: '--x';
 SOLID_POINT: '-)';
 DOTTED_POINT: '--)';
 
+// Half-arrows - dotted variants (must come before solid variants)
+SOLID_ARROW_TOP_DOTTED: '--|\\';
+SOLID_ARROW_BOTTOM_DOTTED: '--|/';
+STICK_ARROW_TOP_DOTTED: '--\\\\';
+STICK_ARROW_BOTTOM_DOTTED: '--//';
+SOLID_ARROW_TOP_REVERSE_DOTTED: '/|--';
+SOLID_ARROW_BOTTOM_REVERSE_DOTTED: '\\|--';
+STICK_ARROW_TOP_REVERSE_DOTTED: '//--';
+STICK_ARROW_BOTTOM_REVERSE_DOTTED: '\\\\--';
+
+// Half-arrows - solid variants
+SOLID_ARROW_TOP: '-|\\';
+SOLID_ARROW_BOTTOM: '-|/';
+STICK_ARROW_TOP: '-\\\\';
+STICK_ARROW_BOTTOM: '-//';
+SOLID_ARROW_TOP_REVERSE: '/|-';
+SOLID_ARROW_BOTTOM_REVERSE: '\\|-';
+STICK_ARROW_TOP_REVERSE: '//-';
+STICK_ARROW_BOTTOM_REVERSE: '\\\\-';
+
 // Text after colon up to newline or comment delimiter ; or #
 TXT: ':' (~[\r\n;#])*;
 
 // Actor identifiers: allow hyphen runs, but forbid -x, --x, -), --)
-fragment IDCHAR_NO_HYPHEN: ~[+<>:\n,;@# \t-];
+// Also exclude /, \, |, ( to prevent matching arrow patterns and central connections
+fragment IDCHAR_NO_HYPHEN: ~[+<>:\n,;@# \t\-/\\|(];
 fragment ALNUM: [A-Za-z0-9_];
 fragment ALNUM_NOT_X_RPAREN: [A-WYZa-wyz0-9_];
 fragment H3: '-' '-' '-' ('-')*; // three or more hyphens
