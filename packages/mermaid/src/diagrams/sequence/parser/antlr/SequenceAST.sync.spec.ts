@@ -82,14 +82,18 @@ describe('SequenceAST Bidirectional Synchronization', () => {
       const element = ast.getElementAtPosition?.(2, 20); // Position on "Alice" in "participant Alice"
       expect(element).toBeDefined();
       expect(element?.type).toBe('participant');
-      expect('id' in element!.data && element.data.id).toBe('Alice');
+      if (element && 'id' in element.data) {
+        expect(element.data.id).toBe('Alice');
+      }
     });
 
     it('should find participant Bob at line 3', () => {
       const element = ast.getElementAtPosition?.(3, 18); // Position on "Bob" in "participant Bob"
       expect(element).toBeDefined();
       expect(element?.type).toBe('participant');
-      expect('id' in element!.data && element.data.id).toBe('Bob');
+      if (element && 'id' in element.data) {
+        expect(element.data.id).toBe('Bob');
+      }
     });
 
     it('should find message text at line 4', () => {
@@ -120,14 +124,18 @@ describe('SequenceAST Bidirectional Synchronization', () => {
       const element = ast.getElementByDataId?.('Alice');
       expect(element).toBeDefined();
       expect(element?.type).toBe('participant');
-      expect('id' in element!.data && element.data.id).toBe('Alice');
+      if (element && 'id' in element.data) {
+        expect(element.data.id).toBe('Alice');
+      }
     });
 
     it('should find participant Bob by data-id', () => {
       const element = ast.getElementByDataId?.('Bob');
       expect(element).toBeDefined();
       expect(element?.type).toBe('participant');
-      expect('id' in element!.data && element.data.id).toBe('Bob');
+      if (element && 'id' in element.data) {
+        expect(element.data.id).toBe('Bob');
+      }
     });
 
     it('should find message by data-id with "i" prefix', () => {

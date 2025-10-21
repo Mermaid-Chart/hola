@@ -6,7 +6,7 @@ describe('SequenceElementMapper', () => {
   // Helper function to parse code and get AST
   const parseCode = async (code: string): Promise<SequenceAST | undefined> => {
     const parser = (await import('../sequenceParser.js')).default;
-    await parser.parse(code);
+    parser.parse(code);
     const antlrParser = (await import('./antlr-parser.js')).default;
     return antlrParser.yy.getAST();
   };
@@ -96,7 +96,7 @@ describe('SequenceElementMapper', () => {
       );
       expect(aliceParticipant).toBeDefined();
 
-      if (aliceParticipant) {
+      if (aliceParticipant?.svgId) {
         const element = mapper.getElementBySvgId(aliceParticipant.svgId);
         expect(element).toBeDefined();
         expect(element?.type).toBe('participant');
@@ -315,7 +315,7 @@ describe('SequenceElementMapper', () => {
     end`;
 
       const parser = (await import('../sequenceParser.js')).default;
-      await parser.parse(code);
+      parser.parse(code);
 
       // Get the AST from the parser's yy (db) instance
       // The parser wraps the ANTLR parser which has a yy property
@@ -390,7 +390,7 @@ describe('SequenceElementMapper', () => {
     end`;
 
       const parser = (await import('../sequenceParser.js')).default;
-      await parser.parse(code);
+      parser.parse(code);
 
       // Get the AST from the parser's yy (db) instance
       const antlrParser = (await import('./antlr-parser.js')).default;
@@ -438,7 +438,7 @@ describe('SequenceElementMapper', () => {
     end`;
 
       const parser = (await import('../sequenceParser.js')).default;
-      await parser.parse(code);
+      parser.parse(code);
 
       const antlrParser = (await import('./antlr-parser.js')).default;
       const ast = antlrParser.yy.getAST();

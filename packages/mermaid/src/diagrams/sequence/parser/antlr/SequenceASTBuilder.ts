@@ -75,6 +75,8 @@ import { log } from '../../../../logger.js';
  *
  * Now also builds a structured AST for the hybrid editor approach.
  */
+
+// @ts-ignore - ANTLR4 visitor pattern defines methods as properties in the base class
 export class SequenceASTBuilder extends SequenceParserVisitor<string> {
   private lines: string[] = [];
   private currentIndent = 0;
@@ -654,7 +656,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
             position: fromPosition,
             svgId: ElementMappingUtils.generateSvgId(`participant_${from}`),
             svgSelector: `[data-et="participant"][data-id="${from}"]`,
-            data: { id: from, role: 'from' },
+            data: { id: from } as ParticipantData,
           };
           this.elementMappings.push(fromMapping);
           log.debug('✅ Created FROM participant mapping from token:', fromMapping);
@@ -672,7 +674,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
             position: toPosition,
             svgId: ElementMappingUtils.generateSvgId(`participant_${to}`),
             svgSelector: `[data-et="participant"][data-id="${to}"]`,
-            data: { id: to, role: 'to' },
+            data: { id: to } as ParticipantData,
           };
           this.elementMappings.push(toMapping);
           log.debug('✅ Created TO participant mapping from token:', toMapping);
@@ -806,7 +808,6 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     }
 
     try {
-      // @ts-expect-error antlr4ng typing for accept is not strict here
       return tree.accept(this) ?? '';
     } catch (error) {
       log.debug('Error visiting node:', error);
@@ -1055,7 +1056,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         // If there's an alias, create an additional element mapping for it
         // This allows bidirectional highlighting to work when cursor is on the alias
         // Both mappings should have the same SVG ID so they highlight the same element
-        if (alias && aliasCtx && participantMapping) {
+        if (alias && aliasCtx && participantMapping?.svgId && participantMapping?.svgSelector) {
           log.debug('Creating additional element mapping for alias:', alias);
           this.createElementMappingWithSvgId(
             'participant',
@@ -1422,7 +1423,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     // 1) Build AST for the par block (sections with nested statements)
     const fullText = ctx.getText ? ctx.getText() : '';
     const parMatch = /^par\s+(.+?)(?:\n|$)/s.exec(fullText);
-    const condition = parMatch?.[1]?.trim() || '';
+    const condition = parMatch?.[1]?.trim() ?? '';
 
     // Increment dbIndex for PAR_START marker (matches DB behavior)
     this.dbIndex++;

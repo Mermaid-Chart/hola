@@ -3,6 +3,16 @@ import { CharStream, CommonTokenStream } from 'antlr4ng';
 import { SequenceLexer } from './generated/SequenceLexer.js';
 import { SequenceParser } from './generated/SequenceParser.js';
 import { SequenceASTBuilder } from './SequenceASTBuilder.js';
+import { log } from '../../../../logger.js';
+import type {
+  SequenceStatement,
+  DiagramStatement,
+  LoopData,
+  AltData,
+  OptData,
+  RectData,
+  BreakData,
+} from '../../types.ts';
 
 function parseSequenceDiagram(input: string) {
   const chars = CharStream.fromString(input);
@@ -13,6 +23,24 @@ function parseSequenceDiagram(input: string) {
   const generator = new SequenceASTBuilder(input);
   const { ast } = generator.generateAST(tree);
   return ast;
+}
+
+// Type guard function
+function hasStatements(
+  stmt: SequenceStatement | DiagramStatement | undefined
+): stmt is SequenceStatement & { data: LoopData | AltData | OptData | RectData | BreakData } {
+  return (
+    stmt !== undefined &&
+    (stmt.type === 'loop' ||
+      stmt.type === 'alt' ||
+      stmt.type === 'opt' ||
+      stmt.type === 'rect' ||
+      stmt.type === 'break') &&
+    typeof stmt.data === 'object' &&
+    stmt.data !== null &&
+    'statements' in stmt.data &&
+    Array.isArray((stmt.data as LoopData | AltData | OptData | RectData | BreakData).statements)
+  );
 }
 
 describe('Loop statement nesting', () => {
@@ -31,15 +59,15 @@ describe('Loop statement nesting', () => {
 
     const ast = parseSequenceDiagram(input);
 
-    console.log('\nTop-level statements:');
+    log.debug('\nTop-level statements:');
     ast.statements.forEach((stmt, idx) => {
-      console.log(
+      log.debug(
         `[${idx}] type=${stmt.type}, originalIndex=${stmt.originalIndex}, sourceLine="${stmt.sourceLine?.substring(0, 40)}"`
       );
-      if (stmt.type === 'loop' && stmt.data?.statements) {
-        console.log('  Loop nested statements:');
-        stmt.data.statements.forEach((nested: any, nestedIdx: number) => {
-          console.log(
+      if (hasStatements(stmt)) {
+        log.debug('  Loop nested statements:');
+        stmt.data.statements.forEach((nested, nestedIdx: number) => {
+          log.debug(
             `  [${idx}.${nestedIdx}] type=${nested.type}, originalIndex=${nested.originalIndex}, sourceLine="${nested.sourceLine?.substring(0, 40)}"`
           );
         });
@@ -49,20 +77,21 @@ describe('Loop statement nesting', () => {
     // Find the loop statement
     const loopStmt = ast.statements.find((s) => s.type === 'loop');
     expect(loopStmt).toBeDefined();
-    expect(loopStmt?.data?.statements).toBeDefined();
+    expect(hasStatements(loopStmt)).toBe(true);
 
-    // The loop should contain 2 nested statements: message and note
-    console.log(`\nLoop contains ${loopStmt?.data?.statements?.length} statements (expected 2)`);
-    expect(loopStmt?.data?.statements).toHaveLength(2);
+    if (hasStatements(loopStmt)) {
+      // The loop should contain 2 nested statements: message and note
+      log.debug(`\nLoop contains ${loopStmt.data.statements.length} statements (expected 2)`);
+      expect(loopStmt.data.statements).toHaveLength(2);
 
-    // Check the nested statements
-    const nestedStatements = loopStmt?.data?.statements || [];
-    expect(nestedStatements[0].type).toBe('message');
-    expect(nestedStatements[1].type).toBe('note');
+      // Check the nested statements
+      expect(loopStmt.data.statements[0].type).toBe('message');
+      expect(loopStmt.data.statements[1].type).toBe('note');
+    }
 
     // The note should be nested, not at top level
     const topLevelNotes = ast.statements.filter((s) => s.type === 'note');
-    console.log(
+    log.debug(
       `\nTop-level notes: ${topLevelNotes.length} (expected 1 - only "Note right of Alice")`
     );
     expect(topLevelNotes).toHaveLength(1);
@@ -83,15 +112,17 @@ describe('Loop statement nesting', () => {
 
     const loopStmt = ast.statements.find((s) => s.type === 'loop');
     expect(loopStmt).toBeDefined();
+    expect(hasStatements(loopStmt)).toBe(true);
 
-    const nestedStatements = loopStmt?.data?.statements || [];
-    expect(nestedStatements).toHaveLength(5);
+    if (hasStatements(loopStmt)) {
+      expect(loopStmt.data.statements).toHaveLength(5);
 
-    expect(nestedStatements[0].type).toBe('message');
-    expect(nestedStatements[1].type).toBe('note');
-    expect(nestedStatements[2].type).toBe('activate');
-    expect(nestedStatements[3].type).toBe('message');
-    expect(nestedStatements[4].type).toBe('deactivate');
+      expect(loopStmt.data.statements[0].type).toBe('message');
+      expect(loopStmt.data.statements[1].type).toBe('note');
+      expect(loopStmt.data.statements[2].type).toBe('activate');
+      expect(loopStmt.data.statements[3].type).toBe('message');
+      expect(loopStmt.data.statements[4].type).toBe('deactivate');
+    }
   });
 
   it('should handle nested loops with notes', () => {
@@ -109,21 +140,25 @@ describe('Loop statement nesting', () => {
 
     const outerLoop = ast.statements.find((s) => s.type === 'loop');
     expect(outerLoop).toBeDefined();
+    expect(hasStatements(outerLoop)).toBe(true);
 
-    const outerNested = outerLoop?.data?.statements || [];
-    expect(outerNested).toHaveLength(3); // message, note, inner loop
+    if (hasStatements(outerLoop)) {
+      expect(outerLoop.data.statements).toHaveLength(3); // message, note, inner loop
 
-    expect(outerNested[0].type).toBe('message');
-    expect(outerNested[1].type).toBe('note');
-    expect(outerNested[2].type).toBe('loop');
+      expect(outerLoop.data.statements[0].type).toBe('message');
+      expect(outerLoop.data.statements[1].type).toBe('note');
+      expect(outerLoop.data.statements[2].type).toBe('loop');
 
-    // Check inner loop
-    const innerLoop = outerNested[2];
-    const innerNested = innerLoop.data?.statements || [];
-    expect(innerNested).toHaveLength(2); // message, note
+      // Check inner loop
+      const innerLoop = outerLoop.data.statements[2];
+      expect(hasStatements(innerLoop)).toBe(true);
+      if (hasStatements(innerLoop)) {
+        expect(innerLoop.data.statements).toHaveLength(2); // message, note
 
-    expect(innerNested[0].type).toBe('message');
-    expect(innerNested[1].type).toBe('note');
+        expect(innerLoop.data.statements[0].type).toBe('message');
+        expect(innerLoop.data.statements[1].type).toBe('note');
+      }
+    }
   });
 
   it('should match the exact structure from the bug report', () => {
@@ -173,16 +208,19 @@ describe('Loop statement nesting', () => {
     expect(ast.statements[5].type).toBe('loop');
     expect(ast.statements[5].originalIndex).toBe(7);
 
-    const loopNested = ast.statements[5].data?.statements || [];
-    expect(loopNested).toHaveLength(2);
+    expect(hasStatements(ast.statements[5])).toBe(true);
+    if (hasStatements(ast.statements[5])) {
+      const loopNested = ast.statements[5].data.statements;
+      expect(loopNested).toHaveLength(2);
 
-    expect(loopNested[0].type).toBe('message');
-    expect(loopNested[0].originalIndex).toBe(5);
-    expect(loopNested[0].sourceLine).toContain('Bob->>Alice: Message 2');
+      expect(loopNested[0].type).toBe('message');
+      expect(loopNested[0].originalIndex).toBe(5);
+      expect(loopNested[0].sourceLine).toContain('Bob->>Alice: Message 2');
 
-    expect(loopNested[1].type).toBe('note');
-    expect(loopNested[1].originalIndex).toBe(6);
-    expect(loopNested[1].sourceLine).toContain('Note over Alice,Bob: Shared note');
+      expect(loopNested[1].type).toBe('note');
+      expect(loopNested[1].originalIndex).toBe(6);
+      expect(loopNested[1].sourceLine).toContain('Note over Alice,Bob: Shared note');
+    }
 
     expect(ast.statements[6].type).toBe('deactivate');
     expect(ast.statements[6].originalIndex).toBe(8);

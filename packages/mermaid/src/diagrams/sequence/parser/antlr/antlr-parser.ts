@@ -13,8 +13,8 @@ import { SequenceParser } from './generated/SequenceParser.js';
 import { SequenceListener } from './SequenceListener.js';
 import { SequenceVisitor } from './SequenceVisitor.js';
 import { SequenceASTBuilder } from './SequenceASTBuilder.js';
-import { TokenStreamRewriter } from 'antlr4ng';
 import { SequenceDB } from '../../sequenceDb.js';
+import { log } from '../../../../logger.js';
 /**
  * Main ANTLR parser class that provides the same interface as the Jison parser
  */
@@ -25,7 +25,7 @@ export class ANTLRSequenceParser {
     this.yy = new SequenceDB();
   }
 
-  parse(input: string): any {
+  parse(input: string): SequenceDB {
     try {
       // Reset database state
       if (this.yy.clear) {
@@ -50,10 +50,14 @@ export class ANTLRSequenceParser {
         try {
           visitor.visit(tree);
         } catch (error) {
-          // eslint-disable-next-line no-console
-          console.error('❌ ANTLR Sequence Parser: Visitor failed:', error.message);
-          // eslint-disable-next-line no-console
-          console.error('❌ ANTLR Sequence Parser: Visitor stack:', error.stack);
+          log.error(
+            '❌ ANTLR Sequence Parser: Visitor failed:',
+            error instanceof Error ? error.message : String(error)
+          );
+          log.error(
+            '❌ ANTLR Sequence Parser: Visitor stack:',
+            error instanceof Error ? error.stack : undefined
+          );
           throw error;
         }
       } else {
@@ -61,37 +65,39 @@ export class ANTLRSequenceParser {
         try {
           ParseTreeWalker.DEFAULT.walk(listener, tree);
         } catch (error) {
-          // eslint-disable-next-line no-console
-          console.error('❌ ANTLR Sequence Parser: Listener failed:', error.message);
-          // eslint-disable-next-line no-console
-          console.error('❌ ANTLR Sequence Parser: Listener stack:', error.stack);
+          log.error(
+            '❌ ANTLR Sequence Parser: Listener failed:',
+            error instanceof Error ? error.message : String(error)
+          );
+          log.error(
+            '❌ ANTLR Sequence Parser: Listener stack:',
+            error instanceof Error ? error.stack : undefined
+          );
           throw error;
         }
       }
 
       try {
-        this.yy._tokenRewriter = new TokenStreamRewriter(tokenStream);
-        this.yy._tokenMap = new Map(); // Map statement indices to token positions
-
         const generator = new SequenceASTBuilder(input);
         const result = generator.generateAST(tree);
         this.yy.setAST(result.ast);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('❌ ANTLR Sequence Parser: AST building failed:', error.message);
+        log.error(
+          '❌ ANTLR Sequence Parser: AST building failed:',
+          error instanceof Error ? error.message : String(error)
+        );
         // Don't throw - AST building is optional, parsing should still succeed
       }
 
       return this.yy;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log('📝 Input that caused error (first 500 chars):', input.substring(0, 500));
+      log.debug('📝 Input that caused error (first 500 chars):', input.substring(0, 500));
       throw error;
     }
   }
 
   // Provide the same interface as Jison parser
-  setYY(yy: any) {
+  setYY(yy: SequenceDB) {
     this.yy = yy;
   }
 }
