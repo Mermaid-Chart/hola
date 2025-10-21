@@ -284,6 +284,49 @@ const drawNote = async function (elem: any, noteModel: NoteModel, id: string) {
   bounds.models.addNote(noteModel);
 };
 
+const drawCentralConnection = function (
+  elem: any,
+  msg: any,
+  msgModel: any,
+  diagObj: Diagram,
+  startx: number,
+  stopx: number,
+  lineStartY: number
+) {
+  const actors = diagObj.db.getActors();
+  const fromActor = actors.get(msg.from);
+  const toActor = actors.get(msg.to);
+  const fromCenter = fromActor.x + fromActor.width / 2;
+  const toCenter = toActor.x + toActor.width / 2;
+
+  const g = elem.append('g');
+
+  const drawCircle = (cx: number) => {
+    g.append('circle')
+      .attr('cx', cx)
+      .attr('cy', lineStartY)
+      .attr('r', 5)
+      .attr('width', 10)
+      .attr('height', 10);
+  };
+
+  const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
+    diagObj.db.LINETYPE;
+
+  switch (msg.centralConnection) {
+    case CENTRAL_CONNECTION:
+      drawCircle(toCenter);
+      break;
+    case CENTRAL_CONNECTION_REVERSE:
+      drawCircle(fromCenter);
+      break;
+    case CENTRAL_CONNECTION_DUAL:
+      drawCircle(fromCenter);
+      drawCircle(toCenter);
+      break;
+  }
+};
+
 const messageFont = (cnf) => {
   return {
     fontFamily: cnf.messageFontFamily,
@@ -369,7 +412,7 @@ async function boundMessage(_diagram, msgModel): Promise<number> {
  * @param lineStartY - The Y coordinate at which the message line starts
  * @param diagObj - The diagram object.
  */
-const drawMessage = async function (diagram, msgModel, lineStartY: number, diagObj: Diagram) {
+const drawMessage = async function (diagram, msgModel, lineStartY: number, diagObj: Diagram, msg) {
   const { startx, stopx, starty, message, type, sequenceIndex, sequenceVisible } = msgModel;
   const textDims = utils.calculateTextDimensions(message, messageFont(conf));
   const textObj = svgDrawCommon.getTextObj();
@@ -436,6 +479,9 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
     line.attr('y1', lineStartY);
     line.attr('x2', stopx);
     line.attr('y2', lineStartY);
+    if (hasCentralConnection(msg, diagObj)) {
+      drawCentralConnection(diagram, msg, msgModel, diagObj, startx, stopx, lineStartY);
+    }
   }
   // Make an SVG Container
   // Draw the line
@@ -444,7 +490,15 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
     type === diagObj.db.LINETYPE.DOTTED_CROSS ||
     type === diagObj.db.LINETYPE.DOTTED_POINT ||
     type === diagObj.db.LINETYPE.DOTTED_OPEN ||
-    type === diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED
+    type === diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED ||
+    type === diagObj.db.LINETYPE.SOLID_TOP_DOTTED ||
+    type === diagObj.db.LINETYPE.SOLID_BOTTOM_DOTTED ||
+    type === diagObj.db.LINETYPE.STICK_TOP_DOTTED ||
+    type === diagObj.db.LINETYPE.STICK_BOTTOM_DOTTED ||
+    type === diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE_DOTTED ||
+    type === diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE_DOTTED ||
+    type === diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE_DOTTED ||
+    type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED
   ) {
     line.style('stroke-dasharray', '3, 3');
     line.attr('class', 'messageLine1');
@@ -465,6 +519,51 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
   line.attr('stroke-width', 2);
   line.attr('stroke', 'none'); // handled by theme/css anyway
   line.style('fill', 'none'); // remove any fill colour
+
+  if (type === diagObj.db.LINETYPE.SOLID_TOP || type === diagObj.db.LINETYPE.SOLID_TOP_DOTTED) {
+    line.attr('marker-end', 'url(' + url + '#solidTopArrowHead)');
+  }
+  if (
+    type === diagObj.db.LINETYPE.SOLID_BOTTOM ||
+    type === diagObj.db.LINETYPE.SOLID_BOTTOM_DOTTED
+  ) {
+    line.attr('marker-end', 'url(' + url + '#solidBottomArrowHead)');
+  }
+  if (type === diagObj.db.LINETYPE.STICK_TOP || type === diagObj.db.LINETYPE.STICK_TOP_DOTTED) {
+    line.attr('marker-end', 'url(' + url + '#stickTopArrowHead)');
+  }
+  if (
+    type === diagObj.db.LINETYPE.STICK_BOTTOM ||
+    type === diagObj.db.LINETYPE.STICK_BOTTOM_DOTTED
+  ) {
+    line.attr('marker-end', 'url(' + url + '#stickBottomArrowHead)');
+  }
+
+  if (
+    type === diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE ||
+    type === diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE_DOTTED
+  ) {
+    line.attr('marker-start', 'url(' + url + '#solidBottomArrowHead)');
+  }
+  if (
+    type === diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE ||
+    type === diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE_DOTTED
+  ) {
+    line.attr('marker-start', 'url(' + url + '#solidTopArrowHead)');
+  }
+  if (
+    type === diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE ||
+    type === diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE_DOTTED
+  ) {
+    line.attr('marker-start', 'url(' + url + '#stickBottomArrowHead)');
+  }
+  if (
+    type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE ||
+    type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED
+  ) {
+    line.attr('marker-start', 'url(' + url + '#stickTopArrowHead)');
+  }
+
   if (type === diagObj.db.LINETYPE.SOLID || type === diagObj.db.LINETYPE.DOTTED) {
     line.attr('marker-end', 'url(' + url + '#arrowhead)');
   }
@@ -489,7 +588,18 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       type === diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID ||
       type === diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED;
 
-    if (isBidirectional) {
+    const isReverseArrowType =
+      type === diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE ||
+      type === diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE_DOTTED ||
+      type === diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE ||
+      type === diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE_DOTTED ||
+      type === diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE ||
+      type === diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE_DOTTED ||
+      type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE ||
+      type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED;
+
+    let x = 0;
+    if (isBidirectional || isReverseArrowType) {
       const SEQUENCE_NUMBER_RADIUS = 6;
 
       if (startx < stopx) {
@@ -497,6 +607,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       } else {
         line.attr('x1', startx + SEQUENCE_NUMBER_RADIUS);
       }
+      x = 3.5;
     }
 
     diagram
@@ -506,7 +617,8 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       .attr('x2', startx)
       .attr('y2', lineStartY)
       .attr('stroke-width', 0)
-      .attr('marker-start', 'url(' + url + '#sequencenumber)');
+      .attr('marker-start', 'url(' + url + '#sequencenumber)')
+      .attr('transform', `translate(-${x}, 0)`);
 
     diagram
       .append('text')
@@ -516,7 +628,8 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       .attr('font-size', '12px')
       .attr('text-anchor', 'middle')
       .attr('class', 'sequenceNumber')
-      .text(sequenceIndex);
+      .text(sequenceIndex)
+      .attr('transform', `translate(-${x}, 0)`);
   }
 };
 
@@ -865,6 +978,10 @@ export const draw = async function (_text: string, id: string, _version: string,
   svgDraw.insertArrowCrossHead(diagram);
   svgDraw.insertArrowFilledHead(diagram);
   svgDraw.insertSequenceNumber(diagram);
+  svgDraw.insertSolidTopArrowHead(diagram);
+  svgDraw.insertSolidBottomArrowHead(diagram);
+  svgDraw.insertStickTopArrowHead(diagram);
+  svgDraw.insertStickBottomArrowHead(diagram);
   if (look === 'neo') {
     svgDraw.insertDropShadow(diagram, conf);
   }
@@ -907,6 +1024,12 @@ export const draw = async function (_text: string, id: string, _version: string,
         await drawNote(diagram, noteModel, msg.id);
         break;
       case diagObj.db.LINETYPE.ACTIVE_START:
+        bounds.newActivation(msg, diagram, actors);
+        break;
+      case diagObj.db.LINETYPE.CENTRAL_CONNECTION:
+        bounds.newActivation(msg, diagram, actors);
+        break;
+      case diagObj.db.LINETYPE.CENTRAL_CONNECTION_REVERSE:
         bounds.newActivation(msg, diagram, actors);
         break;
       case diagObj.db.LINETYPE.ACTIVE_END:
@@ -1070,7 +1193,7 @@ export const draw = async function (_text: string, id: string, _version: string,
             createdActors,
             destroyedActors
           );
-          messagesToDraw.push({ messageModel: msgModel, lineStartY: lineStartY });
+          messagesToDraw.push({ messageModel: msgModel, lineStartY: lineStartY, msg });
           bounds.models.addMessage(msgModel);
         } catch (e) {
           log.error('error while drawing message', e);
@@ -1083,6 +1206,27 @@ export const draw = async function (_text: string, id: string, _version: string,
         diagObj.db.LINETYPE.SOLID_OPEN,
         diagObj.db.LINETYPE.DOTTED_OPEN,
         diagObj.db.LINETYPE.SOLID,
+
+        diagObj.db.LINETYPE.SOLID_TOP,
+        diagObj.db.LINETYPE.SOLID_BOTTOM,
+        diagObj.db.LINETYPE.STICK_TOP,
+        diagObj.db.LINETYPE.STICK_BOTTOM,
+
+        diagObj.db.LINETYPE.SOLID_TOP_DOTTED,
+        diagObj.db.LINETYPE.SOLID_BOTTOM_DOTTED,
+        diagObj.db.LINETYPE.STICK_TOP_DOTTED,
+        diagObj.db.LINETYPE.STICK_BOTTOM_DOTTED,
+
+        diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE,
+        diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE,
+        diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE,
+        diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE,
+
+        diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE_DOTTED,
+        diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE_DOTTED,
+        diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE_DOTTED,
+        diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED,
+
         diagObj.db.LINETYPE.DOTTED,
         diagObj.db.LINETYPE.SOLID_CROSS,
         diagObj.db.LINETYPE.DOTTED_CROSS,
@@ -1102,7 +1246,7 @@ export const draw = async function (_text: string, id: string, _version: string,
   await drawActors(diagram, actors, actorKeys, false, diagObj);
 
   for (const e of messagesToDraw) {
-    await drawMessage(diagram, e.messageModel, e.lineStartY, diagObj);
+    await drawMessage(diagram, e.messageModel, e.lineStartY, diagObj, e.msg);
   }
   if (conf.mirrorActors) {
     await drawActors(diagram, actors, actorKeys, true, diagObj);
@@ -1489,6 +1633,58 @@ const buildNoteModel = async function (msg, actors, diagObj) {
   return noteModel;
 };
 
+// Central connection positioning constants
+const CENTRAL_CONNECTION_BASE_OFFSET = 4;
+const CENTRAL_CONNECTION_BIDIRECTIONAL_OFFSET = 6;
+
+/**
+ * Check if a message has central connection
+ * @param msg - The message object
+ * @param diagObj - The diagram object containing LINETYPE constants
+ * @returns True if the message has any type of central connection
+ */
+const hasCentralConnection = function (msg, diagObj) {
+  const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
+    diagObj.db.LINETYPE;
+  return [CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL].includes(
+    msg.centralConnection
+  );
+};
+
+/**
+ * Calculate the positioning offset for central connection arrows
+ * @param msg - The message object
+ * @param diagObj - The diagram object containing LINETYPE constants
+ * @param isArrowToRight - Whether the arrow is pointing to the right
+ * @returns The offset to apply to startx position
+ */
+const calculateCentralConnectionOffset = function (msg, diagObj, isArrowToRight) {
+  const {
+    CENTRAL_CONNECTION_REVERSE,
+    CENTRAL_CONNECTION_DUAL,
+    BIDIRECTIONAL_SOLID,
+    BIDIRECTIONAL_DOTTED,
+  } = diagObj.db.LINETYPE;
+
+  let offset = 0;
+
+  if (
+    msg.centralConnection === CENTRAL_CONNECTION_REVERSE ||
+    msg.centralConnection === CENTRAL_CONNECTION_DUAL
+  ) {
+    offset += CENTRAL_CONNECTION_BASE_OFFSET;
+  }
+
+  if (
+    msg.centralConnection === CENTRAL_CONNECTION_DUAL &&
+    (msg.type === BIDIRECTIONAL_SOLID || msg.type === BIDIRECTIONAL_DOTTED)
+  ) {
+    offset += isArrowToRight ? 0 : -CENTRAL_CONNECTION_BIDIRECTIONAL_OFFSET;
+  }
+
+  return offset;
+};
+
 const buildMessageModel = function (msg, actors, diagObj) {
   const { look } = getConfig();
   if (
@@ -1496,6 +1692,27 @@ const buildMessageModel = function (msg, actors, diagObj) {
       diagObj.db.LINETYPE.SOLID_OPEN,
       diagObj.db.LINETYPE.DOTTED_OPEN,
       diagObj.db.LINETYPE.SOLID,
+
+      diagObj.db.LINETYPE.SOLID_TOP,
+      diagObj.db.LINETYPE.SOLID_BOTTOM,
+      diagObj.db.LINETYPE.STICK_TOP,
+      diagObj.db.LINETYPE.STICK_BOTTOM,
+
+      diagObj.db.LINETYPE.SOLID_TOP_DOTTED,
+      diagObj.db.LINETYPE.SOLID_BOTTOM_DOTTED,
+      diagObj.db.LINETYPE.STICK_TOP_DOTTED,
+      diagObj.db.LINETYPE.STICK_BOTTOM_DOTTED,
+
+      diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE,
+      diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE,
+      diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE,
+      diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE,
+
+      diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE_DOTTED,
+      diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE_DOTTED,
+      diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE_DOTTED,
+      diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED,
+
       diagObj.db.LINETYPE.DOTTED,
       diagObj.db.LINETYPE.SOLID_CROSS,
       diagObj.db.LINETYPE.DOTTED_CROSS,
@@ -1513,6 +1730,10 @@ const buildMessageModel = function (msg, actors, diagObj) {
   let startx = isArrowToRight ? fromRight : fromLeft;
   let stopx = isArrowToRight ? toLeft : toRight;
 
+  // Apply central connection positioning adjustments
+  startx += calculateCentralConnectionOffset(msg, diagObj, isArrowToRight);
+
+  
   if (look === 'neo') {
     const offset = 3;
     if (msg.type !== diagObj.db.LINETYPE.SOLID_OPEN) {
@@ -1559,7 +1780,30 @@ const buildMessageModel = function (msg, actors, diagObj) {
      * Shorten the length of arrow at the end and move the marker forward (using refX) to have a clean arrowhead
      * This is not required for open arrows that don't have arrowheads
      */
-    if (![diagObj.db.LINETYPE.SOLID_OPEN, diagObj.db.LINETYPE.DOTTED_OPEN].includes(msg.type)) {
+    if (
+      ![
+        diagObj.db.LINETYPE.SOLID_OPEN,
+        diagObj.db.LINETYPE.DOTTED_OPEN,
+
+        diagObj.db.LINETYPE.STICK_TOP,
+        diagObj.db.LINETYPE.STICK_BOTTOM,
+
+        diagObj.db.LINETYPE.STICK_TOP_DOTTED,
+        diagObj.db.LINETYPE.STICK_BOTTOM_DOTTED,
+
+        diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE_DOTTED,
+        diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE_DOTTED,
+
+        diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE,
+        diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE,
+
+        diagObj.db.LINETYPE.STICK_ARROW_TOP_REVERSE_DOTTED,
+        diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED,
+
+        diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE,
+        diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE,
+      ].includes(msg.type)
+    ) {
       stopx += adjustValue(3);
     }
 
@@ -1567,9 +1811,14 @@ const buildMessageModel = function (msg, actors, diagObj) {
      * Shorten start position of bidirectional arrow to accommodate for second arrowhead
      */
     if (
-      [diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID, diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED].includes(
-        msg.type
-      )
+      [
+        diagObj.db.LINETYPE.BIDIRECTIONAL_SOLID,
+        diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED,
+        diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE_DOTTED,
+        diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE_DOTTED,
+        diagObj.db.LINETYPE.SOLID_ARROW_TOP_REVERSE,
+        diagObj.db.LINETYPE.SOLID_ARROW_BOTTOM_REVERSE,
+      ].includes(msg.type)
     ) {
       startx -= adjustValue(3);
     }
