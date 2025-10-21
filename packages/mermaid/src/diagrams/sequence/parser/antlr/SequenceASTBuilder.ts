@@ -1136,7 +1136,10 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     if (fullText) {
       // Parse the signal pattern: from + arrow + to + : + message
       // Updated regex to handle activation/deactivation markers (+ and -)
-      const signalMatch = /^(\w+)(->|-->>|->>|-->)([+-]?)(\w+):(.+)$/.exec(fullText);
+      // Arrow types: ->, ->>, -->, -->>, -), --), -x, --x
+      const signalMatch = /^(\w+)(->|-->>|->>|-->|--\)|--x|-\)|-x)([+-]?)(\w+):(.+)$/.exec(
+        fullText
+      );
       log.debug('  - Regex match result:', signalMatch);
 
       if (signalMatch) {
