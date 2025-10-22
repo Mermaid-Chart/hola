@@ -233,6 +233,149 @@ describe('SequenceElementMapper', () => {
     });
   });
 
+  describe('Participant Types', () => {
+    const allTypesCode = `sequenceDiagram
+    actor Customer
+    participant UI
+    participant API@{ "type": "boundary" }
+    participant Orchestrator@{ "type": "control" }
+    participant OrderModel@{ "type": "entity" }
+    participant SQL@{ "type": "database" }
+    participant Cache@{ "type": "collections" }
+    participant Jobs@{ "type": "queue" }`;
+
+    it('should create element mappings for all participant types', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+
+      const mapper = new SequenceElementMapper(ast!);
+
+      const participants = mapper.getParticipants();
+      expect(participants.length).toBe(8); // All 8 participant types
+
+      // Verify each participant type has a mapping
+      const participantIds = [
+        'Customer',
+        'UI',
+        'API',
+        'Orchestrator',
+        'OrderModel',
+        'SQL',
+        'Cache',
+        'Jobs',
+      ];
+      for (const id of participantIds) {
+        const mapping = participants.find((p) => p.data && 'id' in p.data && p.data.id === id);
+        expect(mapping).toBeDefined();
+        expect(mapping?.type).toMatch(/^(participant|actor)$/);
+      }
+    });
+
+    it('should generate correct SVG selectors for all participant types', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      const participants = mapper.getParticipants();
+
+      // Participants can have either data-et="participant" or data-et="actor" in SVG
+      // Actors use data-et="actor", all other participant types use data-et="participant"
+      for (const p of participants) {
+        const hasParticipantOrActor =
+          p.svgSelector.includes('[data-et="participant"]') ||
+          p.svgSelector.includes('[data-et="actor"]');
+        expect(hasParticipantOrActor).toBe(true);
+        expect(p.svgSelector).toContain('[data-id="');
+      }
+    });
+
+    it('should find actor type participant by cursor position', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find Customer (actor type) - line 2
+      // Note: All participant types (including actors) use type='participant' in element mappings
+      // because the SVG renderer sets data-et="participant" for all types
+      const element = mapper.getElementAtPosition(2, 10);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'Customer');
+    });
+
+    it('should find boundary type participant by cursor position', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find API (boundary type) - line 4
+      const element = mapper.getElementAtPosition(4, 18);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'API');
+    });
+
+    it('should find control type participant by cursor position', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find Orchestrator (control type) - line 5
+      const element = mapper.getElementAtPosition(5, 18);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'Orchestrator');
+    });
+
+    it('should find entity type participant by cursor position', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find OrderModel (entity type) - line 6
+      const element = mapper.getElementAtPosition(6, 18);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'OrderModel');
+    });
+
+    it('should find database type participant by cursor position', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find SQL (database type) - line 7
+      const element = mapper.getElementAtPosition(7, 18);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'SQL');
+    });
+
+    it('should find collections type participant by cursor position', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find Cache (collections type) - line 8
+      const element = mapper.getElementAtPosition(8, 18);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'Cache');
+    });
+
+    it('should find queue type participant by cursor position', async () => {
+      const ast = await parseCode(allTypesCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find Jobs (queue type) - line 9
+      const element = mapper.getElementAtPosition(9, 18);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'Jobs');
+    });
+  });
+
   describe('Participant Aliases', () => {
     const aliasCode = `sequenceDiagram
     actor Alice as Ash
@@ -489,6 +632,55 @@ describe('SequenceElementMapper', () => {
       expect(selectors).toContain('[data-et="message"][data-id="i18"]'); // D->>C: one
       expect(selectors).toContain('[data-et="message"][data-id="i19"]'); // C->>D: two
       expect(selectors).toContain('[data-et="message"][data-id="i22"]'); // John-->>Alice: Great!
+    });
+  });
+
+  describe('Participant Types with Config Objects', () => {
+    it('should create correct element mappings for participants with config objects', async () => {
+      const diagramCode = `sequenceDiagram
+    actor Customer
+    participant UI
+    participant API@{ "type": "boundary" }
+    participant Orchestrator@{ "type": "control" }
+    participant OrderModel@{ "type": "entity" }
+    participant SQL@{ "type": "database" }
+    participant Cache@{ "type": "collections" }
+    participant Jobs@{ "type": "queue" }
+    Customer->>UI: Place order
+    UI->>API: POST /orders`;
+
+      const ast = await parseCode(diagramCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      const allMappings = mapper.getAllMappings();
+
+      // Get participant mappings (should include both 'participant' and 'actor' types)
+      const participantMappings = mapper.getParticipants();
+
+      // We should have 8 participant declarations
+      expect(participantMappings.length).toBeGreaterThanOrEqual(8);
+
+      // Check that we have mappings for all participants
+      const participantIds = participantMappings.map((m) => m.data.id);
+      expect(participantIds).toContain('Customer');
+      expect(participantIds).toContain('UI');
+      expect(participantIds).toContain('API');
+      expect(participantIds).toContain('Orchestrator');
+      expect(participantIds).toContain('OrderModel');
+      expect(participantIds).toContain('SQL');
+      expect(participantIds).toContain('Cache');
+      expect(participantIds).toContain('Jobs');
+
+      // Check that API participant has correct position (line 4)
+      const apiMapping = participantMappings.find((m) => m.data.id === 'API');
+      expect(apiMapping).toBeDefined();
+      expect(apiMapping?.position.startLine).toBe(4);
+
+      // Check that Orchestrator participant has correct position (line 5)
+      const orchestratorMapping = participantMappings.find((m) => m.data.id === 'Orchestrator');
+      expect(orchestratorMapping).toBeDefined();
+      expect(orchestratorMapping?.position.startLine).toBe(5);
     });
   });
 

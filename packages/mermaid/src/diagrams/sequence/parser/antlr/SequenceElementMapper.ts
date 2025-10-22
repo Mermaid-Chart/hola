@@ -119,10 +119,12 @@ export class SequenceElementMapper {
   }
 
   /**
-   * Get all participant elements
+   * Get all participant elements (includes both 'participant' and 'actor' types)
    */
   getParticipants(): ElementMapping[] {
-    return this.getElementsByType('participant');
+    return [...this.mappings.values()].filter(
+      (mapping) => mapping.type === 'participant' || mapping.type === 'actor'
+    );
   }
 
   /**

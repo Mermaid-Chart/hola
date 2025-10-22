@@ -1006,6 +1006,52 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
     // Prefer structured reconstruction using tokens/children to preserve whitespace semantics
     try {
+      // Check for extended participant syntax: participant <ACTOR>@{...}
+      const awc = ctx.actorWithConfig?.();
+      if (awc) {
+        // Handle participant with config object (e.g., participant API@{ "type": "boundary" })
+        const actorToken = awc.ACTOR?.();
+        const id = actorToken?.getText().trim() ?? '';
+
+        if (id) {
+          // Log detailed position information for debugging
+          log.debug('🔍 [PARTICIPANT-WITH-CONFIG] Processing:', {
+            id,
+            awcStart: awc.start,
+            awcStop: awc.stop,
+            awcText: this.getContextText(awc),
+            ctxStart: ctx.start,
+            ctxStop: ctx.stop,
+            ctxText: this.getContextText(ctx),
+          });
+
+          // Emit exact original text segment for output (preserves spaces and inline config)
+          this.emitOriginalSegmentFromCtx(ctx);
+
+          // Build AST entry
+          const participantData: ParticipantData = { id };
+          this.pushStatement({
+            type: 'participant',
+            originalIndex: this.currentIndex++,
+            data: participantData,
+            sourceTokens: { start: ctx.start, stop: ctx.stop },
+            sourceLine: this.getOriginalSourceFromCtx(ctx),
+          });
+
+          // Create element mapping for bidirectional synchronization
+          // Use awc context (ActorWithConfigContext) which is a ParserRuleContext
+          // This will highlight the entire "participantName@{...}" part
+          const participantMapping = this.createElementMapping('participant', awc, participantData);
+
+          log.debug('📝 Added participant with config to AST:', {
+            participantData,
+            mapping: participantMapping,
+          });
+          return '';
+        }
+      }
+
+      // Handle standard participant/actor syntax
       const hasActor = !!(
         ctx.PARTICIPANT_ACTOR &&
         typeof ctx.PARTICIPANT_ACTOR === 'function' &&
@@ -1047,6 +1093,8 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
 
         // Create element mapping for bidirectional synchronization
         // Use actorCtx instead of ctx to highlight only the participant name, not the keyword
+        // Note: Always use 'participant' for element mapping type because the SVG renderer
+        // sets data-et="participant" for all participant types (actor, participant, boundary, etc.)
         const participantMapping = this.createElementMapping(
           'participant',
           actorCtx ?? ctx,
@@ -1059,7 +1107,7 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         if (alias && aliasCtx && participantMapping?.svgId && participantMapping?.svgSelector) {
           log.debug('Creating additional element mapping for alias:', alias);
           this.createElementMappingWithSvgId(
-            'participant',
+            statementType,
             aliasCtx,
             participantData,
             participantMapping.svgId,
