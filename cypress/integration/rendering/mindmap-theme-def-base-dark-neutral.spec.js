@@ -1,0 +1,32 @@
+import { imgSnapshotTest } from '../../helpers/util.ts';
+
+describe('Minmap', () => {
+  ['default', 'base', 'dark', 'neutral'].forEach((theme) => {
+    describe(theme, () => {
+      it('should render a Mindmap', () => {
+        imgSnapshotTest(
+          `
+        mindmap
+          root((mindmap))
+            Origins
+              Long history
+              ::icon(fa fa-book)
+              Popularization
+                British popular psychology author Tony Buzan
+            Research
+              On effectiveness<br/>and features
+              On Automatic creation
+                Uses
+                    Creative techniques
+                    Strategic planning
+                    Argument mapping
+            Tools
+              Pen and paper
+              Mermaid
+          `,
+          { theme }
+        );
+      });
+    });
+  });
+});
