@@ -1014,9 +1014,33 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
         const id = actorToken?.getText().trim() ?? '';
 
         if (id) {
+          // Extract config content to parse type metadata
+          const cfgObj = awc.configObject?.();
+          const cfgTok = cfgObj?.CONFIG_CONTENT?.();
+          const configContent = cfgTok?.getText?.() ?? '';
+
+          // Parse the config content to extract type metadata
+          let participantType: ParticipantData['type'] = undefined;
+          if (configContent) {
+            try {
+              // The config content is in JSON format like: "type": "boundary"
+              // We need to wrap it in braces to make it valid JSON
+              const jsonStr = configContent.includes('\n') ? configContent : `{${configContent}}`;
+              const config = JSON.parse(jsonStr);
+              if (config.type) {
+                participantType = config.type as ParticipantData['type'];
+              }
+            } catch (e) {
+              // If JSON parsing fails, log but continue without type metadata
+              log.debug('Failed to parse participant config:', e);
+            }
+          }
+
           // Log detailed position information for debugging
           log.debug('🔍 [PARTICIPANT-WITH-CONFIG] Processing:', {
             id,
+            type: participantType,
+            configContent,
             awcStart: awc.start,
             awcStop: awc.stop,
             awcText: this.getContextText(awc),
@@ -1028,8 +1052,8 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
           // Emit exact original text segment for output (preserves spaces and inline config)
           this.emitOriginalSegmentFromCtx(ctx);
 
-          // Build AST entry
-          const participantData: ParticipantData = { id };
+          // Build AST entry with type metadata
+          const participantData: ParticipantData = { id, type: participantType };
           this.pushStatement({
             type: 'participant',
             originalIndex: this.currentIndex++,

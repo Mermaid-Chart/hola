@@ -119,6 +119,15 @@ export interface ParticipantData {
   id: string;
   alias?: string;
   displayName?: string;
+  type?:
+    | 'actor'
+    | 'participant'
+    | 'boundary'
+    | 'control'
+    | 'entity'
+    | 'database'
+    | 'collections'
+    | 'queue';
 }
 
 export interface MessageData {
