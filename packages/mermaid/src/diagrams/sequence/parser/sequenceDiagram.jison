@@ -31,7 +31,7 @@
 <ID>\@\{                                                        { this.begin('CONFIG'); return 'CONFIG_START'; }
 <CONFIG>[^\}]+                                                  { return 'CONFIG_CONTENT'; }
 <CONFIG>\}\s+"as"\s+                                            { this.popState(); this.popState(); this.begin('LINE'); return 'CONFIG_END_AS'; }
-<CONFIG>\}                                                      { this.popState(); this.popState(); return 'CONFIG_END'; }
+<CONFIG>\}[ \t]*                                                { this.popState(); this.popState(); return 'CONFIG_END'; }
 <ID>\s+"as"\s+                                                  { this.popState(); this.begin('LINE'); return 'AS'; }
 <ID>[^\<->\->:\n,;@\s]+(?=\@\{)                                 { yytext = yytext.trim(); return 'ACTOR'; }
 <ID>[^<>:\n,;@\s]+(?=\s+as\s)                                   { yytext = yytext.trim(); this.begin('ALIAS'); return 'ACTOR'; }

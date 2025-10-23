@@ -2631,6 +2631,32 @@ Bob->>Alice:Got it!
       expect(actors.get('Q').type).toBe('queue');
       expect(actors.get('Q').description).toBe('Q');
     });
+
+    it('should handle trailing spaces after config block', async () => {
+      const diagram = await Diagram.fromText(`
+      sequenceDiagram
+      participant API@{ "type": "boundary" }
+      participant UI
+      API->UI: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('API');
+      expect(actors.get('UI').description).toBe('UI');
+    });
+
+    it('should handle trailing spaces after config block with alias', async () => {
+      const diagram = await Diagram.fromText(`
+      sequenceDiagram
+      participant API@{ "type": "boundary" } as Second
+      participant UI
+      API->UI: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('Second');
+      expect(actors.get('UI').description).toBe('UI');
+    });
   });
 
   describe('participant type parsing', () => {
