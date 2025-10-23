@@ -5,9 +5,7 @@ import antlrParser from './antlr/antlr-parser.js';
 const newParser = {
   parser: antlrParser,
   parse: (src: string) => {
-    // Normalize whitespace like flow does to keep parity with Jison behavior
-    const newSrc = src.replace(/}\s*\n/g, '}\n');
-    return antlrParser.parse(newSrc);
+    return antlrParser.parse(src);
   },
   features: {
     processRawText: true,
