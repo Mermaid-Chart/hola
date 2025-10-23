@@ -2788,5 +2788,42 @@ Bob->>Alice:Got it!
       expect(actors.get('C').type).toBe('control');
       expect(actors.get('C').description).toBe('Controller');
     });
+
+    it('should preserve type when adding alias to existing participant', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant API@{ "type": "boundary" }
+        participant API as Second
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('Second');
+    });
+
+    it('should preserve type when re-declaring participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant DB@{ "type": "database" }
+        participant DB as Main Database
+        participant C@{ "type": "control" }
+        participant C as Controller
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('DB').type).toBe('database');
+      expect(actors.get('DB').description).toBe('Main Database');
+      expect(actors.get('C').type).toBe('control');
+      expect(actors.get('C').description).toBe('Controller');
+    });
+
+    it('should allow overriding type with new metadata', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant API@{ "type": "boundary" }
+        participant API@{ "type": "control" } as Controller
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('control');
+      expect(actors.get('API').description).toBe('Controller');
+    });
   });
 });

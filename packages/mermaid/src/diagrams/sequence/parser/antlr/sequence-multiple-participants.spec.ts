@@ -220,4 +220,38 @@ describe('Multiple participant declarations', () => {
       alias: 'Message Queue',
     });
   });
+
+  it('should parse participant declared with type then re-declared with alias', () => {
+    const input = `sequenceDiagram
+    participant API@{ "type": "boundary" }
+    participant API as Second`;
+
+    const inputStream = CharStream.fromString(input);
+    const lexer = new SequenceLexer(inputStream);
+    const tokenStream = new CommonTokenStream(lexer);
+    const parser = new SequenceParser(tokenStream);
+    const tree = parser.start();
+
+    const generator = new SequenceASTBuilder(input);
+    const { ast } = generator.generateAST(tree);
+
+    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+
+    // Should have 2 participant statements (both for same participant)
+    expect(participantStatements).toHaveLength(2);
+
+    // First declaration: with type, no alias
+    expect(participantStatements[0].data).toMatchObject({
+      id: 'API',
+      type: 'boundary',
+    });
+    expect(participantStatements[0].data.alias).toBeUndefined();
+
+    // Second declaration: no type (should be preserved), with alias
+    expect(participantStatements[1].data).toMatchObject({
+      id: 'API',
+    });
+    expect(participantStatements[1].data.alias).toBe('Second');
+    expect(participantStatements[1].data.type).toBeUndefined(); // AST doesn't have type on second declaration
+  });
 });

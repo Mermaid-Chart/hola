@@ -191,6 +191,11 @@ export class SequenceDB implements DiagramDB {
       if (old && name === old.name && description == null) {
         return;
       }
+
+      // Preserve existing type if no new metadata is provided
+      if (metadata === undefined && old.type) {
+        type = old.type;
+      }
     }
 
     // Don't allow null descriptions, either
