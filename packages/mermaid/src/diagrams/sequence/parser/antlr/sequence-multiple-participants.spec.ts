@@ -86,4 +86,138 @@ describe('Multiple participant declarations', () => {
     expect(jobsStatement.data.type).toBe('queue');
     expect(jobsStatement.sourceLine).toBe('participant Jobs@{ "type": "queue" }');
   });
+
+  it('should parse participant with type and alias', () => {
+    const input = `sequenceDiagram
+    participant API1@{ "type": "boundary" } as First API
+    participant API2@{ "type": "boundary" } as Second API
+    API1->API2: request`;
+
+    const inputStream = CharStream.fromString(input);
+    const lexer = new SequenceLexer(inputStream);
+    const tokenStream = new CommonTokenStream(lexer);
+    const parser = new SequenceParser(tokenStream);
+    const tree = parser.start();
+
+    const generator = new SequenceASTBuilder(input);
+    const { ast } = generator.generateAST(tree);
+
+    // Filter out blank lines and messages for this test
+    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+
+    // Check that we have exactly 2 participant statements
+    expect(participantStatements).toHaveLength(2);
+
+    // Verify API1 (with boundary type and alias)
+    const api1Statement = participantStatements[0];
+    expect(api1Statement.data.id).toBe('API1');
+    expect(api1Statement.data.type).toBe('boundary');
+    expect(api1Statement.data.alias).toBe('First API');
+    expect(api1Statement.sourceLine).toBe('participant API1@{ "type": "boundary" } as First API');
+
+    // Verify API2 (with boundary type and alias)
+    const api2Statement = participantStatements[1];
+    expect(api2Statement.data.id).toBe('API2');
+    expect(api2Statement.data.type).toBe('boundary');
+    expect(api2Statement.data.alias).toBe('Second API');
+    expect(api2Statement.sourceLine).toBe('participant API2@{ "type": "boundary" } as Second API');
+  });
+
+  it('should parse mixed participants with and without aliases', () => {
+    const input = `sequenceDiagram
+    participant API1@{ "type": "boundary" }
+    participant API2@{ "type": "boundary" } as Second
+    participant C@{ "type": "control" } as Controller
+    participant E@{ "type": "entity" }`;
+
+    const inputStream = CharStream.fromString(input);
+    const lexer = new SequenceLexer(inputStream);
+    const tokenStream = new CommonTokenStream(lexer);
+    const parser = new SequenceParser(tokenStream);
+    const tree = parser.start();
+
+    const generator = new SequenceASTBuilder(input);
+    const { ast } = generator.generateAST(tree);
+
+    // Filter out blank lines for this test
+    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+
+    // Check that we have exactly 4 participant statements
+    expect(participantStatements).toHaveLength(4);
+
+    // Verify API1 (without alias)
+    expect(participantStatements[0].data.id).toBe('API1');
+    expect(participantStatements[0].data.type).toBe('boundary');
+    expect(participantStatements[0].data.alias).toBeUndefined();
+
+    // Verify API2 (with alias)
+    expect(participantStatements[1].data.id).toBe('API2');
+    expect(participantStatements[1].data.type).toBe('boundary');
+    expect(participantStatements[1].data.alias).toBe('Second');
+
+    // Verify C (with alias)
+    expect(participantStatements[2].data.id).toBe('C');
+    expect(participantStatements[2].data.type).toBe('control');
+    expect(participantStatements[2].data.alias).toBe('Controller');
+
+    // Verify E (without alias)
+    expect(participantStatements[3].data.id).toBe('E');
+    expect(participantStatements[3].data.type).toBe('entity');
+    expect(participantStatements[3].data.alias).toBeUndefined();
+  });
+
+  it('should parse all participant types with aliases', () => {
+    const input = `sequenceDiagram
+    participant B@{ "type": "boundary" } as Boundary Layer
+    participant C@{ "type": "control" } as Control Layer
+    participant E@{ "type": "entity" } as Entity Model
+    participant D@{ "type": "database" } as Database
+    participant L@{ "type": "collections" } as Cache Layer
+    participant Q@{ "type": "queue" } as Message Queue`;
+
+    const inputStream = CharStream.fromString(input);
+    const lexer = new SequenceLexer(inputStream);
+    const tokenStream = new CommonTokenStream(lexer);
+    const parser = new SequenceParser(tokenStream);
+    const tree = parser.start();
+
+    const generator = new SequenceASTBuilder(input);
+    const { ast } = generator.generateAST(tree);
+
+    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+
+    expect(participantStatements).toHaveLength(6);
+
+    // Verify all participants have correct type and alias
+    expect(participantStatements[0].data).toMatchObject({
+      id: 'B',
+      type: 'boundary',
+      alias: 'Boundary Layer',
+    });
+    expect(participantStatements[1].data).toMatchObject({
+      id: 'C',
+      type: 'control',
+      alias: 'Control Layer',
+    });
+    expect(participantStatements[2].data).toMatchObject({
+      id: 'E',
+      type: 'entity',
+      alias: 'Entity Model',
+    });
+    expect(participantStatements[3].data).toMatchObject({
+      id: 'D',
+      type: 'database',
+      alias: 'Database',
+    });
+    expect(participantStatements[4].data).toMatchObject({
+      id: 'L',
+      type: 'collections',
+      alias: 'Cache Layer',
+    });
+    expect(participantStatements[5].data).toMatchObject({
+      id: 'Q',
+      type: 'queue',
+      alias: 'Message Queue',
+    });
+  });
 });

@@ -1036,10 +1036,21 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
             }
           }
 
+          // Check for alias (AS restOfLine)
+          let alias = '';
+          let aliasCtx: RestOfLineContext | null = null;
+          const hasAS = !!(ctx.AS && typeof ctx.AS === 'function' && ctx.AS());
+          if (hasAS && ctx.restOfLine && typeof ctx.restOfLine === 'function' && ctx.restOfLine()) {
+            const rol = ctx.restOfLine();
+            aliasCtx = rol;
+            alias = rol ? this.getContextText(rol).trim() : '';
+          }
+
           // Log detailed position information for debugging
           log.debug('🔍 [PARTICIPANT-WITH-CONFIG] Processing:', {
             id,
             type: participantType,
+            alias,
             configContent,
             awcStart: awc.start,
             awcStop: awc.stop,
@@ -1052,8 +1063,12 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
           // Emit exact original text segment for output (preserves spaces and inline config)
           this.emitOriginalSegmentFromCtx(ctx);
 
-          // Build AST entry with type metadata
-          const participantData: ParticipantData = { id, type: participantType };
+          // Build AST entry with type metadata and alias
+          const participantData: ParticipantData = {
+            id,
+            type: participantType,
+            alias: alias || undefined,
+          };
           this.pushStatement({
             type: 'participant',
             originalIndex: this.currentIndex++,
@@ -1066,6 +1081,20 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
           // Use awc context (ActorWithConfigContext) which is a ParserRuleContext
           // This will highlight the entire "participantName@{...}" part
           const participantMapping = this.createElementMapping('participant', awc, participantData);
+
+          // If there's an alias, create an additional element mapping for it
+          // This allows bidirectional highlighting to work when cursor is on the alias
+          // Both mappings should have the same SVG ID so they highlight the same element
+          if (alias && aliasCtx && participantMapping?.svgId && participantMapping?.svgSelector) {
+            log.debug('Creating additional element mapping for alias:', alias);
+            this.createElementMappingWithSvgId(
+              'participant',
+              aliasCtx,
+              participantData,
+              participantMapping.svgId,
+              participantMapping.svgSelector
+            );
+          }
 
           log.debug('📝 Added participant with config to AST:', {
             participantData,

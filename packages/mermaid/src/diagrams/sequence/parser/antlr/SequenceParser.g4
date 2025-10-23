@@ -47,7 +47,7 @@ destroyStatement
   ;
 
 participantStatement
-  : PARTICIPANT actorWithConfig
+  : PARTICIPANT actorWithConfig (AS restOfLine)?
   | (PARTICIPANT | PARTICIPANT_ACTOR) actor (AS restOfLine)?
   ;
 

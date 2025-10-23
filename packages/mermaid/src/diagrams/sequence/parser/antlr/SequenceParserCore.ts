@@ -135,8 +135,30 @@ export class SequenceParserCore {
       const metadata = (Array.isArray(cfgTok) ? cfgTok[0] : cfgTok)?.getText?.() as
         | string
         | undefined;
+
+      // Check for alias (AS restOfLine)
+      let display = id;
+      if (ctx.AS) {
+        let raw: string | undefined;
+        const rest = ctx.restOfLine?.();
+        raw = rest?.getText?.() as string | undefined;
+        if (raw === undefined && ctx.TXT) {
+          const t = ctx.TXT();
+          raw = Array.isArray(t)
+            ? (t[0]?.getText?.() as string | undefined)
+            : (t?.getText?.() as string | undefined);
+        }
+        if (raw !== undefined) {
+          const trimmed = raw.startsWith(':') ? raw.slice(1) : raw;
+          const v = trimmed.trim();
+          if (v) {
+            display = v;
+          }
+        }
+      }
+
       // Important: let errors from YAML parsing propagate for invalid configs
-      this.db.addActor(id, id, { text: id, type: 'participant' }, 'participant', metadata);
+      this.db.addActor(id, id, { text: display, type: 'participant' }, 'participant', metadata);
       return;
     }
 
