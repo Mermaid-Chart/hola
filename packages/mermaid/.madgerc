@@ -16,7 +16,8 @@
     "docs",
     "vitepress",
     "detector",
-    "Detector"
+    "Detector",
+    "generated"
   ],
   "tsConfig": "./tsconfig.json"
 }
