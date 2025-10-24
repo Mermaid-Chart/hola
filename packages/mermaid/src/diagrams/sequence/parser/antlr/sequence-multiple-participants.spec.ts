@@ -3,6 +3,19 @@ import { CharStream, CommonTokenStream } from 'antlr4ng';
 import { SequenceLexer } from './generated/SequenceLexer.js';
 import { SequenceParser } from './generated/SequenceParser.js';
 import { SequenceASTBuilder } from './SequenceASTBuilder.js';
+import type { ParticipantData, SequenceStatement } from '../../types.js';
+
+// Type guard function to check if a statement is a participant statement
+function isParticipantStatement(
+  stmt: SequenceStatement
+): stmt is SequenceStatement & { data: ParticipantData } {
+  return (
+    (stmt.type === 'participant' || stmt.type === 'actor') &&
+    typeof stmt.data === 'object' &&
+    stmt.data !== null &&
+    'id' in stmt.data
+  );
+}
 
 describe('Multiple participant declarations', () => {
   it('should parse all 7 participant declarations with type metadata', () => {
@@ -27,7 +40,7 @@ describe('Multiple participant declarations', () => {
     const { ast } = generator.generateAST(tree);
 
     // Filter out blank lines and messages for this test
-    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+    const participantStatements = ast.statements.filter(isParticipantStatement);
 
     // Check that we have exactly 7 participant statements
     expect(participantStatements).toHaveLength(7);
@@ -103,7 +116,7 @@ describe('Multiple participant declarations', () => {
     const { ast } = generator.generateAST(tree);
 
     // Filter out blank lines and messages for this test
-    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+    const participantStatements = ast.statements.filter(isParticipantStatement);
 
     // Check that we have exactly 2 participant statements
     expect(participantStatements).toHaveLength(2);
@@ -140,7 +153,7 @@ describe('Multiple participant declarations', () => {
     const { ast } = generator.generateAST(tree);
 
     // Filter out blank lines for this test
-    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+    const participantStatements = ast.statements.filter(isParticipantStatement);
 
     // Check that we have exactly 4 participant statements
     expect(participantStatements).toHaveLength(4);
@@ -184,7 +197,7 @@ describe('Multiple participant declarations', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+    const participantStatements = ast.statements.filter(isParticipantStatement);
 
     expect(participantStatements).toHaveLength(6);
 
@@ -235,7 +248,7 @@ describe('Multiple participant declarations', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    const participantStatements = ast.statements.filter((s) => s.type === 'participant');
+    const participantStatements = ast.statements.filter(isParticipantStatement);
 
     // Should have 2 participant statements (both for same participant)
     expect(participantStatements).toHaveLength(2);

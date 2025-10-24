@@ -76,7 +76,7 @@ async function parse(
   addDiagrams();
   try {
     const { code, config, title } = processAndSetConfigs(text);
-    console.log('code', code);
+    log.debug('code', code);
     const diagram = await Diagram.fromText(code, { title });
     return { diagram, code: code.cleaned, config, title, success: true };
   } catch (error) {

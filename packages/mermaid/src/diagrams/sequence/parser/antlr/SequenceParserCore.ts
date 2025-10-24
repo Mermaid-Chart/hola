@@ -1,5 +1,10 @@
 import type { SequenceDB } from '../../sequenceDb.js';
-import type { ParserRuleContext } from 'antlr4ng';
+
+// Helper type for ANTLR context with dynamic properties
+// We use `any` here because ANTLR generates context classes with dynamic properties
+// that don't exist on the base ParserRuleContext type. Using optional chaining
+// provides runtime safety while `any` allows TypeScript compilation.
+type AnyContext = any;
 
 // Type for window with MERMAID_CONFIG
 interface WindowWithConfig extends Window {
@@ -18,7 +23,7 @@ export class SequenceParserCore {
   }
 
   // Helper method to get environment variables (same as flowchart)
-  protected getEnvVar(name: string): string | undefined {
+  public getEnvVar(name: string): string | undefined {
     try {
       if (typeof process !== 'undefined' && process.env) {
         return process.env[name];
@@ -35,7 +40,7 @@ export class SequenceParserCore {
   }
 
   // Signal type mapping helper
-  protected mapSignalType(op: string): number | undefined {
+  public mapSignalType(op: string): number | undefined {
     const LT = this.db?.LINETYPE;
     if (!LT) {
       return undefined;
@@ -101,7 +106,7 @@ export class SequenceParserCore {
   }
 
   // Loop block processing
-  protected processLoopBlockEnter(ctx: ParserRuleContext): void {
+  public processLoopBlockEnter(ctx: AnyContext): void {
     try {
       const rest = ctx.restOfLine?.();
       const raw = rest ? (rest.getText?.() as string | undefined) : undefined;
@@ -112,14 +117,14 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processLoopBlockExit(): void {
+  public processLoopBlockExit(): void {
     try {
       this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.LOOP_END);
     } catch {}
   }
 
   // Participant statement processing
-  protected processParticipantStatement(ctx: ParserRuleContext): void {
+  public processParticipantStatement(ctx: AnyContext): void {
     // Extended participant syntax: participant <ACTOR>@{...}
     const awc = ctx.actorWithConfig?.();
     if (awc) {
@@ -199,7 +204,7 @@ export class SequenceParserCore {
   }
 
   // Create statement processing
-  protected processCreateStatement(ctx: ParserRuleContext): void {
+  public processCreateStatement(ctx: AnyContext): void {
     try {
       const hasActor = !!ctx.PARTICIPANT_ACTOR?.();
       const draw = hasActor ? 'actor' : 'participant';
@@ -237,7 +242,7 @@ export class SequenceParserCore {
   }
 
   // Destroy statement processing
-  protected processDestroyStatement(ctx: ParserRuleContext): void {
+  public processDestroyStatement(ctx: AnyContext): void {
     try {
       const id = ctx.actor?.()?.getText?.() as string | undefined;
       if (!id) {
@@ -251,7 +256,7 @@ export class SequenceParserCore {
   }
 
   // Opt block processing
-  protected processOptBlockEnter(ctx: ParserRuleContext): void {
+  public processOptBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -260,14 +265,14 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processOptBlockExit(): void {
+  public processOptBlockExit(): void {
     try {
       this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.OPT_END);
     } catch {}
   }
 
   // Alt block processing
-  protected processAltBlockEnter(ctx: ParserRuleContext): void {
+  public processAltBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -276,13 +281,13 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processAltBlockExit(): void {
+  public processAltBlockExit(): void {
     try {
       this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.ALT_END);
     } catch {}
   }
 
-  protected processElseSection(ctx: ParserRuleContext): void {
+  public processElseSection(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -292,7 +297,7 @@ export class SequenceParserCore {
   }
 
   // Par block processing
-  protected processParBlockEnter(ctx: ParserRuleContext): void {
+  public processParBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -301,13 +306,13 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processParBlockExit(): void {
+  public processParBlockExit(): void {
     try {
       this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.PAR_END);
     } catch {}
   }
 
-  protected processAndSection(ctx: ParserRuleContext): void {
+  public processAndSection(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -317,7 +322,7 @@ export class SequenceParserCore {
   }
 
   // ParOver block processing
-  protected processParOverBlockEnter(ctx: ParserRuleContext): void {
+  public processParOverBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -326,14 +331,14 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processParOverBlockExit(): void {
+  public processParOverBlockExit(): void {
     try {
-      this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.PAR_OVER_END);
+      this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.PAR_END);
     } catch {}
   }
 
   // Rect block processing
-  protected processRectBlockEnter(ctx: ParserRuleContext): void {
+  public processRectBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const line = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : '';
@@ -343,7 +348,7 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processRectBlockExit(): void {
+  public processRectBlockExit(): void {
     try {
       // RECT should generate RECT_END signal, not box end
       this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.RECT_END);
@@ -351,7 +356,7 @@ export class SequenceParserCore {
   }
 
   // Box block processing
-  protected processBoxBlockEnter(ctx: ParserRuleContext): void {
+  public processBoxBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const line = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : '';
@@ -360,14 +365,14 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processBoxBlockExit(): void {
+  public processBoxBlockExit(): void {
     try {
       this.db.boxEnd();
     } catch {}
   }
 
   // Break block processing
-  protected processBreakBlockEnter(ctx: ParserRuleContext): void {
+  public processBreakBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -376,14 +381,14 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processBreakBlockExit(): void {
+  public processBreakBlockExit(): void {
     try {
       this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.BREAK_END);
     } catch {}
   }
 
   // Critical block processing
-  protected processCriticalBlockEnter(ctx: ParserRuleContext): void {
+  public processCriticalBlockEnter(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -392,13 +397,13 @@ export class SequenceParserCore {
     } catch {}
   }
 
-  protected processCriticalBlockExit(): void {
+  public processCriticalBlockExit(): void {
     try {
       this.db.addSignal(undefined, undefined, undefined, this.db.LINETYPE.CRITICAL_END);
     } catch {}
   }
 
-  protected processOptionSection(ctx: ParserRuleContext): void {
+  public processOptionSection(ctx: AnyContext): void {
     try {
       const raw = ctx.restOfLine?.()?.getText?.() as string | undefined;
       const msgText = raw ? (raw.startsWith(':') ? raw.slice(1) : raw).trim() : undefined;
@@ -408,7 +413,7 @@ export class SequenceParserCore {
   }
 
   // Helper method to ensure actor exists (matching Jison behavior)
-  protected ensureActorExists(actorId: string): void {
+  public ensureActorExists(actorId: string): void {
     if (!this.db.getActors().has(actorId)) {
       // Create actor implicitly with default participant type
       this.db.addActor(actorId, actorId, { text: actorId, type: 'participant' }, 'participant');
@@ -416,7 +421,7 @@ export class SequenceParserCore {
   }
 
   // Signal statement processing
-  protected processSignalStatement(ctx: ParserRuleContext): void {
+  public processSignalStatement(ctx: AnyContext): void {
     try {
       const actors = ctx.actor?.();
       if (!actors || actors.length < 2) {
@@ -530,7 +535,7 @@ export class SequenceParserCore {
   }
 
   // Note statement processing
-  protected processNoteStatement(ctx: ParserRuleContext): void {
+  public processNoteStatement(ctx: AnyContext): void {
     try {
       const placement = ctx.RIGHT_OF?.() ? 'rightOf' : ctx.LEFT_OF?.() ? 'leftOf' : 'over';
       const actors = ctx.actor?.();
@@ -581,7 +586,7 @@ export class SequenceParserCore {
   }
 
   // Links statement processing
-  protected processLinksStatement(ctx: ParserRuleContext): void {
+  public processLinksStatement(ctx: AnyContext): void {
     try {
       const actor = ctx.actor?.()?.getText?.() as string | undefined;
       if (!actor) {
@@ -590,13 +595,16 @@ export class SequenceParserCore {
       const rawText = ctx.text2?.()?.getText?.() as string | undefined;
       // Strip leading colon from TXT token (TXT includes ':' prefix)
       const msgText = rawText?.startsWith(':') ? rawText.slice(1).trim() : rawText?.trim();
-      const msg = msgText ? this.db.parseMessage(msgText) : undefined;
-      this.db.addLinks(actor, msg);
+      if (!msgText) {
+        return;
+      }
+      const msg = this.db.parseMessage(msgText);
+      this.db.addLinks(actor, { text: msg.text });
     } catch {}
   }
 
   // Link statement processing
-  protected processLinkStatement(ctx: ParserRuleContext): void {
+  public processLinkStatement(ctx: AnyContext): void {
     try {
       const actor = ctx.actor?.()?.getText?.() as string | undefined;
       if (!actor) {
@@ -605,14 +613,17 @@ export class SequenceParserCore {
       const rawText = ctx.text2?.()?.getText?.() as string | undefined;
       // Strip leading colon from TXT token (TXT includes ':' prefix)
       const msgText = rawText?.startsWith(':') ? rawText.slice(1).trim() : rawText?.trim();
-      const msg = msgText ? this.db.parseMessage(msgText) : undefined;
+      if (!msgText) {
+        return;
+      }
+      const msg = this.db.parseMessage(msgText);
       // Use addALink for single link format (not addLink)
-      this.db.addALink(actor, msg);
+      this.db.addALink(actor, { text: msg.text });
     } catch {}
   }
 
   // Properties statement processing
-  protected processPropertiesStatement(ctx: ParserRuleContext): void {
+  public processPropertiesStatement(ctx: AnyContext): void {
     try {
       const actor = ctx.actor?.()?.getText?.() as string | undefined;
       if (!actor) {
@@ -621,13 +632,16 @@ export class SequenceParserCore {
       const rawText = ctx.text2?.()?.getText?.() as string | undefined;
       // Strip leading colon from TXT token (TXT includes ':' prefix)
       const msgText = rawText?.startsWith(':') ? rawText.slice(1).trim() : rawText?.trim();
-      const msg = msgText ? this.db.parseMessage(msgText) : undefined;
-      this.db.addProperties(actor, msg);
+      if (!msgText) {
+        return;
+      }
+      const msg = this.db.parseMessage(msgText);
+      this.db.addProperties(actor, { text: msg.text });
     } catch {}
   }
 
   // Details statement processing
-  protected processDetailsStatement(ctx: ParserRuleContext): void {
+  public processDetailsStatement(ctx: AnyContext): void {
     try {
       const actor = ctx.actor?.()?.getText?.() as string | undefined;
       if (!actor) {
@@ -636,13 +650,16 @@ export class SequenceParserCore {
       const rawText = ctx.text2?.()?.getText?.() as string | undefined;
       // Strip leading colon from TXT token (TXT includes ':' prefix)
       const msgText = rawText?.startsWith(':') ? rawText.slice(1).trim() : rawText?.trim();
-      const msg = msgText ? this.db.parseMessage(msgText) : undefined;
-      this.db.addDetails(actor, msg);
+      if (!msgText) {
+        return;
+      }
+      const msg = this.db.parseMessage(msgText);
+      this.db.addDetails(actor, { text: msg.text });
     } catch {}
   }
 
   // Activation statement processing
-  protected processActivationStatement(ctx: ParserRuleContext): void {
+  public processActivationStatement(ctx: AnyContext): void {
     try {
       const actor = ctx.actor?.()?.getText?.() as string | undefined;
       if (!actor) {
@@ -667,7 +684,7 @@ export class SequenceParserCore {
   }
 
   // Autonumber statement processing
-  protected processAutonumberStatement(ctx: ParserRuleContext): void {
+  public processAutonumberStatement(ctx: AnyContext): void {
     try {
       const isOff = !!ctx.OFF?.();
       // The grammar uses ACTOR tokens for numbers, not NUM tokens
@@ -711,7 +728,7 @@ export class SequenceParserCore {
   }
 
   // Title statement processing
-  protected processTitleStatement(ctx: ParserRuleContext): void {
+  public processTitleStatement(ctx: AnyContext): void {
     try {
       const msgText = ctx.restOfLine?.()?.getText?.() as string | undefined;
       if (msgText !== undefined) {
@@ -724,7 +741,7 @@ export class SequenceParserCore {
   }
 
   // Legacy title statement processing
-  protected processLegacyTitleStatement(ctx: ParserRuleContext): void {
+  public processLegacyTitleStatement(ctx: AnyContext): void {
     try {
       const fullText = ctx.LEGACY_TITLE?.()?.getText?.() as string | undefined;
       if (fullText) {
@@ -740,7 +757,7 @@ export class SequenceParserCore {
   }
 
   // Accessibility title statement processing
-  protected processAccTitleStatement(ctx: ParserRuleContext): void {
+  public processAccTitleStatement(ctx: AnyContext): void {
     try {
       const val = ctx.ACC_TITLE_VALUE?.()?.getText?.() as string | undefined;
       if (val !== undefined) {
@@ -753,7 +770,7 @@ export class SequenceParserCore {
   }
 
   // Accessibility description statement processing
-  protected processAccDescrStatement(ctx: ParserRuleContext): void {
+  public processAccDescrStatement(ctx: AnyContext): void {
     try {
       const val = ctx.ACC_DESCR_VALUE?.()?.getText?.() as string | undefined;
       if (val !== undefined) {
@@ -766,7 +783,7 @@ export class SequenceParserCore {
   }
 
   // Accessibility multiline description statement processing
-  protected processAccDescrMultilineStatement(ctx: ParserRuleContext): void {
+  public processAccDescrMultilineStatement(ctx: AnyContext): void {
     try {
       const val = ctx.ACC_DESCR_MULTILINE_VALUE?.()?.getText?.() as string | undefined;
       if (val !== undefined) {

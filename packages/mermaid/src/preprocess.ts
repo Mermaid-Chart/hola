@@ -2,7 +2,6 @@ import { cleanupComments } from './diagram-api/comments.js';
 import { extractFrontMatter } from './diagram-api/frontmatter.js';
 import type { DiagramCode, DiagramMetadata } from './diagram-api/types.js';
 import utils, { cleanAndMerge, removeDirectives } from './utils.js';
-import { detectType } from './diagram-api/detectType';
 
 const cleanupText = (code: string) => {
   return (

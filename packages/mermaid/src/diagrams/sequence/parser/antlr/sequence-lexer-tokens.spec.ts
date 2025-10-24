@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { Token } from 'antlr4ng';
+import type { Token, Vocabulary } from 'antlr4ng';
 import { CharStream } from 'antlr4ng';
 import { SequenceLexer } from './generated/SequenceLexer.js';
 
@@ -10,8 +10,8 @@ function lex(input: string): Token[] {
 }
 
 function names(tokens: Token[]): string[] {
-  const vocab =
-    (SequenceLexer as typeof SequenceLexer & { VOCABULARY?: unknown }).VOCABULARY ??
+  const vocab: Vocabulary =
+    (SequenceLexer as typeof SequenceLexer & { VOCABULARY?: Vocabulary }).VOCABULARY ??
     new SequenceLexer(CharStream.fromString('')).vocabulary;
   return tokens.map((t) => vocab.getSymbolicName(t.type) ?? String(t.type));
 }

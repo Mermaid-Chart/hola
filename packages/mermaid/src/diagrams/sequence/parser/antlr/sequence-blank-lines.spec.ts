@@ -3,6 +3,7 @@ import { CharStream, CommonTokenStream } from 'antlr4ng';
 import { SequenceLexer } from './generated/SequenceLexer.js';
 import { SequenceParser } from './generated/SequenceParser.js';
 import { SequenceASTBuilder } from './SequenceASTBuilder.js';
+import { log } from '../../../../logger.js';
 
 describe('Sequence AST blank line preservation', () => {
   it('should preserve blank lines in the AST', () => {
@@ -27,18 +28,18 @@ describe('Sequence AST blank line preservation', () => {
     // Check if we can regenerate the original code from sourceLine
     const regenerated = ast.statements.map((stmt) => stmt.sourceLine || '').join('\n');
 
-    console.log('Original input:');
-    console.log(input);
-    console.log('\nAST statements:');
+    log.debug('Original input:');
+    log.debug(input);
+    log.debug('\nAST statements:');
     ast.statements.forEach((stmt, idx) => {
-      console.log(`${idx}: type=${stmt.type}, sourceLine="${stmt.sourceLine}"`);
+      log.debug(`${idx}: type=${stmt.type}, sourceLine="${stmt.sourceLine}"`);
     });
-    console.log('\nRegenerated:');
-    console.log(regenerated);
+    log.debug('\nRegenerated:');
+    log.debug(regenerated);
 
     // Count blank lines in AST
     const blankLineCount = ast.statements.filter((s) => s.type === 'blankLine').length;
-    console.log(`\nBlank lines in AST: ${blankLineCount}`);
+    log.debug(`\nBlank lines in AST: ${blankLineCount}`);
 
     // We should have 2 blank lines:
     // 1. After participant Bob (before Alice->>Bob: Hello)
@@ -61,9 +62,9 @@ describe('Sequence AST blank line preservation', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    console.log('\nStatements in AST:');
+    log.debug('\nStatements in AST:');
     ast.statements.forEach((stmt, idx) => {
-      console.log(`${idx}: type=${stmt.type}, sourceLine="${stmt.sourceLine}"`);
+      log.debug(`${idx}: type=${stmt.type}, sourceLine="${stmt.sourceLine}"`);
     });
 
     // We expect 3 statements: actor, blankLine, participant
@@ -87,13 +88,13 @@ describe('Sequence AST blank line preservation', () => {
     const tokenStream = new CommonTokenStream(lexer);
 
     // Debug: print all tokens
-    console.log('\nTokens:');
+    log.debug('\nTokens:');
     tokenStream.fill();
     const tokens = tokenStream.getTokens();
     tokens.forEach((token, idx) => {
       const tokenName = lexer.vocabulary.getSymbolicName(token.type) || 'UNKNOWN';
       const text = token.text?.replace(/\n/g, '\\n').replace(/\r/g, '\\r') || '';
-      console.log(`${idx}: ${tokenName} = "${text}" (line ${token.line})`);
+      log.debug(`${idx}: ${tokenName} = "${text}" (line ${token.line})`);
     });
 
     // Reset for parsing
@@ -104,14 +105,14 @@ describe('Sequence AST blank line preservation', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    console.log('\nInput lines:');
+    log.debug('\nInput lines:');
     input.split('\n').forEach((line, idx) => {
-      console.log(`${idx}: "${line}"`);
+      log.debug(`${idx}: "${line}"`);
     });
 
-    console.log('\nAST statements:');
+    log.debug('\nAST statements:');
     ast.statements.forEach((stmt, idx) => {
-      console.log(
+      log.debug(
         `${idx}: type=${stmt.type}, sourceLine="${stmt.sourceLine}", originalIndex=${stmt.originalIndex}`
       );
     });
@@ -124,14 +125,14 @@ describe('Sequence AST blank line preservation', () => {
     // 4: message Alice->>Bob: Hello
 
     const blankLineCount = ast.statements.filter((s) => s.type === 'blankLine').length;
-    console.log(`\nBlank lines in AST: ${blankLineCount}`);
-    console.log(`Expected: 2 blank lines`);
+    log.debug(`\nBlank lines in AST: ${blankLineCount}`);
+    log.debug(`Expected: 2 blank lines`);
 
     // Check that all originalIndex values are unique
     const indices = ast.statements.map((s) => s.originalIndex);
     const uniqueIndices = new Set(indices);
-    console.log(`\nOriginal indices: ${indices.join(', ')}`);
-    console.log(`Unique indices: ${uniqueIndices.size} (should be ${ast.statements.length})`);
+    log.debug(`\nOriginal indices: ${indices.join(', ')}`);
+    log.debug(`Unique indices: ${uniqueIndices.size} (should be ${ast.statements.length})`);
     expect(uniqueIndices.size).toBe(ast.statements.length);
   });
 });

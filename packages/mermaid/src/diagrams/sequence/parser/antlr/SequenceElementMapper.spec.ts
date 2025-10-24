@@ -1,6 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SequenceElementMapper, ElementMappingUtils } from './SequenceElementMapper.js';
-import type { SequenceAST } from '../../types.ts';
+import type { SequenceAST, ElementMapping, ParticipantData } from '../../types.ts';
+
+// Type guard to check if an ElementMapping has ParticipantData
+function isParticipantMapping(
+  mapping: ElementMapping
+): mapping is ElementMapping & { data: ParticipantData } {
+  return (
+    (mapping.type === 'participant' || mapping.type === 'actor') &&
+    typeof mapping.data === 'object' &&
+    mapping.data !== null &&
+    'id' in mapping.data
+  );
+}
 
 describe('SequenceElementMapper', () => {
   // Helper function to parse code and get AST
@@ -281,11 +293,14 @@ describe('SequenceElementMapper', () => {
       // Participants can have either data-et="participant" or data-et="actor" in SVG
       // Actors use data-et="actor", all other participant types use data-et="participant"
       for (const p of participants) {
-        const hasParticipantOrActor =
-          p.svgSelector.includes('[data-et="participant"]') ||
-          p.svgSelector.includes('[data-et="actor"]');
-        expect(hasParticipantOrActor).toBe(true);
-        expect(p.svgSelector).toContain('[data-id="');
+        expect(p.svgSelector).toBeDefined();
+        if (p.svgSelector) {
+          const hasParticipantOrActor =
+            p.svgSelector.includes('[data-et="participant"]') ||
+            p.svgSelector.includes('[data-et="actor"]');
+          expect(hasParticipantOrActor).toBe(true);
+          expect(p.svgSelector).toContain('[data-id="');
+        }
       }
     });
 
@@ -653,10 +668,8 @@ describe('SequenceElementMapper', () => {
       expect(ast).toBeDefined();
       const mapper = new SequenceElementMapper(ast!);
 
-      const allMappings = mapper.getAllMappings();
-
       // Get participant mappings (should include both 'participant' and 'actor' types)
-      const participantMappings = mapper.getParticipants();
+      const participantMappings = mapper.getParticipants().filter(isParticipantMapping);
 
       // We should have 8 participant declarations
       expect(participantMappings.length).toBeGreaterThanOrEqual(8);

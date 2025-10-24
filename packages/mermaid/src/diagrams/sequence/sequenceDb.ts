@@ -17,7 +17,7 @@ import type { Actor, AddMessageParams, Box, Message, Note } from './types.js';
 import type { ParticipantMetaData } from '../../types.js';
 import type { SequenceAST } from './types.ts';
 interface SequenceState {
-  ast: SequenceAST;
+  ast?: SequenceAST;
   prevActor?: string;
   actors: Map<string, Actor>;
   createdActors: Map<string, number>;
@@ -384,12 +384,12 @@ export class SequenceDB implements DiagramDB {
     commonClear();
   }
 
-  public parseMessage(str: string) {
+  public parseMessage(str: string): { text: string; wrap: boolean } {
     const trimmedStr = str.trim();
     const { wrap, cleanedText } = this.extractWrap(trimmedStr);
     const message = {
-      text: cleanedText,
-      wrap,
+      text: cleanedText ?? '',
+      wrap: wrap ?? this.autoWrap(),
     };
     log.debug(`parseMessage: ${JSON.stringify(message)}`);
     return message;
@@ -398,7 +398,7 @@ export class SequenceDB implements DiagramDB {
   // We expect the box statement to be color first then description
   // The color can be rgb,rgba,hsl,hsla, or css code names  #hex codes are not supported for now because of the way the char # is handled
   // We extract first segment as color, the rest of the line is considered as text
-  public parseBoxData(str: string) {
+  public parseBoxData(str: string): { text: string; color: string; wrap: boolean } {
     const config = getConfig();
     const { themeVariables } = config;
     const { clusterBkg } = themeVariables;
@@ -422,9 +422,9 @@ export class SequenceDB implements DiagramDB {
     }
     const { wrap, cleanedText } = this.extractWrap(title);
     return {
-      text: cleanedText ? sanitizeText(cleanedText, getConfig()) : undefined,
+      text: cleanedText ? sanitizeText(cleanedText, getConfig()) : '',
       color,
-      wrap,
+      wrap: wrap ?? this.autoWrap(),
     };
   }
 
@@ -529,7 +529,7 @@ export class SequenceDB implements DiagramDB {
     }
   }
 
-  private boxEnd() {
+  public boxEnd() {
     this.state.records.currentBox = undefined;
   }
 

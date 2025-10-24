@@ -3,6 +3,7 @@ import { CharStream, CommonTokenStream } from 'antlr4ng';
 import { SequenceLexer } from './generated/SequenceLexer.js';
 import { SequenceParser } from './generated/SequenceParser.js';
 import { SequenceASTBuilder } from './SequenceASTBuilder.js';
+import { log } from '../../../../logger.js';
 
 describe('Sequence AST originalIndex assignment', () => {
   it('should assign sequential originalIndex values to all statements', () => {
@@ -22,9 +23,9 @@ describe('Sequence AST originalIndex assignment', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    console.log('\nStatements with originalIndex:');
+    log.debug('\nStatements with originalIndex:');
     ast.statements.forEach((stmt, idx) => {
-      console.log(
+      log.debug(
         `${idx}: type=${stmt.type.padEnd(12)} originalIndex=${stmt.originalIndex} sourceLine="${stmt.sourceLine?.replace(/\n/g, '\\n')}"`
       );
     });
@@ -73,9 +74,9 @@ describe('Sequence AST originalIndex assignment', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    console.log('\nStatements without blank lines:');
+    log.debug('\nStatements without blank lines:');
     ast.statements.forEach((stmt, idx) => {
-      console.log(`${idx}: type=${stmt.type.padEnd(12)} originalIndex=${stmt.originalIndex}`);
+      log.debug(`${idx}: type=${stmt.type.padEnd(12)} originalIndex=${stmt.originalIndex}`);
     });
 
     // Expected: 0: actor, 1: participant, 2: message
@@ -106,9 +107,9 @@ describe('Sequence AST originalIndex assignment', () => {
     const generator = new SequenceASTBuilder(input);
     const { ast } = generator.generateAST(tree);
 
-    console.log('\nStatements with multiple blank lines:');
+    log.debug('\nStatements with multiple blank lines:');
     ast.statements.forEach((stmt, idx) => {
-      console.log(`${idx}: type=${stmt.type.padEnd(12)} originalIndex=${stmt.originalIndex}`);
+      log.debug(`${idx}: type=${stmt.type.padEnd(12)} originalIndex=${stmt.originalIndex}`);
     });
 
     // Expected: 0: actor, 1: blankLine, 2: blankLine, 3: participant

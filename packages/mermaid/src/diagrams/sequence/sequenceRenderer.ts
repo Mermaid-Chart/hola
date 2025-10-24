@@ -1733,7 +1733,6 @@ const buildMessageModel = function (msg, actors, diagObj) {
   // Apply central connection positioning adjustments
   startx += calculateCentralConnectionOffset(msg, diagObj, isArrowToRight);
 
-  
   if (look === 'neo') {
     const offset = 3;
     if (msg.type !== diagObj.db.LINETYPE.SOLID_OPEN) {

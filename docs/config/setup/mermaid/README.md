@@ -13,6 +13,8 @@
 ## Interfaces
 
 - [DetailedError](interfaces/DetailedError.md)
+- [ElementMapping](interfaces/ElementMapping.md)
+- [ElementPosition](interfaces/ElementPosition.md)
 - [ExternalDiagramDefinition](interfaces/ExternalDiagramDefinition.md)
 - [LayoutData](interfaces/LayoutData.md)
 - [LayoutLoaderDefinition](interfaces/LayoutLoaderDefinition.md)
@@ -23,6 +25,7 @@
 - [RenderOptions](interfaces/RenderOptions.md)
 - [RenderResult](interfaces/RenderResult.md)
 - [RunOptions](interfaces/RunOptions.md)
+- [SequenceAST](interfaces/SequenceAST.md)
 - [UnknownDiagramError](interfaces/UnknownDiagramError.md)
 
 ## Type Aliases

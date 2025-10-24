@@ -76,8 +76,16 @@ import { log } from '../../../../logger.js';
  * Now also builds a structured AST for the hybrid editor approach.
  */
 
-// @ts-ignore - ANTLR4 visitor pattern defines methods as properties in the base class
-export class SequenceASTBuilder extends SequenceParserVisitor<string> {
+/**
+ * ANTLR4ng generates visitor methods as optional properties in the base class,
+ * but we implement them as methods. TypeScript sees this as incompatible because
+ * properties can be reassigned while methods cannot. The runtime behavior is correct
+ * because methods are compatible with function properties.
+ *
+ * We cast to any to bypass TypeScript's strict checking for this ANTLR pattern.
+ */
+
+export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
   private lines: string[] = [];
   private currentIndent = 0;
   private indentSize = 2;
@@ -140,6 +148,25 @@ export class SequenceASTBuilder extends SequenceParserVisitor<string> {
     this.originalText = originalText ?? '';
     this.elementMappings = [];
     this.svgIdCounter = 0;
+  }
+
+  /**
+   * Visit all children of a node and aggregate their results
+   * Required by ParseTreeVisitor interface
+   */
+  visitChildren(node: any): string {
+    let result = '';
+    const n = node.getChildCount?.() ?? 0;
+    for (let i = 0; i < n; i++) {
+      const child = node.getChild?.(i);
+      if (child) {
+        const childResult = child.accept?.(this);
+        if (childResult) {
+          result += childResult;
+        }
+      }
+    }
+    return result;
     this.resetPositionTracking();
   }
 

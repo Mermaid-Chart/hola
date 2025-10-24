@@ -4,8 +4,8 @@ import antlrParser from './antlr/antlr-parser.js';
 // Create a wrapper that provides the expected interface (same pattern as flowchart)
 const newParser = {
   parser: antlrParser,
-  parse: (src: string) => {
-    return antlrParser.parse(src);
+  parse: (src: string): void => {
+    antlrParser.parse(src);
   },
   features: {
     processRawText: true,
