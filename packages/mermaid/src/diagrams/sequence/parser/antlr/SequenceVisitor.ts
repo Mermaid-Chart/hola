@@ -2,14 +2,15 @@ import { SequenceParserVisitor } from './generated/SequenceParserVisitor.js';
 import type { SequenceDB } from '../../sequenceDb.js';
 import type { ParseTree, TerminalNode, ErrorNode, ParserRuleContext } from 'antlr4ng';
 import { SequenceParserCore } from './SequenceParserCore.js';
-
+import { log } from '../../../../logger.js';
 /**
  * Visitor implementation that builds the sequence diagram model
  * Uses the same core logic as the Listener for compatibility
  *
- * We cast to any to bypass TypeScript's strict checking for the ANTLR visitor pattern.
+ * We cast to unknown then to the visitor type to bypass TypeScript's strict checking for the ANTLR visitor pattern.
  */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export class SequenceVisitor extends (SequenceParserVisitor as any)<void> {
   protected db: SequenceDB;
   private core: SequenceParserCore;
@@ -71,10 +72,10 @@ export class SequenceVisitor extends (SequenceParserVisitor as any)<void> {
   }
 
   visitErrorNode(_node: ErrorNode): void {
-    // eslint-disable-next-line no-console
-    console.log('❌ SequenceVisitor: Error node encountered');
-    // Throw error to match Jison parser behavior for syntax errors
-    throw new Error('Syntax error in sequence diagram');
+    // Error nodes are created when ANTLR encounters a syntax error
+    // The error details are captured by the SequenceErrorListener in the parser
+    // and will be thrown after parsing completes, so we don't need to throw here
+    log.debug('❌ SequenceVisitor: Error node encountered');
   }
 
   // Loop block visitors
