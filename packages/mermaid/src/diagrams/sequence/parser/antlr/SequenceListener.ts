@@ -1,42 +1,11 @@
-import type { ParseTreeListener, ParserRuleContext, TerminalNode, ErrorNode } from 'antlr4ng';
+import type { ParseTreeListener } from 'antlr4ng';
 import { SequenceParserCore } from './SequenceParserCore.js';
-import type {
-  LoopBlockContext,
-  ParticipantStatementContext,
-  CreateStatementContext,
-  DestroyStatementContext,
-  OptBlockContext,
-  AltBlockContext,
-  ElseSectionContext,
-  ParBlockContext,
-  AndSectionContext,
-  ParOverBlockContext,
-  RectBlockContext,
-  BoxBlockContext,
-  BreakBlockContext,
-  CriticalBlockContext,
-  OptionSectionContext,
-  SignalStatementContext,
-  NoteStatementContext,
-  LinksStatementContext,
-  LinkStatementContext,
-  PropertiesStatementContext,
-  DetailsStatementContext,
-  ActivationStatementContext,
-  AutonumberStatementContext,
-  TitleStatementContext,
-  LegacyTitleStatementContext,
-  AccTitleStatementContext,
-  AccDescrStatementContext,
-  AccDescrMultilineStatementContext,
-} from './generated/SequenceParser.js';
 
 /**
  * Listener implementation that builds the sequence diagram model
  * Extends the core logic to ensure compatibility with Jison parser behavior
  */
 export class SequenceListener extends SequenceParserCore implements ParseTreeListener {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   constructor(db: any) {
     super(db);
     // Only log for debug mode
@@ -47,7 +16,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   }
 
   // Standard ParseTreeListener methods
-  enterEveryRule = (ctx: ParserRuleContext) => {
+  enterEveryRule = (ctx: any) => {
     // Optional: Add debug logging for rule entry
     if (this.getEnvVar('NODE_ENV') === 'development') {
       const ruleName = ctx.constructor.name;
@@ -56,15 +25,15 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
     }
   };
 
-  exitEveryRule = (_ctx: ParserRuleContext) => {
+  exitEveryRule = (_ctx: any) => {
     // Optional: Add debug logging for rule exit
   };
 
-  visitTerminal = (_node: TerminalNode) => {
+  visitTerminal = (_node: any) => {
     // Optional: Handle terminal nodes
   };
 
-  visitErrorNode = (_node: ErrorNode) => {
+  visitErrorNode = (_node: any) => {
     // Error nodes are created when ANTLR encounters a syntax error
     // The error details are captured by the SequenceErrorListener in the parser
     // and will be thrown after parsing completes, so we don't need to throw here
@@ -73,7 +42,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   };
 
   // Loop block handlers
-  enterLoopBlock = (ctx: LoopBlockContext) => {
+  enterLoopBlock = (ctx: any) => {
     this.processLoopBlockEnter(ctx);
   };
 
@@ -82,22 +51,22 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   };
 
   // Participant statement handlers
-  exitParticipantStatement = (ctx: ParticipantStatementContext) => {
+  exitParticipantStatement = (ctx: any) => {
     this.processParticipantStatement(ctx);
   };
 
   // Create statement handlers
-  exitCreateStatement = (ctx: CreateStatementContext) => {
+  exitCreateStatement = (ctx: any) => {
     this.processCreateStatement(ctx);
   };
 
   // Destroy statement handlers
-  exitDestroyStatement = (ctx: DestroyStatementContext) => {
+  exitDestroyStatement = (ctx: any) => {
     this.processDestroyStatement(ctx);
   };
 
   // Opt block handlers
-  enterOptBlock = (ctx: OptBlockContext) => {
+  enterOptBlock = (ctx: any) => {
     this.processOptBlockEnter(ctx);
   };
 
@@ -106,7 +75,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   };
 
   // Alt block handlers
-  enterAltBlock = (ctx: AltBlockContext) => {
+  enterAltBlock = (ctx: any) => {
     this.processAltBlockEnter(ctx);
   };
 
@@ -114,12 +83,12 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
     this.processAltBlockExit();
   };
 
-  enterElseSection = (ctx: ElseSectionContext) => {
+  enterElseSection = (ctx: any) => {
     this.processElseSection(ctx);
   };
 
   // Par block handlers
-  enterParBlock = (ctx: ParBlockContext) => {
+  enterParBlock = (ctx: any) => {
     this.processParBlockEnter(ctx);
   };
 
@@ -127,12 +96,12 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
     this.processParBlockExit();
   };
 
-  enterAndSection = (ctx: AndSectionContext) => {
+  enterAndSection = (ctx: any) => {
     this.processAndSection(ctx);
   };
 
   // ParOver block handlers
-  enterParOverBlock = (ctx: ParOverBlockContext) => {
+  enterParOverBlock = (ctx: any) => {
     this.processParOverBlockEnter(ctx);
   };
 
@@ -141,7 +110,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   };
 
   // Rect block handlers
-  enterRectBlock = (ctx: RectBlockContext) => {
+  enterRectBlock = (ctx: any) => {
     this.processRectBlockEnter(ctx);
   };
 
@@ -150,7 +119,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   };
 
   // Box block handlers
-  enterBoxBlock = (ctx: BoxBlockContext) => {
+  enterBoxBlock = (ctx: any) => {
     this.processBoxBlockEnter(ctx);
   };
 
@@ -159,7 +128,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   };
 
   // Break block handlers
-  enterBreakBlock = (ctx: BreakBlockContext) => {
+  enterBreakBlock = (ctx: any) => {
     this.processBreakBlockEnter(ctx);
   };
 
@@ -168,7 +137,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
   };
 
   // Critical block handlers
-  enterCriticalBlock = (ctx: CriticalBlockContext) => {
+  enterCriticalBlock = (ctx: any) => {
     this.processCriticalBlockEnter(ctx);
   };
 
@@ -176,72 +145,72 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
     this.processCriticalBlockExit();
   };
 
-  enterOptionSection = (ctx: OptionSectionContext) => {
+  enterOptionSection = (ctx: any) => {
     this.processOptionSection(ctx);
   };
 
   // Signal statement handlers
-  exitSignalStatement = (ctx: SignalStatementContext) => {
+  exitSignalStatement = (ctx: any) => {
     this.processSignalStatement(ctx);
   };
 
   // Note statement handlers
-  exitNoteStatement = (ctx: NoteStatementContext) => {
+  exitNoteStatement = (ctx: any) => {
     this.processNoteStatement(ctx);
   };
 
   // Links statement handlers
-  exitLinksStatement = (ctx: LinksStatementContext) => {
+  exitLinksStatement = (ctx: any) => {
     this.processLinksStatement(ctx);
   };
 
   // Link statement handlers
-  exitLinkStatement = (ctx: LinkStatementContext) => {
+  exitLinkStatement = (ctx: any) => {
     this.processLinkStatement(ctx);
   };
 
   // Properties statement handlers
-  exitPropertiesStatement = (ctx: PropertiesStatementContext) => {
+  exitPropertiesStatement = (ctx: any) => {
     this.processPropertiesStatement(ctx);
   };
 
   // Details statement handlers
-  exitDetailsStatement = (ctx: DetailsStatementContext) => {
+  exitDetailsStatement = (ctx: any) => {
     this.processDetailsStatement(ctx);
   };
 
   // Activation statement handlers
-  exitActivationStatement = (ctx: ActivationStatementContext) => {
+  exitActivationStatement = (ctx: any) => {
     this.processActivationStatement(ctx);
   };
 
   // Autonumber statement handlers
-  exitAutonumberStatement = (ctx: AutonumberStatementContext) => {
+  exitAutonumberStatement = (ctx: any) => {
     this.processAutonumberStatement(ctx);
   };
 
   // Title statement handlers
-  exitTitleStatement = (ctx: TitleStatementContext) => {
+  exitTitleStatement = (ctx: any) => {
     this.processTitleStatement(ctx);
   };
 
   // Legacy title statement handlers
-  exitLegacyTitleStatement = (ctx: LegacyTitleStatementContext) => {
+  exitLegacyTitleStatement = (ctx: any) => {
     this.processLegacyTitleStatement(ctx);
   };
 
   // Accessibility title statement handlers
-  exitAccTitleStatement = (ctx: AccTitleStatementContext) => {
+  exitAccTitleStatement = (ctx: any) => {
     this.processAccTitleStatement(ctx);
   };
 
   // Accessibility description statement handlers
-  exitAccDescrStatement = (ctx: AccDescrStatementContext) => {
+  exitAccDescrStatement = (ctx: any) => {
     this.processAccDescrStatement(ctx);
   };
 
   // Accessibility multiline description statement handlers
-  exitAccDescrMultilineStatement = (ctx: AccDescrMultilineStatementContext) => {
+  exitAccDescrMultilineStatement = (ctx: any) => {
     this.processAccDescrMultilineStatement(ctx);
   };
 }

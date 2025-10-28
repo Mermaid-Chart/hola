@@ -1217,15 +1217,32 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
     log.debug('🎯 visitCreateStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const createMatch = /^create\s+participant\s+(\w+)/.exec(fullText);
-    if (createMatch) {
-      const [, participant] = createMatch;
+    // Determine if this is create participant or create actor
+    const hasActor = !!(
+      ctx.PARTICIPANT_ACTOR &&
+      typeof ctx.PARTICIPANT_ACTOR === 'function' &&
+      ctx.PARTICIPANT_ACTOR()
+    );
+    const type = hasActor ? 'actor' : 'participant';
+
+    // Extract the actor/participant id
+    const actorCtx = typeof ctx.actor === 'function' ? ctx.actor() : undefined;
+    const participant = actorCtx ? this.getContextText(actorCtx).trim() : '';
+
+    // Extract alias if present (AS restOfLine)
+    let alias = '';
+    const hasAS = !!(ctx.AS && typeof ctx.AS === 'function' && ctx.AS());
+    if (hasAS && ctx.restOfLine && typeof ctx.restOfLine === 'function' && ctx.restOfLine()) {
+      const rol = ctx.restOfLine();
+      alias = rol ? this.getContextText(rol).trim() : '';
+    }
+
+    if (participant) {
+      // Build AST entry
       this.pushStatement({
         type: 'create',
         originalIndex: this.currentIndex++,
-        data: { participant },
+        data: { participant, alias: alias || undefined, type },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
       });
@@ -1238,11 +1255,12 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
     log.debug('🎯 visitDestroyStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const destroyMatch = /^destroy\s+(\w+)/.exec(fullText);
-    if (destroyMatch) {
-      const [, participant] = destroyMatch;
+    // Extract the actor/participant id
+    const actorCtx = typeof ctx.actor === 'function' ? ctx.actor() : undefined;
+    const participant = actorCtx ? this.getContextText(actorCtx).trim() : '';
+
+    if (participant) {
+      // Build AST entry
       this.pushStatement({
         type: 'destroy',
         originalIndex: this.currentIndex++,
@@ -1942,20 +1960,35 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
 
   // Links statement
   visitLinksStatement(ctx: LinksStatementContext): string {
+    log.debug('🎯 visitLinksStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const linksMatch = /^links\s+(\w+)\s*:\s*(.+)$/.exec(fullText);
-    if (linksMatch) {
-      const [, participant, linksStr] = linksMatch;
-      // Parse links as key-value pairs
+    // Extract the actor/participant
+    const actorCtx = typeof ctx.actor === 'function' ? ctx.actor() : undefined;
+    const participant = actorCtx ? this.getContextText(actorCtx).trim() : '';
+
+    // Extract the links text (text2 includes the leading ':' so we need to strip it)
+    const text2Ctx = typeof ctx.text2 === 'function' ? ctx.text2() : undefined;
+    let linksStr = text2Ctx ? this.getContextText(text2Ctx).trim() : '';
+    // Remove leading ':' if present
+    if (linksStr.startsWith(':')) {
+      linksStr = linksStr.substring(1).trim();
+    }
+
+    if (participant && linksStr) {
+      // Parse links as key-value pairs separated by commas
+      // Format: "key1: value1, key2: value2"
       const links: Record<string, string> = {};
       const linkPairs = linksStr.split(',');
       for (const pair of linkPairs) {
-        const [key, value] = pair.split(':').map((s) => s.trim());
-        if (key && value) {
-          links[key] = value;
+        // Split only on the first colon to handle URLs with ://
+        const colonIndex = pair.indexOf(':');
+        if (colonIndex > 0) {
+          const key = pair.substring(0, colonIndex).trim();
+          const value = pair.substring(colonIndex + 1).trim();
+          if (key && value) {
+            links[key] = value;
+          }
         }
       }
       this.pushStatement({
@@ -1971,40 +2004,69 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
 
   // Link statement
   visitLinkStatement(ctx: LinkStatementContext): string {
+    log.debug('🎯 visitLinkStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const linkMatch = /^link\s+(\w+)\s*:\s*(\w+)\s*@\s*(.+)$/.exec(fullText);
-    if (linkMatch) {
-      const [, participant, linkName, linkUrl] = linkMatch;
-      this.pushStatement({
-        type: 'link',
-        originalIndex: this.currentIndex++,
-        data: { participant, linkName: linkName.trim(), linkUrl: linkUrl.trim() },
-        sourceTokens: { start: ctx.start, stop: ctx.stop },
-        sourceLine: this.getOriginalSourceFromCtx(ctx),
-      });
+    // Extract the actor/participant
+    const actorCtx = typeof ctx.actor === 'function' ? ctx.actor() : undefined;
+    const participant = actorCtx ? this.getContextText(actorCtx).trim() : '';
+
+    // Extract the link text (text2 includes the leading ':' so we need to strip it)
+    const text2Ctx = typeof ctx.text2 === 'function' ? ctx.text2() : undefined;
+    let linkText = text2Ctx ? this.getContextText(text2Ctx).trim() : '';
+    // Remove leading ':' if present
+    if (linkText.startsWith(':')) {
+      linkText = linkText.substring(1).trim();
+    }
+
+    if (participant && linkText) {
+      // Parse link format: "linkName @ linkUrl"
+      const linkMatch = /^(.+?)\s*@\s*(.+)$/.exec(linkText);
+      if (linkMatch) {
+        const [, linkName, linkUrl] = linkMatch;
+        this.pushStatement({
+          type: 'link',
+          originalIndex: this.currentIndex++,
+          data: { participant, linkName: linkName.trim(), linkUrl: linkUrl.trim() },
+          sourceTokens: { start: ctx.start, stop: ctx.stop },
+          sourceLine: this.getOriginalSourceFromCtx(ctx),
+        });
+      }
     }
     return '';
   }
 
   // Properties statement
   visitPropertiesStatement(ctx: PropertiesStatementContext): string {
+    log.debug('🎯 visitPropertiesStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const propertiesMatch = /^properties\s+(\w+)\s*:\s*(.+)$/.exec(fullText);
-    if (propertiesMatch) {
-      const [, participant, propertiesStr] = propertiesMatch;
-      // Parse properties as key-value pairs
+    // Extract the actor/participant
+    const actorCtx = typeof ctx.actor === 'function' ? ctx.actor() : undefined;
+    const participant = actorCtx ? this.getContextText(actorCtx).trim() : '';
+
+    // Extract the properties text (text2 includes the leading ':' so we need to strip it)
+    const text2Ctx = typeof ctx.text2 === 'function' ? ctx.text2() : undefined;
+    let propertiesStr = text2Ctx ? this.getContextText(text2Ctx).trim() : '';
+    // Remove leading ':' if present
+    if (propertiesStr.startsWith(':')) {
+      propertiesStr = propertiesStr.substring(1).trim();
+    }
+
+    if (participant && propertiesStr) {
+      // Parse properties as key-value pairs separated by commas
+      // Format: "key1: value1, key2: value2"
       const properties: Record<string, string> = {};
       const propPairs = propertiesStr.split(',');
       for (const pair of propPairs) {
-        const [key, value] = pair.split(':').map((s) => s.trim());
-        if (key && value) {
-          properties[key] = value;
+        // Split only on the first colon to handle values with colons
+        const colonIndex = pair.indexOf(':');
+        if (colonIndex > 0) {
+          const key = pair.substring(0, colonIndex).trim();
+          const value = pair.substring(colonIndex + 1).trim();
+          if (key && value) {
+            properties[key] = value;
+          }
         }
       }
       this.pushStatement({
@@ -2020,17 +2082,26 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
 
   // Details statement
   visitDetailsStatement(ctx: DetailsStatementContext): string {
+    log.debug('🎯 visitDetailsStatement:', ctx);
     this.emitOriginalSegmentFromCtx(ctx);
 
-    // Build AST entry
-    const fullText = ctx.getText ? ctx.getText() : '';
-    const detailsMatch = /^details\s+(\w+)\s*:\s*(.+)$/.exec(fullText);
-    if (detailsMatch) {
-      const [, participant, details] = detailsMatch;
+    // Extract the actor/participant
+    const actorCtx = typeof ctx.actor === 'function' ? ctx.actor() : undefined;
+    const participant = actorCtx ? this.getContextText(actorCtx).trim() : '';
+
+    // Extract the details text (text2 includes the leading ':' so we need to strip it)
+    const text2Ctx = typeof ctx.text2 === 'function' ? ctx.text2() : undefined;
+    let details = text2Ctx ? this.getContextText(text2Ctx).trim() : '';
+    // Remove leading ':' if present
+    if (details.startsWith(':')) {
+      details = details.substring(1).trim();
+    }
+
+    if (participant && details) {
       this.pushStatement({
         type: 'details',
         originalIndex: this.currentIndex++,
-        data: { participant, details: details.trim() },
+        data: { participant, details },
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
       });

@@ -196,6 +196,8 @@ export interface BoxData {
 
 export interface CreateData {
   participant: string;
+  alias?: string;
+  type?: 'actor' | 'participant';
 }
 
 export interface DestroyData {
