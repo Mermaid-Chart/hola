@@ -598,38 +598,67 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE ||
       type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED;
 
+    const SEQUENCE_NUMBER_RADIUS = 6;
     let x = 0;
-    if (isBidirectional || isReverseArrowType) {
-      const SEQUENCE_NUMBER_RADIUS = 6;
+    let lineStartX = startx;
+    let lineStopX = stopx;
 
+    if (isBidirectional) {
+      // For bidirectional arrows, adjust the start position
       if (startx < stopx) {
-        line.attr('x1', startx + 2 * SEQUENCE_NUMBER_RADIUS);
+        lineStartX = startx + 2 * SEQUENCE_NUMBER_RADIUS;
+        line.attr('x1', lineStartX);
       } else {
-        line.attr('x1', startx + SEQUENCE_NUMBER_RADIUS);
+        lineStartX = startx + SEQUENCE_NUMBER_RADIUS;
+        line.attr('x1', lineStartX);
       }
-      x = 3.5;
+      x = 15;
+    } else if (isReverseArrowType) {
+      // For reverse arrows, adjust the stop position (where the arrowhead is)
+      if (stopx > startx) {
+        lineStopX = stopx - 2 * SEQUENCE_NUMBER_RADIUS;
+        line.attr('x2', lineStopX);
+      } else {
+        lineStopX = stopx - SEQUENCE_NUMBER_RADIUS;
+        line.attr('x2', lineStopX);
+      }
+      x = 5;
+    }
+
+    let autonumberX;
+    if (isReverseArrowType) {
+      // For reverse arrows, check if arrow is left-to-right or right-to-left
+      if (stopx > startx) {
+        // Left to right: position to the left of the arrowhead
+        autonumberX = stopx; // + (2 * x);
+      } else {
+        // Right to left: position to the right of the arrowhead
+        autonumberX = stopx; // + x;
+      }
+    } else if (isBidirectional) {
+      autonumberX = lineStartX - x;
+    } else {
+      autonumberX = startx;
     }
 
     diagram
       .append('line')
-      .attr('x1', startx)
+      .attr('x1', autonumberX)
       .attr('y1', lineStartY)
-      .attr('x2', startx)
+      .attr('x2', autonumberX)
       .attr('y2', lineStartY)
       .attr('stroke-width', 0)
-      .attr('marker-start', 'url(' + url + '#sequencenumber)')
-      .attr('transform', `translate(-${x}, 0)`);
+      .attr('marker-start', 'url(' + url + '#sequencenumber)');
 
     diagram
       .append('text')
-      .attr('x', startx)
+      .attr('x', autonumberX)
       .attr('y', lineStartY + 4)
       .attr('font-family', 'sans-serif')
       .attr('font-size', '12px')
       .attr('text-anchor', 'middle')
       .attr('class', 'sequenceNumber')
-      .text(sequenceIndex)
-      .attr('transform', `translate(-${x}, 0)`);
+      .text(sequenceIndex);
   }
 };
 
