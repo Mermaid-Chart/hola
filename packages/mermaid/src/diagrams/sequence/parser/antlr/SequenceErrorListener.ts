@@ -5,13 +5,16 @@ import type {
   ATNConfigSet,
   DFA,
   BitSet,
+  ATNSimulator,
+  Token,
+  Parser,
 } from 'antlr4ng';
 
 /**
  * Custom error listener for ANTLR sequence diagram parser
  * Captures detailed syntax error information and stores it for later use
  */
-export class SequenceErrorListener implements ANTLRErrorListener<unknown> {
+export class SequenceErrorListener implements ANTLRErrorListener {
   private errors: {
     line: number;
     column: number;
@@ -24,9 +27,9 @@ export class SequenceErrorListener implements ANTLRErrorListener<unknown> {
   /**
    * Called when a syntax error is encountered during parsing
    */
-  syntaxError(
-    recognizer: Recognizer<unknown>,
-    offendingSymbol: unknown,
+  syntaxError<S extends Token, T extends ATNSimulator>(
+    recognizer: Recognizer<T>,
+    offendingSymbol: S | null,
     line: number,
     column: number,
     message: string,
@@ -36,9 +39,9 @@ export class SequenceErrorListener implements ANTLRErrorListener<unknown> {
     let startColumn = column;
     let endColumn = column;
 
-    // If we have an exception with context, try to get the start of the problematic input
-    if (exception?.context) {
-      const ctx = exception.context;
+    // If we have an exception with ctx, try to get the start of the problematic input
+    if (exception?.ctx) {
+      const ctx = exception.ctx;
       if (ctx.start) {
         startColumn = ctx.start.column;
         line = ctx.start.line;
@@ -72,7 +75,7 @@ export class SequenceErrorListener implements ANTLRErrorListener<unknown> {
    * We don't need to handle this for our use case
    */
   reportAmbiguity(
-    _recognizer: Recognizer<unknown>,
+    _recognizer: Parser,
     _dfa: DFA,
     _startIndex: number,
     _stopIndex: number,
@@ -88,7 +91,7 @@ export class SequenceErrorListener implements ANTLRErrorListener<unknown> {
    * We don't need to handle this for our use case
    */
   reportAttemptingFullContext(
-    _recognizer: Recognizer<unknown>,
+    _recognizer: Parser,
     _dfa: DFA,
     _startIndex: number,
     _stopIndex: number,
@@ -103,7 +106,7 @@ export class SequenceErrorListener implements ANTLRErrorListener<unknown> {
    * We don't need to handle this for our use case
    */
   reportContextSensitivity(
-    _recognizer: Recognizer<unknown>,
+    _recognizer: Parser,
     _dfa: DFA,
     _startIndex: number,
     _stopIndex: number,

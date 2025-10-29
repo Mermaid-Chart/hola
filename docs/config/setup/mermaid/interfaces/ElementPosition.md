@@ -10,7 +10,7 @@
 
 # Interface: ElementPosition
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:313](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L313)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:315](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L315)
 
 Position information for bidirectional synchronization
 
@@ -20,7 +20,7 @@ Position information for bidirectional synchronization
 
 > **endColumn**: `number`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:317](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L317)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:319](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L319)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:317](https://github
 
 > **endIndex**: `number`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:319](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L319)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:321](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L321)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:319](https://github
 
 > **endLine**: `number`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:316](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L316)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:318](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L318)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:316](https://github
 
 > **startColumn**: `number`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:315](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L315)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:317](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L317)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:315](https://github
 
 > **startIndex**: `number`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:318](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L318)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:320](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L320)
 
 ---
 
@@ -60,4 +60,4 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:318](https://github
 
 > **startLine**: `number`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:314](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L314)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:316](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L316)

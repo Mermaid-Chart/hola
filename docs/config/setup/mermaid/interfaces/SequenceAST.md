@@ -10,7 +10,7 @@
 
 # Interface: SequenceAST
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:347](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L347)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:349](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L349)
 
 Complete sequence diagram AST with bidirectional synchronization support
 
@@ -24,7 +24,7 @@ Complete sequence diagram AST with bidirectional synchronization support
 
 > `optional` **elementMappings**: [`ElementMapping`](ElementMapping.md)\[]
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:350](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L350)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:352](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L352)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:350](https://github
 
 > **header**: `"sequenceDiagram"`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:348](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L348)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:350](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L350)
 
 #### Overrides
 
@@ -44,7 +44,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:348](https://github
 
 > `optional` **metadata**: `object`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:351](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L351)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:353](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L353)
 
 #### config?
 
@@ -72,7 +72,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:351](https://github
 
 > **statements**: `SequenceStatement`\[]
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:349](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L349)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:351](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L351)
 
 #### Overrides
 
@@ -84,7 +84,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:349](https://github
 
 > `optional` **getControlStructures**(): [`ElementMapping`](ElementMapping.md)\[]
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:366](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L366)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:368](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L368)
 
 #### Returns
 
@@ -96,7 +96,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:366](https://github
 
 > `optional` **getElementAtIndex**(`index`): `undefined` | [`ElementMapping`](ElementMapping.md)
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:362](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L362)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:364](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L364)
 
 #### Parameters
 
@@ -114,7 +114,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:362](https://github
 
 > `optional` **getElementAtPosition**(`line`, `column`): `undefined` | [`ElementMapping`](ElementMapping.md)
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:359](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L359)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:361](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L361)
 
 #### Parameters
 
@@ -136,7 +136,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:359](https://github
 
 > `optional` **getElementByDataId**(`dataId`): `undefined` | [`ElementMapping`](ElementMapping.md)
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:360](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L360)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:362](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L362)
 
 #### Parameters
 
@@ -154,7 +154,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:360](https://github
 
 > `optional` **getElementById**(`id`): `undefined` | [`ElementMapping`](ElementMapping.md)
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:361](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L361)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:363](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L363)
 
 #### Parameters
 
@@ -172,7 +172,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:361](https://github
 
 > `optional` **getMessages**(): [`ElementMapping`](ElementMapping.md)\[]
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:364](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L364)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:366](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L366)
 
 #### Returns
 
@@ -184,7 +184,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:364](https://github
 
 > `optional` **getNotes**(): [`ElementMapping`](ElementMapping.md)\[]
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:365](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L365)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:367](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L367)
 
 #### Returns
 
@@ -196,7 +196,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:365](https://github
 
 > `optional` **getParticipants**(): [`ElementMapping`](ElementMapping.md)\[]
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:363](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L363)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:365](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L365)
 
 #### Returns
 
@@ -208,7 +208,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:363](https://github
 
 > `optional` **getStats**(): `object`
 
-Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:367](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L367)
+Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:369](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L369)
 
 #### Returns
 
