@@ -1,5 +1,6 @@
 import type { ParseTreeListener } from 'antlr4ng';
 import { SequenceParserCore } from './SequenceParserCore.js';
+import { log } from '../../../../logger.js';
 
 /**
  * Listener implementation that builds the sequence diagram model
@@ -8,21 +9,13 @@ import { SequenceParserCore } from './SequenceParserCore.js';
 export class SequenceListener extends SequenceParserCore implements ParseTreeListener {
   constructor(db: any) {
     super(db);
-    // Only log for debug mode
-    if (this.getEnvVar('ANTLR_DEBUG') === 'true') {
-      // eslint-disable-next-line no-console
-      console.log('👂 SequenceListener: Constructor called');
-    }
+    log.debug('👂 SequenceListener: Constructor called');
   }
 
   // Standard ParseTreeListener methods
   enterEveryRule = (ctx: any) => {
-    // Optional: Add debug logging for rule entry
-    if (this.getEnvVar('NODE_ENV') === 'development') {
-      const ruleName = ctx.constructor.name;
-      // eslint-disable-next-line no-console
-      console.log('🔍 SequenceListener: Entering rule:', ruleName);
-    }
+    const ruleName = ctx.constructor.name;
+    log.debug('🔍 SequenceListener: Entering rule:', ruleName);
   };
 
   exitEveryRule = (_ctx: any) => {
@@ -37,8 +30,7 @@ export class SequenceListener extends SequenceParserCore implements ParseTreeLis
     // Error nodes are created when ANTLR encounters a syntax error
     // The error details are captured by the SequenceErrorListener in the parser
     // and will be thrown after parsing completes, so we don't need to throw here
-    // eslint-disable-next-line no-console
-    console.log('❌ SequenceListener: Error node encountered');
+    log.debug('❌ SequenceListener: Error node encountered');
   };
 
   // Loop block handlers

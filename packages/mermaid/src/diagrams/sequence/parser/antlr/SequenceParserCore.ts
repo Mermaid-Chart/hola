@@ -6,11 +6,6 @@ import type { SequenceDB } from '../../sequenceDb.js';
 // provides runtime safety while `any` allows TypeScript compilation.
 type AnyContext = any;
 
-// Type for window with MERMAID_CONFIG
-interface WindowWithConfig extends Window {
-  MERMAID_CONFIG?: Record<string, string>;
-}
-
 /**
  * Core shared logic for both Listener and Visitor patterns for Sequence Diagrams
  * Contains all the proven parsing logic extracted from the monolithic antlr-parser.ts
@@ -20,23 +15,6 @@ export class SequenceParserCore {
 
   constructor(db: SequenceDB) {
     this.db = db;
-  }
-
-  // Helper method to get environment variables (same as flowchart)
-  public getEnvVar(name: string): string | undefined {
-    try {
-      if (typeof process !== 'undefined' && process.env) {
-        return process.env[name];
-      }
-    } catch (_e) {
-      // process is not defined in browser, continue to browser checks
-    }
-
-    // In browser, check for global variables
-    if (typeof window !== 'undefined' && (window as WindowWithConfig).MERMAID_CONFIG) {
-      return (window as WindowWithConfig).MERMAID_CONFIG?.[name];
-    }
-    return undefined;
   }
 
   // Signal type mapping helper

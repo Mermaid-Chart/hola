@@ -2,6 +2,7 @@ import { SequenceParserVisitor } from './generated/SequenceParserVisitor.js';
 import type { SequenceDB } from '../../sequenceDb.js';
 import type { ParseTree, TerminalNode, ErrorNode } from 'antlr4ng';
 import { SequenceParserCore } from './SequenceParserCore.js';
+import { log } from '../../../../logger.js';
 
 /**
  * Visitor implementation that builds the sequence diagram model
@@ -15,11 +16,7 @@ export class SequenceVisitor extends SequenceParserVisitor<void> {
   constructor(db: SequenceDB) {
     super();
     this.core = new SequenceParserCore(db);
-    // Only log for debug mode
-    if (this.core.getEnvVar('ANTLR_DEBUG') === 'true') {
-      // eslint-disable-next-line no-console
-      console.log('🎯 SequenceVisitor: Constructor called');
-    }
+    log.debug('🎯 SequenceVisitor: Constructor called');
   }
 
   // Override default result to return void
@@ -45,21 +42,18 @@ export class SequenceVisitor extends SequenceParserVisitor<void> {
     try {
       tree.accept(this);
 
-      // Performance tracking for debug mode
-      if (this.core.getEnvVar('ANTLR_DEBUG') === 'true') {
-        const endTime = performance.now();
-        const duration = endTime - startTime;
-        const ruleName = tree.constructor.name;
+      // Performance tracking
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+      const ruleName = tree.constructor.name;
 
-        if (!this.performanceLog[ruleName]) {
-          this.performanceLog[ruleName] = { count: 0, totalTime: 0 };
-        }
-        this.performanceLog[ruleName].count++;
-        this.performanceLog[ruleName].totalTime += duration;
+      if (!this.performanceLog[ruleName]) {
+        this.performanceLog[ruleName] = { count: 0, totalTime: 0 };
       }
+      this.performanceLog[ruleName].count++;
+      this.performanceLog[ruleName].totalTime += duration;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('❌ SequenceVisitor: Error visiting node:', error);
+      log.debug('❌ SequenceVisitor: Error visiting node:', error);
       throw error;
     }
   }
@@ -87,8 +81,7 @@ export class SequenceVisitor extends SequenceParserVisitor<void> {
     // Error nodes are created when ANTLR encounters a syntax error
     // The error details are captured by the SequenceErrorListener in the parser
     // and will be thrown after parsing completes, so we don't need to throw here
-    // eslint-disable-next-line no-console
-    console.log('❌ SequenceVisitor: Error node encountered');
+    log.debug('❌ SequenceVisitor: Error node encountered');
   }
 
   // Loop block visitors
