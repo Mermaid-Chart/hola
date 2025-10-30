@@ -49,7 +49,6 @@
     "docs:verify-version": "tsx scripts/update-release-version.mts --verify",
     "types:build-config": "tsx scripts/create-types-from-json-schema.mts",
     "types:verify-config": "tsx scripts/create-types-from-json-schema.mts --verify",
-    "postinstall": "pnpm antlr:generate",
     "checkCircle": "npx madge --circular ./src",
     "antlr:sequence:clean": "rimraf src/diagrams/sequence/parser/antlr/generated",
     "antlr:sequence": "pnpm run antlr:sequence:clean && antlr4ng -Dlanguage=TypeScript -visitor -Xexact-output-dir -lib src/diagrams/common/parser/antlr -o src/diagrams/sequence/parser/antlr/generated src/diagrams/sequence/parser/antlr/SequenceLexer.g4 src/diagrams/sequence/parser/antlr/SequenceParser.g4",

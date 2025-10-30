@@ -271,6 +271,25 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
         return matches[0];
       }
 
+      // Special handling for message lines: prefer message mapping over participant mappings
+      // This ensures that when cursor is anywhere on a message line (including on participant names),
+      // we highlight the entire message arrow in the SVG
+      const messageMatch = matches.find((m) => m.type === 'message');
+      if (messageMatch) {
+        // Check if there are participant mappings on the same line
+        const participantMatches = matches.filter(
+          (m) =>
+            (m.type === 'participant' || m.type === 'actor') &&
+            m.position.startLine === messageMatch.position.startLine
+        );
+
+        // If we have both message and participant mappings on the same line,
+        // prefer the message mapping for code-to-SVG highlighting
+        if (participantMatches.length > 0) {
+          return messageMatch;
+        }
+      }
+
       // Return the element with the smallest range (most specific)
       return matches.reduce((smallest, current) => {
         const smallestSize =
@@ -672,6 +691,22 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
     // ctx.children should contain: [fromActorCtx, signaltypeCtx, toActorCtx (or PLUS/MINUS + toActorCtx), text2Ctx]
 
     try {
+      // First, create a full-line message mapping that spans the entire message statement
+      // This is used for code-to-SVG highlighting (cursor anywhere on line highlights the message)
+      const fullLinePosition = this.getPositionFromContext(ctx);
+      if (fullLinePosition) {
+        const fullLineMessageMapping: ElementMapping = {
+          id: ElementMappingUtils.generateElementId('message', this.elementMappingCounter++),
+          type: 'message',
+          position: fullLinePosition,
+          svgId: ElementMappingUtils.generateSvgId(`message_${messageIndex}`),
+          svgSelector: `[data-et="message"][data-id="i${messageIndex}"]`,
+          data: messageData,
+        };
+        this.elementMappings.push(fullLineMessageMapping);
+        log.debug('✅ Created FULL-LINE message mapping from context:', fullLineMessageMapping);
+      }
+
       // Get the FROM actor context (first child)
       const fromActorCtx = ctx.actor && typeof ctx.actor === 'function' ? ctx.actor(0) : null;
       if (fromActorCtx) {

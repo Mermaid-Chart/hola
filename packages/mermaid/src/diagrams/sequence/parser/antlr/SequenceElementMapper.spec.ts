@@ -92,6 +92,32 @@ describe('SequenceElementMapper', () => {
       const element = mapper.getElementAtPosition(1, 1);
       expect(element).toBeUndefined();
     });
+
+    it('should prefer message mapping when cursor is on participant name in message line', () => {
+      expect(sampleAST).toBeDefined();
+      const mapper = new SequenceElementMapper(sampleAST!);
+
+      // Line 4: "    Alice->>Bob: Hello Bob"
+      // When cursor is on "Alice" (column 9), should return message mapping, not participant
+      const elementOnAlice = mapper.getElementAtPosition(4, 9);
+      expect(elementOnAlice).toBeDefined();
+      expect(elementOnAlice?.type).toBe('message');
+
+      // When cursor is on "Bob" (column 17), should return message mapping, not participant
+      const elementOnBob = mapper.getElementAtPosition(4, 17);
+      expect(elementOnBob).toBeDefined();
+      expect(elementOnBob?.type).toBe('message');
+
+      // When cursor is on arrow "->>" (column 14), should return message mapping
+      const elementOnArrow = mapper.getElementAtPosition(4, 14);
+      expect(elementOnArrow).toBeDefined();
+      expect(elementOnArrow?.type).toBe('message');
+
+      // When cursor is on message text "Hello Bob" (column 24), should return message mapping
+      const elementOnMessage = mapper.getElementAtPosition(4, 24);
+      expect(elementOnMessage).toBeDefined();
+      expect(elementOnMessage?.type).toBe('message');
+    });
   });
 
   describe('getElementBySvgId', () => {
@@ -603,8 +629,9 @@ describe('SequenceElementMapper', () => {
 
       const messageMappings = ast?.elementMappings?.filter((m) => m.type === 'message') ?? [];
 
-      // Should have 12 messages total
-      expect(messageMappings.length).toBe(12);
+      // Should have 24 message mappings total (2 per message: full-line + text-only)
+      // There are 12 actual messages in the diagram
+      expect(messageMappings.length).toBe(24);
 
       // DB message array structure:
       // 0: Alice->>Bob: Hello Bob, how are you?

@@ -69,33 +69,78 @@ export class SequenceElementMapper {
    * Find element at specific code position
    */
   getElementAtPosition(line: number, column: number): ElementMapping | undefined {
+    // Find all elements that contain this position
+    const matches: ElementMapping[] = [];
+
     for (const mapping of this.positionIndex) {
       const pos = mapping.position;
 
       // Check if position is within element bounds
+      let isWithinBounds = false;
       if (line >= pos.startLine && line <= pos.endLine) {
         if (line === pos.startLine && line === pos.endLine) {
           // Single line element
           if (column >= pos.startColumn && column <= pos.endColumn) {
-            return mapping;
+            isWithinBounds = true;
           }
         } else if (line === pos.startLine) {
           // Start line of multi-line element
           if (column >= pos.startColumn) {
-            return mapping;
+            isWithinBounds = true;
           }
         } else if (line === pos.endLine) {
           // End line of multi-line element
           if (column <= pos.endColumn) {
-            return mapping;
+            isWithinBounds = true;
           }
         } else {
           // Middle line of multi-line element
-          return mapping;
+          isWithinBounds = true;
         }
       }
+
+      if (isWithinBounds) {
+        matches.push(mapping);
+      }
     }
-    return undefined;
+
+    if (matches.length === 0) {
+      return undefined;
+    }
+
+    if (matches.length === 1) {
+      return matches[0];
+    }
+
+    // Special handling for message lines: prefer message mapping over participant mappings
+    // This ensures that when cursor is anywhere on a message line (including on participant names),
+    // we highlight the entire message arrow in the SVG
+    const messageMatch = matches.find((m) => m.type === 'message');
+    if (messageMatch) {
+      // Check if there are participant mappings on the same line
+      const participantMatches = matches.filter(
+        (m) =>
+          (m.type === 'participant' || m.type === 'actor') &&
+          m.position.startLine === messageMatch.position.startLine
+      );
+
+      // If we have both message and participant mappings on the same line,
+      // prefer the message mapping for code-to-SVG highlighting
+      if (participantMatches.length > 0) {
+        return messageMatch;
+      }
+    }
+
+    // Return the element with the smallest range (most specific)
+    return matches.reduce((smallest, current) => {
+      const smallestSize =
+        (smallest.position.endLine - smallest.position.startLine) * 1000 +
+        (smallest.position.endColumn - smallest.position.startColumn);
+      const currentSize =
+        (current.position.endLine - current.position.startLine) * 1000 +
+        (current.position.endColumn - current.position.startColumn);
+      return currentSize < smallestSize ? current : smallest;
+    });
   }
 
   /**
