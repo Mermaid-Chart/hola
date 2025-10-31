@@ -715,7 +715,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       autonumberX = stopx;
     } else if (isBidirectional) {
       // For bidirectional arrows
-      autonumberX = lineStartX;
+      autonumberX = isLeftToRight ? lineStartX - x : lineStartX;
     } else {
       // Default positioning
       autonumberX = startx;
