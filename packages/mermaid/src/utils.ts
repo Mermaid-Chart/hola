@@ -787,6 +787,8 @@ export interface DetailedError {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error?: any;
   message?: string;
+  parser?: string;
+  loc?: any;
 }
 
 /** @param error - The error to check */
