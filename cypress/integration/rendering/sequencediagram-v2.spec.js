@@ -778,7 +778,7 @@ describe('Sequence Diagram Special Cases', () => {
     });
 
     describe('Autonumber with All Arrow Types', () => {
-      it('should render all arrow types with autonumber', () => {
+      it('should render all arrow types with autonumbering', () => {
         imgSnapshotTest(
           `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -816,7 +816,7 @@ sequenceDiagram
         );
       });
 
-      it('should render all arrow types with autonumber - left to right only', () => {
+      it('should render all arrow types with autonumbering - left to right only', () => {
         imgSnapshotTest(
           `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -854,7 +854,7 @@ sequenceDiagram
         );
       });
 
-      it('should render central connections with autonumber', () => {
+      it('should render central connections with autonumbering', () => {
         imgSnapshotTest(
           `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -872,7 +872,7 @@ sequenceDiagram
         );
       });
 
-      it('should render bidirectional arrows with autonumber', () => {
+      it('should render bidirectional arrows with autonumbering', () => {
         imgSnapshotTest(
           `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -890,7 +890,7 @@ sequenceDiagram
         );
       });
 
-      it('should render reverse arrows with autonumber', () => {
+      it('should render reverse arrows with autonumbering', () => {
         imgSnapshotTest(
           `%%{init: {'theme':'base'}}%%
 sequenceDiagram

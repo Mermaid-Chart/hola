@@ -643,6 +643,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       type === diagObj.db.LINETYPE.STICK_ARROW_BOTTOM_REVERSE_DOTTED;
 
     const SEQUENCE_NUMBER_RADIUS = 6;
+    const hasCentralConn = hasCentralConnection(msg, diagObj);
     let x = 0;
     let lineStartX = startx;
     let lineStopX = stopx;
@@ -650,10 +651,10 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
     if (isBidirectional) {
       // For bidirectional arrows, adjust the start position
       if (startx < stopx) {
-        lineStartX = startx + 2 * SEQUENCE_NUMBER_RADIUS;
+        lineStartX = startx + SEQUENCE_NUMBER_RADIUS + (hasCentralConn ? 5 : 0);
         line.attr('x1', lineStartX);
       } else {
-        lineStartX = startx + SEQUENCE_NUMBER_RADIUS;
+        lineStartX = startx - SEQUENCE_NUMBER_RADIUS + (hasCentralConn ? -5 : 0);
         line.attr('x1', lineStartX);
       }
       x = 15;
@@ -669,55 +670,77 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       x = 5;
     }
 
-    // Calculate autonumber X position
     let autonumberX;
-    const hasCentralConn = hasCentralConnection(msg, diagObj);
     const isLeftToRight = startx <= stopx;
+    if (isReverseArrowType) {
+      // For reverse arrows, check if arrow is left-to-right or right-to-left
+      // if (stopx > startx) {
+      //   // Left to right: position to the left of the arrowhead
+      //   autonumberX = stopx; // + (2 * x);
+      // } else {
+      //   // Right to left: position to the right of the arrowhead
+      //   autonumberX = stopx; // + x;
+      // }
 
-    if (hasCentralConn) {
-      // Central connection autonumber positioning
-      const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
-        diagObj.db.LINETYPE;
-
-      if (isReverseArrowType) {
-        // For reverse arrows with central connections
-        switch (msg.centralConnection) {
-          case CENTRAL_CONNECTION:
-            autonumberX = isLeftToRight ? stopx + x : stopx - x;
-            break;
-          case CENTRAL_CONNECTION_REVERSE:
-            autonumberX = isLeftToRight ? stopx : stopx - x;
-            break;
-          case CENTRAL_CONNECTION_DUAL:
-            autonumberX = isLeftToRight ? stopx + x : stopx - x;
-            break;
-          default:
-            autonumberX = stopx;
+      if (hasCentralConn) {
+        // For central connections, position based on arrow direction
+        const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
+          diagObj.db.LINETYPE;
+        const isLeftToRight = startx <= stopx;
+        if (msg.centralConnection === CENTRAL_CONNECTION) {
+          // Pattern: actor ->>() actor - autonumber at start
+          autonumberX = isLeftToRight ? stopx + x : stopx - x;
+        } else if (msg.centralConnection === CENTRAL_CONNECTION_REVERSE) {
+          // Pattern: actor ()->> actor - autonumber after circle at start
+          autonumberX = isLeftToRight ? stopx : stopx - x;
+        } else if (msg.centralConnection === CENTRAL_CONNECTION_DUAL) {
+          // Pattern: actor ()->>() actor - autonumber in the middle or at start
+          autonumberX = isLeftToRight ? stopx + x : stopx - x;
         }
       } else {
-        // For normal arrows with central connections
-        switch (msg.centralConnection) {
-          case CENTRAL_CONNECTION:
-            autonumberX = lineStartX;
-            break;
-          case CENTRAL_CONNECTION_REVERSE:
-            autonumberX = isLeftToRight ? lineStartX - 5 : lineStartX - 3;
-            break;
-          case CENTRAL_CONNECTION_DUAL:
-            autonumberX = lineStartX - 3;
-            break;
-          default:
-            autonumberX = lineStartX;
+        if (stopx > startx) {
+          // Left to right: position to the left of the arrowhead
+          autonumberX = stopx; // + (2 * x);
+        } else {
+          // Right to left: position to the right of the arrowhead
+          autonumberX = stopx; // + x;
         }
       }
-    } else if (isReverseArrowType) {
-      // For reverse arrows without central connections
-      autonumberX = stopx;
     } else if (isBidirectional) {
-      // For bidirectional arrows
-      autonumberX = isLeftToRight ? lineStartX - x : lineStartX;
+      if (hasCentralConnection(msg, diagObj)) {
+        // For central connections, position based on arrow direction
+        const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
+          diagObj.db.LINETYPE;
+        const isLeftToRight = startx <= stopx;
+        if (msg.centralConnection === CENTRAL_CONNECTION) {
+          // Pattern: actor ->>() actor - autonumber at start
+          autonumberX = isLeftToRight ? startx - x / 2 : startx + x / 2;
+        } else if (msg.centralConnection === CENTRAL_CONNECTION_REVERSE) {
+          // Pattern: actor ()->> actor - autonumber after circle at start
+          autonumberX = isLeftToRight ? startx - x / 1.5 : startx + x * 0.1;
+        } else if (msg.centralConnection === CENTRAL_CONNECTION_DUAL) {
+          // Pattern: actor ()->>() actor - autonumber in the middle or at start
+          autonumberX = isLeftToRight ? startx - x / 1.5 : startx + x / 1.5;
+        }
+      } else {
+        autonumberX = isLeftToRight ? startx - x / 2 : startx + x / 2;
+      }
+    } else if (hasCentralConnection(msg, diagObj)) {
+      // For central connections, position based on arrow direction
+      const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
+        diagObj.db.LINETYPE;
+      const isLeftToRight = startx <= stopx;
+      if (msg.centralConnection === CENTRAL_CONNECTION) {
+        // Pattern: actor ->>() actor - autonumber at start
+        autonumberX = isLeftToRight ? lineStartX : lineStartX;
+      } else if (msg.centralConnection === CENTRAL_CONNECTION_REVERSE) {
+        // Pattern: actor ()->> actor - autonumber after circle at start
+        autonumberX = isLeftToRight ? lineStartX - 5 : lineStartX - 3;
+      } else if (msg.centralConnection === CENTRAL_CONNECTION_DUAL) {
+        // Pattern: actor ()->>() actor - autonumber in the middle or at start
+        autonumberX = isLeftToRight ? lineStartX - 3 : lineStartX - 3;
+      }
     } else {
-      // Default positioning
       autonumberX = startx;
     }
 
@@ -1816,7 +1839,7 @@ const calculateCentralConnectionOffset = function (msg, diagObj, isArrowToRight)
     msg.centralConnection === CENTRAL_CONNECTION_DUAL
   ) {
     if (isReverseArrowType(msg, diagObj)) {
-      offset += CENTRAL_CONNECTION_BASE_OFFSET - 7.5;
+      offset += CENTRAL_CONNECTION_BASE_OFFSET + (isArrowToRight ? 3.5 : -10);
     } else {
       offset += CENTRAL_CONNECTION_BASE_OFFSET;
     }
