@@ -1,6 +1,6 @@
 import { imgSnapshotTest } from '../../helpers/util.ts';
 
-describe('Git Graph', () => {
+describe('ER Diagram', () => {
   ['neo', 'neo-dark', 'redux', 'redux-dark', 'redux-color', 'redux-dark-color'].forEach((theme) => {
     describe(theme, () => {
       it('should render a erDiagram', () => {

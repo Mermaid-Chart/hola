@@ -1,7 +1,18 @@
 import { imgSnapshotTest } from '../../helpers/util.ts';
 
-describe('Minmap', () => {
-  ['default', 'base', 'dark', 'neutral'].forEach((theme) => {
+describe('Mindmap', () => {
+  [
+    'default',
+    'base',
+    'dark',
+    'neutral',
+    'neo',
+    'neo-dark',
+    'redux',
+    'redux-dark',
+    'redux-color',
+    'redux-dark-color',
+  ].forEach((theme) => {
     describe(theme, () => {
       it('should render a Mindmap', () => {
         imgSnapshotTest(

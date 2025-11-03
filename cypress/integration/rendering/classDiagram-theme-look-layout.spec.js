@@ -1,15 +1,22 @@
 import { imgSnapshotTest } from '../../helpers/util.ts';
 describe('Class diagram V3 HD', () => {
   ['neo', 'handDrawn', 'classic'].forEach((look) => {
-    ['default', 'forest', 'dark', 'neutral'].forEach((theme) => {
+    [
+      'default',
+      'forest',
+      'dark',
+      'neutral',
+      'neo',
+      'neo-dark',
+      'redux',
+      'redux-dark',
+      'redux-color',
+      'redux-dark-color',
+    ].forEach((theme) => {
       ['dagre', 'elk'].forEach((layout) => {
         it(`should render a full class diagram using look: ${look}, theme:${theme}, layout: ${layout}`, () => {
           imgSnapshotTest(
             `
----
-  config:
-    layout: elk
----
    classDiagram
     Animal <|-- Duck
     Animal <|-- Fish
