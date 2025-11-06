@@ -1494,7 +1494,7 @@ sequenceDiagram
           );
         });
 
-        it('should render self-references with reverse arrows and dual central connections (autonumber enabled).', () => {
+        it('should render self-references, reverse arrows & dual central connection (autonumber).', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
