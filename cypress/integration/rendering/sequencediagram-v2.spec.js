@@ -1138,7 +1138,7 @@ sequenceDiagram
           );
         });
 
-        it('should render mixed central connections with autonumber - comprehensive scenario', () => {
+        it('should render mixed central connections with autonumber', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1397,7 +1397,7 @@ sequenceDiagram
           );
         });
 
-        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION - without autonumber', () => {
+        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1494,7 +1494,7 @@ sequenceDiagram
           );
         });
 
-        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION_DUAL - with autonumber', () => {
+        it('should render self-references with reverse arrows and dual central connections (autonumber enabled).', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1514,7 +1514,7 @@ sequenceDiagram
           );
         });
 
-        it('should render self-reference with bidirectional and central connections - without autonumber', () => {
+        it('Render self-references with bidirectional central connections (no autonumber).', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
