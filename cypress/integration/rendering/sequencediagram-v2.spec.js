@@ -990,7 +990,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_REVERSE (pattern: ()->>) with normal arrows - left to right', () => {
+        it('should render Central_Connection_REVERSE ()->> normal LTR', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1007,7 +1007,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_REVERSE (pattern: ()->>) with normal arrows - right to left', () => {
+        it('should render Central_Connection_REVERSE ()->> normal RTL', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1024,7 +1024,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_REVERSE (pattern: ()->>) with reverse arrows - left to right', () => {
+        it('should render Central_Connection_REVERSE ()->> reverse LTR', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1044,7 +1044,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_REVERSE (pattern: ()->>) with reverse arrows - right to left', () => {
+        it('should render Central_Connection_REVERSE ()->> reverse RTL', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1064,7 +1064,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_DUAL (pattern: ()->>()) with normal arrows - left to right', () => {
+        it('should render Central_Connection_DUAL ()->>() normal LTR', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1081,7 +1081,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_DUAL (pattern: ()->>()) with normal arrows - right to left', () => {
+        it('should render Central_Connection_DUAL ()->>() normal RTL', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1098,7 +1098,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_DUAL (pattern: ()->>()) with reverse arrows - left to right', () => {
+        it('should render Central_Connection_DUAL ()->>() reverse LTR', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1118,7 +1118,7 @@ sequenceDiagram
           );
         });
 
-        it('should render CENTRAL_CONNECTION_DUAL (pattern: ()->>()) with reverse arrows - right to left', () => {
+        it('should render Central_Connection_DUAL ()->>() reverse RTL', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1436,7 +1436,7 @@ sequenceDiagram
           );
         });
 
-        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION_REVERSE - without autonumber', () => {
+        it('should render self-ref reverse Central_Connection_REVERSE no-autonumber', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1455,7 +1455,7 @@ sequenceDiagram
           );
         });
 
-        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION_REVERSE - with autonumber', () => {
+        it('should render self-ref reverse Central_Connection_REVERSE autonumber', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
@@ -1475,7 +1475,7 @@ sequenceDiagram
           );
         });
 
-        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION_DUAL - without autonumber', () => {
+        it('should render self-ref reverse Central_Connection_DUAL no-autonumber', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
 sequenceDiagram
