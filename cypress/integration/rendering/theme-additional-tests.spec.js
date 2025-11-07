@@ -51,7 +51,7 @@ describe('Extended theme test', () => {
         D
         ID --> D
         C --> D
-        style B fill:#d6dAdding,stroke:#333,stroke-width:4px
+        style B fill:#d6d,stroke:#333,stroke-width:4px
           `,
           { theme }
         );
