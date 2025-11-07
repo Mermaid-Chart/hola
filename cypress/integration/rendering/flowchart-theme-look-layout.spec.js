@@ -14,7 +14,7 @@ describe('Flowchart theme, look and layout', () => {
       'redux-dark-color',
     ].forEach((theme) => {
       ['dagre', 'elk'].forEach((layout) => {
-       it(`should render a full flowchart diagram using look: ${look}, theme:${theme}, layout: ${layout}`, () => {
+        it(`should render a full flowchart diagram using look: ${look}, theme:${theme}, layout: ${layout}`, () => {
           imgSnapshotTest(
             `
             flowchart TD
