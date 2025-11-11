@@ -563,6 +563,88 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
   }
 
   /**
+   * Create element mapping for the entire line based on line number from ANTLR context
+   * This is used for actor/participant declaration statements where we want
+   * the cursor anywhere on the line to highlight the element
+   */
+  private createFullLineElementMapping(
+    type: SequenceStatementType,
+    ctx: ParserRuleContext,
+    data: ElementMapping['data'],
+    dbIndex?: number
+  ): ElementMapping | null {
+    if (!ctx?.start) {
+      return null;
+    }
+
+    const lineNumber = ctx.start.line;
+    const lineText = this.getOriginalLine(lineNumber);
+
+    if (!lineText) {
+      return null;
+    }
+
+    // Map the entire line: from column 0 to end of line
+    const startColumn = 0;
+    const endColumn = lineText.length;
+
+    // Calculate absolute character indices in the original text
+    // Find the start of this line in the original text
+    const lines = this.originalText.split('\n');
+    let startIndex = 0;
+    for (let i = 0; i < lineNumber - 1; i++) {
+      startIndex += lines[i].length + 1; // +1 for newline character
+    }
+    const endIndex = startIndex + lineText.length;
+
+    const position: ElementPosition = {
+      startLine: lineNumber,
+      startColumn,
+      endLine: lineNumber,
+      endColumn,
+      startIndex,
+      endIndex,
+    };
+
+    const elementId = ElementMappingUtils.generateElementId(type, this.elementMappingCounter++);
+
+    // For messages and notes, use dbIndex in the svgId to match the DB's message index
+    // For participants/actors, use the elementId
+    let svgId: string;
+    if ((type === 'message' || type === 'note') && dbIndex !== undefined) {
+      svgId = ElementMappingUtils.generateSvgId(`${type}_${dbIndex}`);
+    } else {
+      svgId = ElementMappingUtils.generateSvgId(elementId);
+    }
+
+    // Generate SVG selector based on data-et attribute
+    let svgSelector = `[data-et="${type}"]`;
+
+    // Add data-id for more specific selection
+    if ((type === 'participant' || type === 'actor') && 'id' in data) {
+      svgSelector = `[data-et="${type}"][data-id="${data.id}"]`;
+    } else if (type === 'message' || type === 'note') {
+      const index =
+        dbIndex ??
+        this.elementMappings.filter((m) => m.type === 'message' || m.type === 'note').length;
+      svgSelector = `[data-et="${type}"][data-id="i${index}"]`;
+    }
+
+    const mapping: ElementMapping = {
+      id: elementId,
+      type,
+      position,
+      svgId,
+      svgSelector,
+      data,
+    };
+
+    log.debug('✅ Created FULL-LINE element mapping:', mapping);
+    this.elementMappings.push(mapping);
+    return mapping;
+  }
+
+  /**
    * Create element mapping for bidirectional synchronization
    */
   private createElementMapping(
@@ -691,20 +773,20 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
     // ctx.children should contain: [fromActorCtx, signaltypeCtx, toActorCtx (or PLUS/MINUS + toActorCtx), text2Ctx]
 
     try {
-      // First, create a full-line message mapping that spans the entire message statement
+      // First, create a full-line message mapping that spans the entire line (from column 0 to end)
       // This is used for code-to-SVG highlighting (cursor anywhere on line highlights the message)
-      const fullLinePosition = this.getPositionFromContext(ctx);
-      if (fullLinePosition) {
-        const fullLineMessageMapping: ElementMapping = {
-          id: ElementMappingUtils.generateElementId('message', this.elementMappingCounter++),
-          type: 'message',
-          position: fullLinePosition,
-          svgId: ElementMappingUtils.generateSvgId(`message_${messageIndex}`),
-          svgSelector: `[data-et="message"][data-id="i${messageIndex}"]`,
-          data: messageData,
-        };
-        this.elementMappings.push(fullLineMessageMapping);
-        log.debug('✅ Created FULL-LINE message mapping from context:', fullLineMessageMapping);
+      // Use createFullLineElementMapping to ensure the mapping covers the entire line including leading/trailing spaces
+      const fullLineMessageMapping = this.createFullLineElementMapping(
+        'message',
+        ctx,
+        messageData,
+        messageIndex
+      );
+      if (fullLineMessageMapping) {
+        log.debug(
+          '✅ Created FULL-LINE message mapping covering entire line:',
+          fullLineMessageMapping
+        );
       }
 
       // Get the FROM actor context (first child)
@@ -1100,11 +1182,9 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
 
           // Check for alias (AS restOfLine)
           let alias = '';
-          let aliasCtx: RestOfLineContext | null = null;
           const hasAS = !!(ctx.AS && typeof ctx.AS === 'function' && ctx.AS());
           if (hasAS && ctx.restOfLine && typeof ctx.restOfLine === 'function' && ctx.restOfLine()) {
             const rol = ctx.restOfLine();
-            aliasCtx = rol;
             alias = rol ? this.getContextText(rol).trim() : '';
           }
 
@@ -1140,23 +1220,13 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
           });
 
           // Create element mapping for bidirectional synchronization
-          // Use awc context (ActorWithConfigContext) which is a ParserRuleContext
-          // This will highlight the entire "participantName@{...}" part
-          const participantMapping = this.createElementMapping('participant', awc, participantData);
-
-          // If there's an alias, create an additional element mapping for it
-          // This allows bidirectional highlighting to work when cursor is on the alias
-          // Both mappings should have the same SVG ID so they highlight the same element
-          if (alias && aliasCtx && participantMapping?.svgId && participantMapping?.svgSelector) {
-            log.debug('Creating additional element mapping for alias:', alias);
-            this.createElementMappingWithSvgId(
-              'participant',
-              aliasCtx,
-              participantData,
-              participantMapping.svgId,
-              participantMapping.svgSelector
-            );
-          }
+          // Use full line mapping so cursor anywhere on the line highlights the participant
+          // No need to create separate alias mapping since full-line mapping covers the entire line
+          const participantMapping = this.createFullLineElementMapping(
+            'participant',
+            ctx,
+            participantData
+          );
 
           log.debug('📝 Added participant with config to AST:', {
             participantData,
@@ -1181,13 +1251,11 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
       const id = actorCtx ? this.getContextText(actorCtx).trim() : '';
 
       let alias = '';
-      let aliasCtx: RestOfLineContext | null = null;
       const hasAS = !!(ctx.AS && typeof ctx.AS === 'function' && ctx.AS());
       if (hasAS && ctx.restOfLine && typeof ctx.restOfLine === 'function' && ctx.restOfLine()) {
         // For aliases, the grammar uses: (AS restOfLine)?
         // restOfLine should already be the alias text without a leading colon
         const rol = ctx.restOfLine();
-        aliasCtx = rol;
         alias = rol ? this.getContextText(rol).trim() : '';
       }
 
@@ -1207,28 +1275,11 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
         });
 
         // Create element mapping for bidirectional synchronization
-        // Use actorCtx instead of ctx to highlight only the participant name, not the keyword
+        // Use full line mapping so cursor anywhere on the line highlights the participant
         // Note: Always use 'participant' for element mapping type because the SVG renderer
         // sets data-et="participant" for all participant types (actor, participant, boundary, etc.)
-        const participantMapping = this.createElementMapping(
-          'participant',
-          actorCtx ?? ctx,
-          participantData
-        );
-
-        // If there's an alias, create an additional element mapping for it
-        // This allows bidirectional highlighting to work when cursor is on the alias
-        // Both mappings should have the same SVG ID so they highlight the same element
-        if (alias && aliasCtx && participantMapping?.svgId && participantMapping?.svgSelector) {
-          log.debug('Creating additional element mapping for alias:', alias);
-          this.createElementMappingWithSvgId(
-            statementType,
-            aliasCtx,
-            participantData,
-            participantMapping.svgId,
-            participantMapping.svgSelector
-          );
-        }
+        // No need to create separate alias mapping since full-line mapping covers the entire line
+        this.createFullLineElementMapping('participant', ctx, participantData);
 
         log.debug('📝 Added participant to AST:', participantData);
         return '';
@@ -1281,6 +1332,14 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
       });
+
+      // Create element mapping for bidirectional synchronization
+      // Use full line mapping so cursor anywhere on the line highlights the participant
+      // Note: Always use 'participant' for element mapping type because the SVG renderer
+      // sets data-et="participant" for all participant types
+      // No need to create separate alias mapping since full-line mapping covers the entire line
+      const participantData: ParticipantData = { id: participant, alias: alias || undefined };
+      this.createFullLineElementMapping('participant', ctx, participantData);
     }
     return '';
   }
@@ -1303,6 +1362,11 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
       });
+
+      // Create element mapping for bidirectional synchronization
+      // Use full line mapping so cursor anywhere on the line highlights the participant
+      const participantData: ParticipantData = { id: participant };
+      this.createFullLineElementMapping('participant', ctx, participantData);
     }
     return '';
   }
@@ -1412,6 +1476,19 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
           messageData,
           currentDbIndex
         );
+
+        // Handle activation/deactivation markers
+        // When a message has + or -, the DB creates TWO entries:
+        // 1. The message itself
+        // 2. An ACTIVE_START or ACTIVE_END signal
+        // So we need to increment dbIndex again to stay in sync with the DB
+        if (activationMarker === '+') {
+          log.debug('  - Message has activation marker (+), incrementing dbIndex for ACTIVE_START');
+          this.dbIndex++;
+        } else if (activationMarker === '-') {
+          log.debug('  - Message has deactivation marker (-), incrementing dbIndex for ACTIVE_END');
+          this.dbIndex++;
+        }
 
         log.debug('📝 Added message to AST:', messageData);
       } else {
@@ -2163,6 +2240,13 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
       sourceTokens: { start: ctx.start, stop: ctx.stop },
       sourceLine: this.getOriginalSourceFromCtx(ctx),
     });
+
+    // Create element mapping for bidirectional synchronization
+    // Use full line mapping so cursor anywhere on the line highlights the participant
+    if (participant) {
+      const participantData: ParticipantData = { id: participant };
+      this.createFullLineElementMapping('participant', ctx, participantData);
+    }
 
     // Increment dbIndex for ACTIVE_START or ACTIVE_END marker (matches DB behavior)
     // The DB adds an entry to the messages array for both activate and deactivate

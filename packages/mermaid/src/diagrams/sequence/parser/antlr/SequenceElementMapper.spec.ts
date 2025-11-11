@@ -816,4 +816,686 @@ describe('SequenceElementMapper', () => {
       });
     });
   });
+
+  describe('Comprehensive Actor/Participant Syntax Variations', () => {
+    const comprehensiveCode = `sequenceDiagram
+  %% only Actor
+  actor A
+
+  %% Actor with alias
+  actor B as Bob
+
+  %% Only Participant
+  participant C
+
+  %% Participant with Alias
+  participant D as Charlie
+
+  %% New participant type syntax
+  participant E@{ "type" : "boundary" }
+
+  %% New participant type syntax with Alias
+  participant F@{ "type" : "boundary" } as Flea
+
+  %% new actor with 'create'
+  create actor G
+
+  %% new actor with 'create' and alias
+  create actor H as Han
+
+  %% new participant with 'create'
+  create participant I
+
+  %% new participant with 'create' and alias
+  create participant J as Jan
+
+  %% Activate
+  activate A
+
+  %% Deactivate
+  deactivate A
+
+  %% destroy actor
+  destroy G
+
+  %% destroy participant
+  destroy I
+
+  A->>B: Message`;
+
+    it('should create element mappings for all participant/actor syntax variations', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Get all participant-related mappings
+      const participants = mapper.getParticipants();
+
+      // We should have mappings for:
+      // - A (actor)
+      // - B (actor with alias) - 2 mappings (ID + alias)
+      // - C (participant)
+      // - D (participant with alias) - 2 mappings (ID + alias)
+      // - E (participant with type)
+      // - F (participant with type and alias) - 2 mappings (ID + alias)
+      // - G (create actor)
+      // - H (create actor with alias) - 2 mappings (ID + alias)
+      // - I (create participant)
+      // - J (create participant with alias) - 2 mappings (ID + alias)
+      // Total: 16 mappings (6 simple + 5 with aliases * 2)
+      expect(participants.length).toBeGreaterThanOrEqual(10);
+
+      // Verify we have mappings for each participant ID
+      const participantIds = participants.filter(isParticipantMapping).map((m) => m.data.id);
+
+      expect(participantIds).toContain('A');
+      expect(participantIds).toContain('B');
+      expect(participantIds).toContain('C');
+      expect(participantIds).toContain('D');
+      expect(participantIds).toContain('E');
+      expect(participantIds).toContain('F');
+      expect(participantIds).toContain('G');
+      expect(participantIds).toContain('H');
+      expect(participantIds).toContain('I');
+      expect(participantIds).toContain('J');
+    });
+
+    it('should find actor by cursor position', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find actor A (line 3, column ~8)
+      const element = mapper.getElementAtPosition(3, 8);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'A');
+    });
+
+    it('should find actor with alias by cursor on ID', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find actor B (line 6, column ~8)
+      const element = mapper.getElementAtPosition(6, 8);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'B');
+    });
+
+    it('should find actor with alias by cursor on alias', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find actor B by alias "Bob" (line 6, column ~13)
+      const element = mapper.getElementAtPosition(6, 13);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'B');
+      expect(element?.data).toHaveProperty('alias', 'Bob');
+    });
+
+    it('should find participant by cursor position', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find participant C (line 9, column ~15)
+      const element = mapper.getElementAtPosition(9, 15);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'C');
+    });
+
+    it('should find participant with alias by cursor on alias', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find participant D by alias "Charlie" (line 12, column ~18)
+      const element = mapper.getElementAtPosition(12, 18);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'D');
+      expect(element?.data).toHaveProperty('alias', 'Charlie');
+    });
+
+    it('should find participant with type config by cursor position', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find participant E with type config (line 15, column ~15)
+      const element = mapper.getElementAtPosition(15, 15);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'E');
+    });
+
+    it('should find participant with type config and alias by cursor on alias', async () => {
+      const ast = await parseCode(comprehensiveCode);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Find participant F by alias "Flea" (line 18, column 45 - middle of "Flea")
+      const element = mapper.getElementAtPosition(18, 45);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('participant');
+      expect(element?.data).toHaveProperty('id', 'F');
+      expect(element?.data).toHaveProperty('alias', 'Flea');
+    });
+  });
+
+  describe('Full-Line Mapping for Messages', () => {
+    it('should create full-line mapping for message statement (from column 0 to end of line)', async () => {
+      const code = `sequenceDiagram
+  A->>B: Hello
+  B->>A: Hi`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+
+      // Find the full-line mapping for the first message (line 2)
+      const messageMappings = ast!.elementMappings?.filter(
+        (m) => m.type === 'message' && m.position.startLine === 2 && m.position.startColumn === 0
+      );
+
+      // Should have at least one full-line mapping starting at column 0
+      expect(messageMappings!.length).toBeGreaterThan(0);
+
+      // The full-line mapping should cover the entire line
+      const fullLineMapping = messageMappings![0];
+      expect(fullLineMapping.position.startColumn).toBe(0); // Start of line
+      expect(fullLineMapping.position.endLine).toBe(2);
+      expect(fullLineMapping.position.startLine).toBe(2);
+    });
+
+    it('should create full-line mapping for message with leading spaces', async () => {
+      const code = `sequenceDiagram
+    A->>B: Hello with leading spaces`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+
+      // Find the full-line mapping for the message (line 2)
+      const messageMappings = ast!.elementMappings?.filter(
+        (m) => m.type === 'message' && m.position.startLine === 2 && m.position.startColumn === 0
+      );
+
+      // Should have at least one full-line mapping starting at column 0
+      expect(messageMappings!.length).toBeGreaterThan(0);
+
+      // The full-line mapping should start at column 0 (covering leading spaces)
+      const fullLineMapping = messageMappings![0];
+      expect(fullLineMapping.position.startColumn).toBe(0);
+      expect(fullLineMapping.position.endColumn).toBe(36); // Length of "    A->>B: Hello with leading spaces"
+    });
+
+    it('should highlight message when cursor is at any position on the line', async () => {
+      const code = `sequenceDiagram
+  A->>B: Test message`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      if (!ast?.getElementAtPosition) {
+        return; // Type guard for TypeScript
+      }
+
+      const line = 2;
+      // Test cursor at various positions on the line
+      const positions = [0, 1, 2, 5, 8, 10, 15, 21]; // Various positions including start, middle, end
+
+      for (const column of positions) {
+        const element = ast.getElementAtPosition(line, column);
+        expect(element).toBeDefined();
+        expect(element!.type).toBe('message');
+        expect(element!.position.startLine).toBe(line);
+      }
+    });
+  });
+
+  describe('Full-Line Mapping for Participants with Aliases', () => {
+    it('should create only ONE full-line mapping for participant with alias (not separate ID and alias mappings)', async () => {
+      const code = `sequenceDiagram
+  actor B as Bob
+  B->>B: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+
+      // Find all mappings for participant B on line 2 (the declaration line)
+      const participantMappings = ast!.elementMappings?.filter(
+        (m) =>
+          m.type === 'participant' &&
+          'id' in m.data &&
+          m.data.id === 'B' &&
+          m.position.startLine === 2
+      );
+
+      // Should have exactly ONE mapping for the participant declaration on line 2
+      expect(participantMappings).toHaveLength(1);
+
+      // The mapping should cover the full line
+      const mapping = participantMappings![0];
+      expect(mapping.position.startColumn).toBe(0); // Start of line
+      expect(mapping.position.endColumn).toBe(16); // End of line "  actor B as Bob"
+      expect(mapping.position.startLine).toBe(2);
+      expect(mapping.position.endLine).toBe(2);
+
+      // The mapping should have the alias in the data
+      expect(mapping.data).toHaveProperty('alias', 'Bob');
+    });
+
+    it('should create only ONE full-line mapping for participant with type config and alias', async () => {
+      const code = `sequenceDiagram
+  participant F@{ "type" : "boundary" } as Flea
+  F->>F: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+
+      // Find all mappings for participant F on line 2 (the declaration line)
+      const participantMappings = ast!.elementMappings?.filter(
+        (m) =>
+          m.type === 'participant' &&
+          'id' in m.data &&
+          m.data.id === 'F' &&
+          m.position.startLine === 2
+      );
+
+      // Should have exactly ONE mapping for the participant declaration on line 2
+      expect(participantMappings).toHaveLength(1);
+
+      // The mapping should cover the full line
+      const mapping = participantMappings![0];
+      expect(mapping.position.startColumn).toBe(0); // Start of line
+      expect(mapping.position.startLine).toBe(2);
+      expect(mapping.position.endLine).toBe(2);
+
+      // The mapping should have the alias in the data
+      expect(mapping.data).toHaveProperty('alias', 'Flea');
+      expect(mapping.data).toHaveProperty('type', 'boundary');
+    });
+
+    it('should create only ONE full-line mapping for create participant with alias', async () => {
+      const code = `sequenceDiagram
+  create participant J as Jan
+  J->>J: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+
+      // Find all mappings for participant J on line 2 (the declaration line)
+      const participantMappings = ast!.elementMappings?.filter(
+        (m) =>
+          m.type === 'participant' &&
+          'id' in m.data &&
+          m.data.id === 'J' &&
+          m.position.startLine === 2
+      );
+
+      // Should have exactly ONE mapping for the participant declaration on line 2
+      expect(participantMappings).toHaveLength(1);
+
+      // The mapping should cover the full line
+      const mapping = participantMappings![0];
+      expect(mapping.position.startColumn).toBe(0); // Start of line
+      expect(mapping.position.startLine).toBe(2);
+      expect(mapping.position.endLine).toBe(2);
+
+      // The mapping should have the alias in the data
+      expect(mapping.data).toHaveProperty('alias', 'Jan');
+    });
+  });
+
+  describe('Cursor Position Anywhere on Actor/Participant Line', () => {
+    it('should find actor B when cursor is anywhere on the line "actor B as Bob"', async () => {
+      const code = `sequenceDiagram
+  actor B as Bob
+  B->>B: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 2: "  actor B as Bob"
+      // Test various cursor positions on this line
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "a" in "actor"' },
+        { col: 5, desc: 'at "r" in "actor"' },
+        { col: 7, desc: 'space after "actor"' },
+        { col: 8, desc: 'at "B"' },
+        { col: 9, desc: 'space before "as"' },
+        { col: 10, desc: 'at "a" in "as"' },
+        { col: 12, desc: 'space after "as"' },
+        { col: 13, desc: 'at "B" in "Bob"' },
+        { col: 15, desc: 'at "b" in "Bob"' },
+        { col: 16, desc: 'end of "Bob"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(2, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'B');
+      }
+    });
+
+    it('should find participant D when cursor is anywhere on the line "participant D as Charlie"', async () => {
+      const code = `sequenceDiagram
+  participant D as Charlie
+  D->>D: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 2: "  participant D as Charlie"
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "p" in "participant"' },
+        { col: 10, desc: 'at "p" in "participant"' },
+        { col: 13, desc: 'space after "participant"' },
+        { col: 14, desc: 'at "D"' },
+        { col: 15, desc: 'space before "as"' },
+        { col: 18, desc: 'space after "as"' },
+        { col: 19, desc: 'at "C" in "Charlie"' },
+        { col: 25, desc: 'at "e" in "Charlie"' },
+        { col: 26, desc: 'end of "Charlie"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(2, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'D');
+      }
+    });
+
+    it('should find participant E when cursor is anywhere on the line with type config', async () => {
+      const code = `sequenceDiagram
+  participant E@{ "type" : "boundary" }
+  E->>E: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 2: '  participant E@{ "type" : "boundary" }'
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "p" in "participant"' },
+        { col: 13, desc: 'space after "participant"' },
+        { col: 14, desc: 'at "E"' },
+        { col: 15, desc: 'at "@"' },
+        { col: 20, desc: 'inside type config' },
+        { col: 30, desc: 'at "boundary"' },
+        { col: 38, desc: 'at closing brace' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(2, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'E');
+      }
+    });
+
+    it('should find participant F when cursor is anywhere on the line with type config and alias', async () => {
+      const code = `sequenceDiagram
+  participant F@{ "type" : "boundary" } as Flea
+  F->>F: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 2: '  participant F@{ "type" : "boundary" } as Flea'
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "p" in "participant"' },
+        { col: 13, desc: 'space after "participant"' },
+        { col: 14, desc: 'at "F"' },
+        { col: 15, desc: 'at "@"' },
+        { col: 20, desc: 'inside type config' },
+        { col: 38, desc: 'at closing brace' },
+        { col: 40, desc: 'at "a" in "as"' },
+        { col: 43, desc: 'at "F" in "Flea"' },
+        { col: 46, desc: 'at "a" in "Flea"' },
+        { col: 47, desc: 'end of "Flea"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(2, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'F');
+      }
+    });
+
+    it('should find participant G when cursor is anywhere on the line "create actor G"', async () => {
+      const code = `sequenceDiagram
+  create actor G
+  G->>G: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 2: "  create actor G"
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "c" in "create"' },
+        { col: 7, desc: 'at "e" in "create"' },
+        { col: 9, desc: 'space after "create"' },
+        { col: 10, desc: 'at "a" in "actor"' },
+        { col: 14, desc: 'at "r" in "actor"' },
+        { col: 15, desc: 'space before "G"' },
+        { col: 16, desc: 'at "G"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(2, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'G');
+      }
+    });
+
+    it('should find participant H when cursor is anywhere on the line "create actor H as Han"', async () => {
+      const code = `sequenceDiagram
+  create actor H as Han
+  H->>H: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 2: "  create actor H as Han"
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "c" in "create"' },
+        { col: 9, desc: 'space after "create"' },
+        { col: 15, desc: 'space after "actor"' },
+        { col: 16, desc: 'at "H"' },
+        { col: 17, desc: 'space before "as"' },
+        { col: 18, desc: 'at "a" in "as"' },
+        { col: 21, desc: 'at "H" in "Han"' },
+        { col: 23, desc: 'at "n" in "Han"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(2, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'H');
+      }
+    });
+
+    it('should find participant A when cursor is anywhere on the line "activate A"', async () => {
+      const code = `sequenceDiagram
+  actor A
+  activate A
+  A->>A: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 3: "  activate A"
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "a" in "activate"' },
+        { col: 9, desc: 'at "e" in "activate"' },
+        { col: 10, desc: 'space after "activate"' },
+        { col: 11, desc: 'at "A"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(3, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'A');
+      }
+    });
+
+    it('should find participant A when cursor is anywhere on the line "deactivate A"', async () => {
+      const code = `sequenceDiagram
+  actor A
+  activate A
+  deactivate A
+  A->>A: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 4: "  deactivate A"
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "d" in "deactivate"' },
+        { col: 11, desc: 'at "e" in "deactivate"' },
+        { col: 12, desc: 'space after "deactivate"' },
+        { col: 13, desc: 'at "A"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(4, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'A');
+      }
+    });
+
+    it('should find participant G when cursor is anywhere on the line "destroy G"', async () => {
+      const code = `sequenceDiagram
+  create actor G
+  destroy G
+  G->>G: test`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Line 3: "  destroy G"
+      const testPositions = [
+        { col: 0, desc: 'start of line (whitespace)' },
+        { col: 2, desc: 'at "d" in "destroy"' },
+        { col: 8, desc: 'at "y" in "destroy"' },
+        { col: 9, desc: 'space after "destroy"' },
+        { col: 10, desc: 'at "G"' },
+      ];
+
+      for (const { col, desc } of testPositions) {
+        const element = mapper.getElementAtPosition(3, col);
+        expect(element, `Failed at column ${col} (${desc})`).toBeDefined();
+        expect(element?.type, `Wrong type at column ${col} (${desc})`).toBe('participant');
+        expect(element?.data, `Wrong data at column ${col} (${desc})`).toHaveProperty('id', 'G');
+      }
+    });
+  });
+
+  describe('Message statements with activation/deactivation markers', () => {
+    it('should correctly map messages with activation markers (+) and deactivation markers (-)', async () => {
+      const code = `sequenceDiagram
+
+Alice->>+Bob: Hi Bob
+A --> B: hello1
+Bob->>-Alice: Hi Alice
+A --> B: hello2
+A --> B: hello3`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Get all message mappings (includes full-line mappings)
+      // Each message creates 2 mappings: full-line mapping + fine-grained mapping
+      const messageMappings = mapper.getAllMappings().filter((m) => m.type === 'message');
+
+      // We should have 10 message mappings (2 per message line: full-line + fine-grained)
+      expect(messageMappings.length).toBe(10);
+
+      // Get only the full-line mappings (they start at column 0)
+      const fullLineMappings = messageMappings.filter((m) => m.position.startColumn === 0);
+      expect(fullLineMappings.length).toBe(5);
+
+      // Check that each full-line message mapping has the correct svgId
+      // The svgId should match the DB index, which accounts for activation/deactivation
+
+      // Message 1: "Alice->>+Bob: Hi Bob" (line 3)
+      // DB creates 2 entries: message (id=0) + ACTIVE_START (id=1)
+      // So the message should have DB index 0
+      const msg1 = fullLineMappings.find((m) => m.position.startLine === 3);
+      expect(msg1).toBeDefined();
+      expect(msg1?.svgId).toContain('message_0'); // svgId contains the DB index
+
+      // Message 2: "A --> B: hello1" (line 4)
+      // DB creates 1 entry: message (id=2)
+      // So the message should have DB index 2
+      const msg2 = fullLineMappings.find((m) => m.position.startLine === 4);
+      expect(msg2).toBeDefined();
+      expect(msg2?.svgId).toContain('message_2'); // svgId contains the DB index
+
+      // Message 3: "Bob->>-Alice: Hi Alice" (line 5)
+      // DB creates 2 entries: message (id=3) + ACTIVE_END (id=4)
+      // So the message should have DB index 3
+      const msg3 = fullLineMappings.find((m) => m.position.startLine === 5);
+      expect(msg3).toBeDefined();
+      expect(msg3?.svgId).toContain('message_3'); // svgId contains the DB index
+
+      // Message 4: "A --> B: hello2" (line 6)
+      // DB creates 1 entry: message (id=5)
+      // So the message should have DB index 5
+      const msg4 = fullLineMappings.find((m) => m.position.startLine === 6);
+      expect(msg4).toBeDefined();
+      expect(msg4?.svgId).toContain('message_5'); // svgId contains the DB index
+
+      // Message 5: "A --> B: hello3" (line 7)
+      // DB creates 1 entry: message (id=6)
+      // So the message should have DB index 6
+      const msg5 = fullLineMappings.find((m) => m.position.startLine === 7);
+      expect(msg5).toBeDefined();
+      expect(msg5?.svgId).toContain('message_6'); // svgId contains the DB index
+    });
+
+    it('should highlight correct SVG element when clicking on message with activation marker', async () => {
+      const code = `sequenceDiagram
+Alice->>+Bob: Hi Bob
+A --> B: hello1`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Click anywhere on line 2 ("Alice->>+Bob: Hi Bob")
+      const element = mapper.getElementAtPosition(2, 5);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('message');
+      expect(element?.svgId).toContain('message_0'); // Should map to the first message in DB (index 0)
+    });
+  });
 });

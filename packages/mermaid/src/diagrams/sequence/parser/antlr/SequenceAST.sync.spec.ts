@@ -256,7 +256,8 @@ describe('SequenceAST Bidirectional Synchronization', () => {
 
       mappings!.forEach((mapping) => {
         expect(mapping.position.startLine).toBeGreaterThan(0);
-        expect(mapping.position.startColumn).toBeGreaterThan(0);
+        // startColumn can be 0 for full-line mappings that include leading whitespace
+        expect(mapping.position.startColumn).toBeGreaterThanOrEqual(0);
         expect(mapping.position.endLine).toBeGreaterThanOrEqual(mapping.position.startLine);
         expect(mapping.position.startIndex).toBeGreaterThanOrEqual(0);
         expect(mapping.position.endIndex).toBeGreaterThanOrEqual(mapping.position.startIndex);
