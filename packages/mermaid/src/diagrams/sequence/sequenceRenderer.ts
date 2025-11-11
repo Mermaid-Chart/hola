@@ -297,6 +297,7 @@ const drawCentralConnection = function (
   const fromActor = actors.get(msg.from);
   const toActor = actors.get(msg.to);
   const isAutoNumberOn = msgModel.sequenceVisible;
+  const isSelfConnection = startx === stopx;
   let fromCenter = fromActor.x + fromActor.width / 2;
   let toCenter = toActor.x + toActor.width / 2;
 
@@ -306,10 +307,10 @@ const drawCentralConnection = function (
 
   const g = elem.append('g');
 
-  const drawCircle = (cx: number) => {
+  const drawCircle = (cx: number, cy?: number) => {
     g.append('circle')
       .attr('cx', cx)
-      .attr('cy', lineStartY)
+      .attr('cy', cy ?? lineStartY)
       .attr('r', 5)
       .attr('width', 10)
       .attr('height', 10);
@@ -318,6 +319,56 @@ const drawCentralConnection = function (
   const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
     diagObj.db.LINETYPE;
 
+  // Handle self-connection arrows
+  if (isSelfConnection) {
+    // Calculate positions for self-connection circles
+    // For rightAngles mode: circles at the horizontal and vertical corners
+    // For curved mode: circles at the start and end of the curve
+    if (conf.rightAngles) {
+      // Right angle self-connection: horizontal line goes right, then down, then back left
+      const verticalEndY = lineStartY + 25;
+
+      switch (msg.centralConnection) {
+        case CENTRAL_CONNECTION:
+          // Circle at the end (bottom left corner where arrow points back)
+          drawCircle(startx, verticalEndY);
+          break;
+        case CENTRAL_CONNECTION_REVERSE:
+          // Circle at the start (top left where arrow begins)
+          drawCircle(startx, lineStartY);
+          break;
+        case CENTRAL_CONNECTION_DUAL:
+          // Circles at both start and end
+          drawCircle(startx, lineStartY);
+          drawCircle(startx, verticalEndY);
+          break;
+      }
+    } else {
+      // Curved self-connection
+      const curveStartX =
+        startx + (isAutoNumberOn && (isReverse || isBidirectionalArrowType(msg, diagObj)) ? 10 : 0);
+      const curveEndY = lineStartY + 20;
+
+      switch (msg.centralConnection) {
+        case CENTRAL_CONNECTION:
+          // Circle at the end (where arrow returns to actor)
+          drawCircle(startx, curveEndY);
+          break;
+        case CENTRAL_CONNECTION_REVERSE:
+          // Circle at the start (where arrow leaves actor)
+          drawCircle(curveStartX, lineStartY);
+          break;
+        case CENTRAL_CONNECTION_DUAL:
+          // Circles at both start and end
+          drawCircle(curveStartX, lineStartY);
+          drawCircle(startx, curveEndY);
+          break;
+      }
+    }
+    return;
+  }
+
+  // Handle regular (non-self) connection arrows
   // Calculate circle position adjustments when autonumber is enabled
   if (isAutoNumberOn) {
     switch (msg.centralConnection) {
@@ -521,6 +572,10 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
             (lineStartY + 20)
         );
     }
+    // Draw central connection circles for self-connection arrows
+    if (hasCentralConnection(msg, diagObj)) {
+      drawCentralConnection(diagram, msg, msgModel, diagObj, startx, stopx, lineStartY);
+    }
   } else {
     line = diagram.append('line');
     line.attr('x1', startx);
@@ -531,8 +586,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
       drawCentralConnection(diagram, msg, msgModel, diagObj, startx, stopx, lineStartY);
     }
   }
-  // Make an SVG Container
-  // Draw the line
+
   if (
     type === diagObj.db.LINETYPE.DOTTED ||
     type === diagObj.db.LINETYPE.DOTTED_CROSS ||
@@ -681,7 +735,7 @@ const drawMessage = async function (diagram, msgModel, lineStartY: number, diagO
     } else if (isReverseArrowType) {
       autonumberX = isLeftToRight ? msgModel.toBounds - 1 : msgModel.fromBounds + 1;
     } else {
-      autonumberX = isLeftToRight ? msgModel.fromBounds + 1 : msgModel.toBounds - 1;
+      autonumberX = startx;
     }
 
     diagram
