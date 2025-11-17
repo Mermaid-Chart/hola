@@ -1015,21 +1015,50 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
         this.flushJoinedLine();
       }
       // Preserve wrap directive line immediately after SD if present and not captured by the parser
-      const nextLineNum = sdLine + 1;
+      let nextLineNum = sdLine + 1;
       const maybeWrap = this.getOriginalLine(nextLineNum);
       if (maybeWrap && maybeWrap.trim() === '%%{wrap}%%') {
         this.addOriginalLine(nextLineNum);
-      } else {
-        // If the very next line is a top-level comment (%% ... or # ...), ensure it is preserved.
-        // We proactively emit it here and guard against duplication in visitCommentStatement.
-        try {
+        nextLineNum++;
+      }
+
+      // Preserve ALL consecutive comment lines immediately after SD (or after wrap directive)
+      // These comments are not parsed as commentStatement nodes by the grammar, so we handle them here.
+      // We emit them for initial code generation AND add them to the AST for regeneration.
+      try {
+        const totalLines = this.originalText
+          ? this.originalText.replace(/\r\n?/g, '\n').split('\n').length
+          : 0;
+
+        while (nextLineNum <= totalLines) {
           const lineText = this.getOriginalLine(nextLineNum);
           const trimmed = lineText.trimStart();
+
           if (trimmed.startsWith('%%') || trimmed.startsWith('#')) {
+            // Emit for initial code generation
             this.addOriginalLine(nextLineNum);
+
+            // Add to AST for regeneration
+            // Store just the comment text (trimmed) in data.text for consistent regeneration
+            // Store the full line (with original indentation) in sourceLine for preservation
+            this.pushStatement({
+              type: 'comment',
+              originalIndex: this.currentIndex++,
+              data: { text: trimmed },
+              sourceTokens: { start: undefined, stop: undefined },
+              sourceLine: lineText,
+            });
+
+            nextLineNum++;
+          } else if (trimmed === '') {
+            // Skip blank lines and continue checking for more comments
+            nextLineNum++;
+          } else {
+            // Stop when we hit a non-comment, non-blank line
+            break;
           }
-        } catch {}
-      }
+        }
+      } catch {}
     } catch {
       // Fallback: put bare sequenceDiagram at top
       this.flushJoinedLine();
@@ -1112,28 +1141,28 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
   }
   // Comment statement (%% ...)
   visitCommentStatement(ctx: CommentStatementContext): string {
+    // Check if this comment was already emitted in visitStart (comments immediately after sequenceDiagram)
     let alreadyEmitted = false;
     try {
       const ln = ctx?.start?.line ?? 0;
       if (ln && this.emittedLines.has(ln)) {
-        // Already emitted verbatim (e.g., immediately after SD); skip code emission to avoid duplication
+        // Already emitted in visitStart; skip both code emission and AST addition to avoid duplication
         alreadyEmitted = true;
       }
     } catch {}
 
     if (!alreadyEmitted) {
       this.emitOriginalSegmentFromCtx(ctx);
-    }
 
-    // Always add comment to AST (even if already emitted for code generation)
-    const commentText = this.getOriginalSourceFromCtx(ctx);
-    this.pushStatement({
-      type: 'comment',
-      originalIndex: this.currentIndex++,
-      data: { text: commentText },
-      sourceTokens: { start: ctx.start, stop: ctx.stop },
-      sourceLine: commentText,
-    });
+      const commentText = this.getOriginalSourceFromCtx(ctx);
+      this.pushStatement({
+        type: 'comment',
+        originalIndex: this.currentIndex++,
+        data: { text: commentText },
+        sourceTokens: { start: ctx.start, stop: ctx.stop },
+        sourceLine: commentText,
+      });
+    }
 
     return '';
   }
