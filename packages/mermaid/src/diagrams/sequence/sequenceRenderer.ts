@@ -1104,13 +1104,13 @@ export const draw = async function (_text: string, id: string, _version: string,
   svgDraw.insertArrowCrossHead(diagram);
   svgDraw.insertArrowFilledHead(diagram);
   svgDraw.insertSequenceNumber(diagram);
+  if (look === 'neo') {
+    svgDraw.insertDropShadow(diagram, conf);
+  }
   svgDraw.insertSolidTopArrowHead(diagram);
   svgDraw.insertSolidBottomArrowHead(diagram);
   svgDraw.insertStickTopArrowHead(diagram);
   svgDraw.insertStickBottomArrowHead(diagram);
-  if (look === 'neo') {
-    svgDraw.insertDropShadow(diagram, conf);
-  }
 
   /**
    * @param msg - The message to draw.
@@ -1898,9 +1898,6 @@ const buildMessageModel = function (msg, actors, diagObj) {
   let startx = isArrowToRight ? fromRight : fromLeft;
   let stopx = isArrowToRight ? toLeft : toRight;
 
-  // Apply central connection positioning adjustments
-  startx += calculateCentralConnectionOffset(msg, diagObj, isArrowToRight);
-
   if (look === 'neo') {
     const offset = 3;
     if (msg.type !== diagObj.db.LINETYPE.SOLID_OPEN) {
@@ -1914,6 +1911,8 @@ const buildMessageModel = function (msg, actors, diagObj) {
     }
   }
 
+  // Apply central connection positioning adjustments
+  startx += calculateCentralConnectionOffset(msg, diagObj, isArrowToRight);
   // As the line width is considered, the left and right values will be off by 2.
   const isArrowToActivation = Math.abs(toLeft - toRight) > 2;
 

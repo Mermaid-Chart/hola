@@ -2013,9 +2013,9 @@ export default {
   getNoteRect,
   fixLifeLineHeights,
   sanitizeUrl,
+  insertDropShadow,
   insertSolidTopArrowHead,
   insertSolidBottomArrowHead,
   insertStickTopArrowHead,
   insertStickBottomArrowHead,
-  insertDropShadow,
 };
