@@ -1,6 +1,5 @@
 import type {
   ANTLRErrorListener,
-  RecognitionException,
   Recognizer,
   ATNConfigSet,
   DFA,
@@ -32,24 +31,11 @@ export class SequenceErrorListener implements ANTLRErrorListener {
     offendingSymbol: S | null,
     line: number,
     column: number,
-    message: string,
-    exception: RecognitionException | null
+    message: string
   ): void {
     // Try to get better location information from the exception
-    let startColumn = column;
+    const startColumn = column;
     let endColumn = column;
-
-    // If we have an exception with ctx, try to get the start of the problematic input
-    if (exception?.ctx) {
-      const ctx = exception.ctx;
-      if (ctx.start) {
-        startColumn = ctx.start.column;
-        line = ctx.start.line;
-      }
-      if (ctx.stop) {
-        endColumn = ctx.stop.column + (ctx.stop.text?.length || 1);
-      }
-    }
 
     // If we have an offending symbol that's a token, use its position
     if (offendingSymbol && typeof offendingSymbol === 'object' && 'column' in offendingSymbol) {
