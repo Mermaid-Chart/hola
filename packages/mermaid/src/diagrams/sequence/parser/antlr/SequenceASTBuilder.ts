@@ -1426,24 +1426,24 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
 
       // Try central connection patterns first
       // Pattern 1: actor () signaltype () actor (CENTRAL_CONNECTION_DUAL)
-      let signalMatch = new RegExp(`^(\\w+)\\(\\)${arrowPattern}\\(\\)(\\w+):(.+)$`).exec(fullText);
+      let signalMatch = new RegExp(`^(\\w+)\\(\\)${arrowPattern}\\(\\)(\\w+):(.*)$`).exec(fullText);
       let centralPattern: 'dual' | 'reverse' | 'forward' | null = null;
 
       if (signalMatch) {
         centralPattern = 'dual';
       } else {
         // Pattern 2: actor () signaltype actor (CENTRAL_CONNECTION_REVERSE)
-        signalMatch = new RegExp(`^(\\w+)\\(\\)${arrowPattern}(\\w+):(.+)$`).exec(fullText);
+        signalMatch = new RegExp(`^(\\w+)\\(\\)${arrowPattern}(\\w+):(.*)$`).exec(fullText);
         if (signalMatch) {
           centralPattern = 'reverse';
         } else {
           // Pattern 3: actor signaltype () actor (CENTRAL_CONNECTION)
-          signalMatch = new RegExp(`^(\\w+)${arrowPattern}\\(\\)(\\w+):(.+)$`).exec(fullText);
+          signalMatch = new RegExp(`^(\\w+)${arrowPattern}\\(\\)(\\w+):(.*)$`).exec(fullText);
           if (signalMatch) {
             centralPattern = 'forward';
           } else {
             // Standard pattern: actor signaltype [+-]? actor
-            signalMatch = new RegExp(`^(\\w+)${arrowPattern}([+-]?)(\\w+):(.+)$`).exec(fullText);
+            signalMatch = new RegExp(`^(\\w+)${arrowPattern}([+-]?)(\\w+):(.*)$`).exec(fullText);
           }
         }
       }
