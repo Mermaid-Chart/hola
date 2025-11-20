@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createSequenceParser } from './antlr-parser.js';
 import { SequenceASTBuilder } from './SequenceASTBuilder.js';
-import type { SequenceAST, ElementMapping } from '../../types.ts';
+import type { SequenceAST, MessageData } from '../../types.ts';
 
 describe('SequenceAST Bidirectional Synchronization', () => {
   let ast: SequenceAST;
@@ -308,6 +308,90 @@ describe('SequenceAST Bidirectional Synchronization', () => {
         expect(note.svgSelector).toBeDefined();
         expect(note.svgSelector).toContain('data-et="note"');
       });
+    });
+  });
+
+  describe('getElementAtPosition with autonumber', () => {
+    it('should correctly find messages and have correct dbIndex when autonumber is present', () => {
+      const codeWithAutonumber = `sequenceDiagram
+autonumber
+actor Alice
+actor Bob
+Alice->>Bob: Hi Bob
+Bob->>Alice: Hi Alice`;
+
+      // Parse and generate AST
+      const { parser } = createSequenceParser(codeWithAutonumber);
+      const tree = parser.start();
+      const builder = new SequenceASTBuilder(codeWithAutonumber);
+      const result = builder.generateAST(tree);
+      const astWithAutonumber = result.ast;
+
+      // Verify that autonumber statement exists and doesn't have a dbIndex
+      const autonumberStmt = astWithAutonumber.statements.find((s) => s.type === 'autonumber');
+      expect(autonumberStmt).toBeDefined();
+      expect(autonumberStmt?.dbIndex).toBeUndefined();
+
+      // Verify that messages have correct dbIndex values
+      // When autonumber is present, the DB adds an entry at index 0, so messages start at index 1
+      const messages = astWithAutonumber.statements.filter((s) => s.type === 'message');
+      expect(messages.length).toBe(2);
+      expect(messages[0].dbIndex).toBe(1); // First message should have dbIndex 1 (not 0)
+      expect(messages[1].dbIndex).toBe(2); // Second message should have dbIndex 2 (not 1)
+
+      // Verify element mappings have correct svgSelector values
+      const messageMappings = astWithAutonumber.elementMappings?.filter(
+        (m) => m.type === 'message'
+      );
+      expect(messageMappings).toBeDefined();
+      expect(messageMappings!.length).toBeGreaterThan(0);
+
+      // Find the full-line message mappings (they have startColumn: 0)
+      const fullLineMappings = messageMappings!.filter((m) => m.position.startColumn === 0);
+      expect(fullLineMappings.length).toBe(2);
+
+      // First message should have svgSelector with data-id="i1" (not i0)
+      const firstMessageMapping = fullLineMappings.find((m) => m.position.startLine === 5);
+      expect(firstMessageMapping).toBeDefined();
+      expect(firstMessageMapping!.svgSelector).toBe('[data-et="message"][data-id="i1"]');
+
+      // Second message should have svgSelector with data-id="i2" (not i1)
+      const secondMessageMapping = fullLineMappings.find((m) => m.position.startLine === 6);
+      expect(secondMessageMapping).toBeDefined();
+      expect(secondMessageMapping!.svgSelector).toBe('[data-et="message"][data-id="i2"]');
+
+      // Test cursor position on line 5 (Alice->>Bob: Hi Bob)
+      const elementAtLine5 = astWithAutonumber.getElementAtPosition?.(5, 5);
+      expect(elementAtLine5).toBeDefined();
+      expect(elementAtLine5?.type).toBe('message');
+      expect(elementAtLine5?.position.startLine).toBe(5);
+      expect(elementAtLine5?.svgSelector).toBe('[data-et="message"][data-id="i1"]');
+      if (elementAtLine5 && elementAtLine5.type === 'message') {
+        const msgData = elementAtLine5.data as MessageData;
+        expect(msgData.message).toBe('Hi Bob');
+        expect(msgData.from).toBe('Alice');
+        expect(msgData.to).toBe('Bob');
+      }
+
+      // Test cursor position on line 6 (Bob->>Alice: Hi Alice)
+      const elementAtLine6 = astWithAutonumber.getElementAtPosition?.(6, 5);
+      expect(elementAtLine6).toBeDefined();
+      expect(elementAtLine6?.type).toBe('message');
+      expect(elementAtLine6?.position.startLine).toBe(6);
+      expect(elementAtLine6?.svgSelector).toBe('[data-et="message"][data-id="i2"]');
+      if (elementAtLine6 && elementAtLine6.type === 'message') {
+        const msgData = elementAtLine6.data as MessageData;
+        expect(msgData.message).toBe('Hi Alice');
+        expect(msgData.from).toBe('Bob');
+        expect(msgData.to).toBe('Alice');
+      }
+
+      // Verify that cursor on line 6 does NOT return the message from line 5
+      expect(elementAtLine6?.position.startLine).not.toBe(5);
+      if (elementAtLine6 && elementAtLine6.type === 'message') {
+        const msgData = elementAtLine6.data as MessageData;
+        expect(msgData.message).not.toBe('Hi Bob');
+      }
     });
   });
 });

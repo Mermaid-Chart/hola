@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SequenceElementMapper, ElementMappingUtils } from './SequenceElementMapper.js';
-import type { SequenceAST, ElementMapping, ParticipantData } from '../../types.ts';
+import type { SequenceAST, ElementMapping, ParticipantData, MessageData } from '../../types.ts';
 
 // Type guard to check if an ElementMapping has ParticipantData
 function isParticipantMapping(
@@ -1496,6 +1496,226 @@ A --> B: hello1`;
       expect(element).toBeDefined();
       expect(element?.type).toBe('message');
       expect(element?.svgId).toContain('message_0'); // Should map to the first message in DB (index 0)
+    });
+  });
+
+  describe('Messages with empty text', () => {
+    it('should create element mappings for message with empty text after colon', async () => {
+      const code = `sequenceDiagram
+Alice->>John:
+Bob->>Alice: Hello`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Get all message mappings
+      const messageMappings = mapper.getAllMappings().filter((m) => m.type === 'message');
+
+      // Should have 4 message mappings (2 per message: full-line + fine-grained)
+      expect(messageMappings.length).toBe(4);
+
+      // Get only the full-line mappings (they start at column 0)
+      const fullLineMappings = messageMappings.filter((m) => m.position.startColumn === 0);
+      expect(fullLineMappings.length).toBe(2);
+
+      // Check the first message with empty text (line 2)
+      const msg1 = fullLineMappings.find((m) => m.position.startLine === 2);
+      expect(msg1).toBeDefined();
+      expect(msg1?.svgId).toContain('message_0');
+      if (msg1 && 'message' in msg1.data) {
+        expect(msg1.data.message).toBe('');
+      }
+
+      // Check the second message with text (line 3)
+      const msg2 = fullLineMappings.find((m) => m.position.startLine === 3);
+      expect(msg2).toBeDefined();
+      expect(msg2?.svgId).toContain('message_1');
+      if (msg2 && 'message' in msg2.data) {
+        expect(msg2.data.message).toBe('Hello');
+      }
+    });
+
+    it('should create element mappings for messages with activation/deactivation and empty text', async () => {
+      const code = `sequenceDiagram
+Alice->>+John: Hello John
+John-->>-Alice:
+Bob->>Alice: Hi Alice`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Get all message mappings
+      const messageMappings = mapper.getAllMappings().filter((m) => m.type === 'message');
+
+      // Should have 6 message mappings (2 per message: full-line + fine-grained)
+      expect(messageMappings.length).toBe(6);
+
+      // Get only the full-line mappings (they start at column 0)
+      const fullLineMappings = messageMappings.filter((m) => m.position.startColumn === 0);
+      expect(fullLineMappings.length).toBe(3);
+
+      // Message 1: "Alice->>+John: Hello John" (line 2)
+      // DB creates 2 entries: message (id=0) + ACTIVE_START (id=1)
+      const msg1 = fullLineMappings.find((m) => m.position.startLine === 2);
+      expect(msg1).toBeDefined();
+      expect(msg1?.svgId).toContain('message_0');
+      if (msg1 && 'message' in msg1.data) {
+        expect(msg1.data.message).toBe('Hello John');
+      }
+
+      // Message 2: "John-->>-Alice:" (line 3) - empty text with deactivation
+      // DB creates 2 entries: message (id=2) + ACTIVE_END (id=3)
+      const msg2 = fullLineMappings.find((m) => m.position.startLine === 3);
+      expect(msg2).toBeDefined();
+      expect(msg2?.svgId).toContain('message_2');
+      if (msg2 && 'message' in msg2.data) {
+        expect(msg2.data.message).toBe('');
+      }
+
+      // Message 3: "Bob->>Alice: Hi Alice" (line 4)
+      // DB creates 1 entry: message (id=4)
+      const msg3 = fullLineMappings.find((m) => m.position.startLine === 4);
+      expect(msg3).toBeDefined();
+      expect(msg3?.svgId).toContain('message_4');
+      if (msg3 && 'message' in msg3.data) {
+        expect(msg3.data.message).toBe('Hi Alice');
+      }
+    });
+
+    it('should find message with empty text by cursor position', async () => {
+      const code = `sequenceDiagram
+Alice->>John:
+Bob->>Alice: Hello`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Click on the message with empty text (line 2, anywhere on the line)
+      const element = mapper.getElementAtPosition(2, 5);
+      expect(element).toBeDefined();
+      expect(element?.type).toBe('message');
+      if (element && 'message' in element.data) {
+        expect(element.data.message).toBe('');
+      }
+    });
+
+    it('should create correct SVG selectors for messages with empty text', async () => {
+      const code = `sequenceDiagram
+Alice->>John:
+John-->>Alice:`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      const messageMappings = mapper.getAllMappings().filter((m) => m.type === 'message');
+
+      // Each message should have a valid SVG selector
+      for (const mapping of messageMappings) {
+        expect(mapping.svgSelector).toBeDefined();
+        expect(mapping.svgSelector).toContain('[data-et="message"]');
+        expect(mapping.svgSelector).toContain('[data-id="i');
+      }
+    });
+  });
+
+  describe('Messages with autonumber statement', () => {
+    it('should correctly map messages when autonumber is present at the top', async () => {
+      const code = `sequenceDiagram
+autonumber
+actor Alice
+actor Bob
+Alice->>Bob: Hi Bob
+Bob->>Alice: Hi Alice`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+      const mapper = new SequenceElementMapper(ast!);
+
+      // Get all message mappings (includes full-line mappings)
+      const messageMappings = mapper.getAllMappings().filter((m) => m.type === 'message');
+
+      // Should have 4 message mappings (2 per message: full-line + fine-grained)
+      expect(messageMappings.length).toBe(4);
+
+      // Get only the full-line mappings (they start at column 0)
+      const fullLineMappings = messageMappings.filter((m) => m.position.startColumn === 0);
+      expect(fullLineMappings.length).toBe(2);
+
+      // Message 1: "Alice->>Bob: Hi Bob" (line 5)
+      const msg1 = fullLineMappings.find((m) => m.position.startLine === 5);
+      expect(msg1).toBeDefined();
+      expect(msg1?.position.startLine).toBe(5);
+      expect(msg1?.position.endLine).toBe(5);
+      if (msg1 && msg1.type === 'message') {
+        const msgData = msg1.data as MessageData;
+        expect(msgData.message).toBe('Hi Bob');
+        expect(msgData.from).toBe('Alice');
+        expect(msgData.to).toBe('Bob');
+      }
+
+      // Message 2: "Bob->>Alice: Hi Alice" (line 6)
+      const msg2 = fullLineMappings.find((m) => m.position.startLine === 6);
+      expect(msg2).toBeDefined();
+      expect(msg2?.position.startLine).toBe(6);
+      expect(msg2?.position.endLine).toBe(6);
+      if (msg2 && msg2.type === 'message') {
+        const msgData = msg2.data as MessageData;
+        expect(msgData.message).toBe('Hi Alice');
+        expect(msgData.from).toBe('Bob');
+        expect(msgData.to).toBe('Alice');
+      }
+
+      // Test cursor position mapping
+      // When cursor is on line 6 (Bob->>Alice: Hi Alice), it should find the second message
+      const elementAtLine6 = mapper.getElementAtPosition(6, 5);
+      expect(elementAtLine6).toBeDefined();
+      expect(elementAtLine6?.type).toBe('message');
+      expect(elementAtLine6?.position.startLine).toBe(6);
+      if (elementAtLine6 && 'message' in elementAtLine6.data) {
+        expect(elementAtLine6.data.message).toBe('Hi Alice');
+      }
+
+      // When cursor is on line 5 (Alice->>Bob: Hi Bob), it should find the first message
+      const elementAtLine5 = mapper.getElementAtPosition(5, 5);
+      expect(elementAtLine5).toBeDefined();
+      expect(elementAtLine5?.type).toBe('message');
+      expect(elementAtLine5?.position.startLine).toBe(5);
+      if (elementAtLine5 && 'message' in elementAtLine5.data) {
+        expect(elementAtLine5.data.message).toBe('Hi Bob');
+      }
+    });
+
+    it('should have correct dbIndex for messages when autonumber is present', async () => {
+      const code = `sequenceDiagram
+autonumber
+actor Alice
+actor Bob
+Alice->>Bob: Hi Bob
+Bob->>Alice: Hi Alice`;
+
+      const ast = await parseCode(code);
+      expect(ast).toBeDefined();
+
+      // Check the AST statements
+      const messages = ast!.statements.filter((s) => s.type === 'message');
+      expect(messages.length).toBe(2);
+
+      // When autonumber is present, the DB adds an entry at index 0, so messages start at index 1
+      // First message should have dbIndex 1 (not 0)
+      expect(messages[0].dbIndex).toBe(1);
+      if ('message' in messages[0].data) {
+        expect(messages[0].data.message).toBe('Hi Bob');
+      }
+
+      // Second message should have dbIndex 2 (not 1)
+      expect(messages[1].dbIndex).toBe(2);
+      if ('message' in messages[1].data) {
+        expect(messages[1].data.message).toBe('Hi Alice');
+      }
     });
   });
 });

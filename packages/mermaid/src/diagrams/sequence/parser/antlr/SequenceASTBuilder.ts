@@ -2303,6 +2303,11 @@ export class SequenceASTBuilder extends (SequenceParserVisitor as any)<string> {
         sourceTokens: { start: ctx.start, stop: ctx.stop },
         sourceLine: this.getOriginalSourceFromCtx(ctx),
       });
+
+      // Increment dbIndex because the DB adds an entry to the messages array for autonumber
+      // This ensures subsequent messages have the correct dbIndex that matches the renderer's data-id
+      log.debug('  - Autonumber statement increments dbIndex');
+      this.dbIndex++;
     }
     return '';
   }
