@@ -344,6 +344,10 @@ export interface BaseDiagramConfig {
    *
    */
   useMaxWidth?: boolean;
+  /**
+   * The parser to use for this diagram type
+   */
+  parser?: 'jison' | 'antlr' | 'langium';
 }
 /**
  * The object containing configurations specific for sequence diagrams

@@ -1,6 +1,6 @@
 import { cleanupComments } from './diagram-api/comments.js';
 import { extractFrontMatter } from './diagram-api/frontmatter.js';
-import type { DiagramMetadata } from './diagram-api/types.js';
+import type { DiagramCode, DiagramMetadata } from './diagram-api/types.js';
 import utils, { cleanAndMerge, removeDirectives } from './utils.js';
 
 const cleanupText = (code: string) => {
@@ -21,9 +21,7 @@ const processFrontmatter = (code: string) => {
   const { displayMode, title, config = {} } = metadata;
   if (displayMode) {
     // Needs to be supported for legacy reasons
-    if (!config.gantt) {
-      config.gantt = {};
-    }
+    config.gantt ??= {};
     config.gantt.displayMode = displayMode;
   }
 
@@ -43,7 +41,8 @@ const processDirectives = (code: string) => {
     directive: initDirective,
   };
 };
-
+export const antlrDiagram = (diagramType: string) =>
+  ['flowchart', 'sequence', 'classDiagram', 'class'].includes(diagramType);
 /**
  * Preprocess the given code by cleaning it up, extracting front matter and directives,
  * cleaning and merging configuration, and removing comments.
@@ -51,14 +50,18 @@ const processDirectives = (code: string) => {
  * @returns The object containing the preprocessed code, title, and configuration.
  */
 export function preprocessDiagram(code: string) {
-  const cleanedCode = cleanupText(code);
+  const rawCode = code;
+  let cleanedCode = cleanupText(code);
   const frontMatterResult = processFrontmatter(cleanedCode);
   const directiveResult = processDirectives(frontMatterResult.text);
   const config = cleanAndMerge(frontMatterResult.config, directiveResult.directive);
-  code = cleanupComments(directiveResult.text);
+  cleanedCode = cleanupComments(directiveResult.text);
   return {
-    code,
+    code: {
+      raw: rawCode,
+      cleaned: cleanedCode,
+    },
     title: frontMatterResult.title,
     config,
-  } satisfies DiagramMetadata & { code: string };
+  } satisfies DiagramMetadata & { code: DiagramCode };
 }

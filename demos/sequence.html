@@ -122,7 +122,49 @@
     end
     </pre>
     <hr />
+    <pre class="mermaid">
+      sequenceDiagram
+      %% All participant types in one example
+      %% Basic types
+      actor Customer
+      participant UI
+      %% UML-style participant types set via JSON configuration
+      participant API@{ "type": "boundary" } as first
+      participant Orchestrator@{ "type": "control" }
+      participant Orchestrator as Orch
+      participant OrderModel@{ "type": "entity" }
+      participant SQL@{ "type": "database" }
+      participant Cache@{ "type": "collections" }
+      participant Jobs@{ "type": "queue" }
+      Customer->>UI: Place order
+      UI->>API: POST /orders
+      activate API
+      API->>Orchestrator: validateAndDispatch()
+      activate Orchestrator
+      Orchestrator->>OrderModel: new Order(...)
+      OrderModel-->>Orchestrator: domain object
+      Orchestrator->>Cache: Check existing order
+      Cache-->>Orchestrator: Miss
+      Orchestrator->>SQL: INSERT order
+      SQL-->>Orchestrator: order_id
+      Orchestrator->>Jobs: enqueue "SendEmail"
+      Orchestrator-->>API: 201 Created (order_id)
+      deactivate Orchestrator
+      API-->>UI: 201 Created (order_id)
+      deactivate API
+      UI-->>Customer: Show confirmation
+      Note over Jobs: Email is sent asynchronously
+      par Background worker picks up the job
+      participant Worker
+      Worker->>Jobs: Claim job
+      Jobs-->>Worker: Job payload
+      Worker->>SQL: SELECT order + customer
+      Worker->>API: Call external EmailService
+      Worker-->>Jobs: Ack
+      end
 
+    </pre>
+    <hr />
     <pre class="mermaid">
     sequenceDiagram
     participant 1 as multiline<br>using #lt;br#gt;

@@ -106,6 +106,34 @@
 
   <body>
     <pre id="diagram4" class="mermaid">
+      sequenceDiagram
+
+      %% Hello
+      Alice-->Bob 21
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+      sequenceDiagram
+      participant OrderModel@{ "type": "entity" }
+      participant SQL@{ "type": "database" }
+      participant Orchestrator@{ "type": "control" }
+      participant Jobs@{ "type": "queue" }
+      participant Bob
+      participant Alice as Alice2
+      participant API@{ "type": "boundary", "name": "API22"}
+      participant Cache@{ "type": "collections" }
+
+
+
+
+
+      %% Hello
+      Alice-//Bob: 21
+      rect rgb(250,250,200)
+        Alice-\\Bob: 24-s
+        Alice-//Bob: 23-s
+      end
+    </pre>
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -129,7 +157,7 @@
                   id))I am a bang((
                     Tools
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -138,7 +166,7 @@
        aid0
   </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -147,7 +175,7 @@
       aid0
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: ogdc
@@ -169,7 +197,7 @@
 
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -190,7 +218,7 @@
 
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -212,7 +240,7 @@
 
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -227,7 +255,7 @@
 
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -261,7 +289,7 @@
       note for Class10 "Cool class\nI said it's very cool class!"
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -281,7 +309,7 @@
         test_entity - satisfies -> test_req
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -305,7 +333,7 @@
       %% nat --> internet
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -335,7 +363,7 @@
       subnet1 & subnet2 --> nat --> internet
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -351,7 +379,7 @@ config:
               b2 --> b3
               b1 --> b4</pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 treemap
 "Section 1"
     "Leaf 1.1": 12
@@ -363,7 +391,7 @@ treemap
     "Leaf 2.3": 12
 
     </pre>
-    <pre id="diagram5" class="mermaid">
+    <pre id="diagram5" class="mermaid2">
       ---
       config:
         layout: elk
@@ -377,7 +405,7 @@ treemap
           I@{ shape: question}
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: tidy-tree
@@ -401,7 +429,7 @@ treemap
           Mermaid
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -415,7 +443,7 @@ treemap
           %%B@{ shape: diamond}
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -429,7 +457,7 @@ treemap
           B@{ shape: diamond}
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -442,7 +470,7 @@ treemap
           D@{ shape: question}
           I@{ shape: question}
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -458,7 +486,7 @@ treemap
           D@{ shape: trap-b}
           I@{ shape: lean-l}
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -471,7 +499,7 @@ flowchart LR
 
     B --> C
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -484,7 +512,7 @@ flowchart LR
 A{A} --> B((Bo boo)) & B & B & B
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
       ---
       config:
         layout: elk
@@ -504,7 +532,7 @@ A{A} --> B((Bo boo)) & B & B & B
           D --> I & E
           E --> I
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -529,7 +557,7 @@ config:
       end
       end
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -542,7 +570,7 @@ config:
       D-->I
       D-->I
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -581,7 +609,7 @@ flowchart LR
     n8@{ shape: rect}
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -597,7 +625,7 @@ flowchart LR
 
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -606,7 +634,7 @@ flowchart LR
     A{A} --> B & C
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -618,7 +646,7 @@ flowchart LR
     end
 </pre
     >
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   layout: elk
@@ -636,7 +664,7 @@ flowchart LR
 
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   kanban:
@@ -655,81 +683,81 @@ kanban
     task3[💻 Develop login feature]@{ ticket: 103 }
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Default] --> A@{ icon: 'fa:bell', form: 'rounded' }
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Style] --> A@{ icon: 'fa:bell', form: 'rounded' }
 style A fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Class] --> A@{ icon: 'fa:bell', form: 'rounded' }
 A:::AClass
 classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
   nA[Class] --> A@{ icon: 'logos:aws', form: 'rounded' }
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Default] --> A@{ icon: 'fa:bell', form: 'square' }
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Style] --> A@{ icon: 'fa:bell', form: 'square' }
 style A fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Class] --> A@{ icon: 'fa:bell', form: 'square' }
 A:::AClass
 classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
   nA[Class] --> A@{ icon: 'logos:aws', form: 'square' }
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Default] --> A@{ icon: 'fa:bell', form: 'circle' }
 
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Style] --> A@{ icon: 'fa:bell', form: 'circle' }
 style A fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
 nA[Class] --> A@{ icon: 'fa:bell', form: 'circle' }
 A:::AClass
 classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
   nA[Class] --> A@{ icon: 'logos:aws', form: 'circle' }
   A:::AClass
   classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 flowchart LR
   nA[Style] --> A@{ icon: 'logos:aws', form: 'circle' }
   style A fill:#f9f,stroke:#333,stroke-width:4px
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 kanban
   id2[In progress]
     docs[Create Blog about the new diagram]@{ priority: 'Very Low', ticket: MC-2037, assigned: 'knsv' }
     </pre>
-    <pre id="diagram4" class="mermaid">
+    <pre id="diagram4" class="mermaid2">
 ---
 config:
   kanban:
@@ -813,6 +841,7 @@ kanban
           actorFontFamily: 'courier',
           noteFontFamily: 'courier',
           messageFontFamily: 'courier',
+          parser: 'antlr',
         },
         kanban: {
           htmlLabels: false,
@@ -824,8 +853,43 @@ kanban
       });
 
       mermaid.parseError = function (err, hash) {
-        console.error('In parse error:');
-        console.error(err);
+        console.warn('In parse error:', err);
+        console.warn('Error message:', err.message);
+        console.warn('Parser type:', err.parser); // 'antlr' for ANTLR errors, undefined for Jison
+        console.warn('Hash parameter:', hash);
+        console.warn('Hash from err.hash:', err.hash);
+        console.warn('Top-level loc from err.loc:', err.loc);
+
+        // Use hash from err.hash if the hash parameter is not provided
+        const errorHash = hash || err.hash;
+
+        // Log hash details if available
+        if (errorHash) {
+          console.warn('Hash details:', {
+            line: errorHash.line,
+            text: errorHash.text,
+            token: errorHash.token,
+            loc: errorHash.loc,
+            expected: errorHash.expected,
+          });
+        }
+
+        // Log top-level loc if available
+        if (err.loc) {
+          console.warn('Top-level loc details:', {
+            first_line: err.loc.first_line,
+            last_line: err.loc.last_line,
+            first_column: err.loc.first_column,
+            last_column: err.loc.last_column,
+          });
+        }
+
+        // Log parser-specific information
+        if (err.parser === 'antlr') {
+          console.warn(
+            'ANTLR error detected - line numbers point to start of problematic statement'
+          );
+        }
       };
     </script>
   </body>

@@ -30,11 +30,27 @@ Defined in: [packages/mermaid/src/utils.ts:786](https://github.com/mermaid-js/me
 
 ---
 
+### loc?
+
+> `optional` **loc**: `any`
+
+Defined in: [packages/mermaid/src/utils.ts:791](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L791)
+
+---
+
 ### message?
 
 > `optional` **message**: `string`
 
 Defined in: [packages/mermaid/src/utils.ts:789](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L789)
+
+---
+
+### parser?
+
+> `optional` **parser**: `string`
+
+Defined in: [packages/mermaid/src/utils.ts:790](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L790)
 
 ---
 

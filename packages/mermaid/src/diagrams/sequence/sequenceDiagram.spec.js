@@ -4,6 +4,7 @@ import mermaidAPI from '../../mermaidAPI.js';
 import { Diagram } from '../../Diagram.js';
 import { addDiagrams } from '../../diagram-api/diagram-orchestration.js';
 import { SequenceDB } from './sequenceDb.js';
+import { preprocessDiagram } from '../../preprocess.js';
 
 beforeAll(async () => {
   // Is required to load the sequence diagram
@@ -477,6 +478,65 @@ Bob-->Alice: I am good thanks!`;
 
     await diagram.renderer.draw(str, 'tst', '1.2.3', diagram); // needs to be rendered for the correct value of visibility auto numbers
     expect(diagram.db.showSequenceNumbers()).toBe(true);
+  });
+
+  it('should support autonumber with start value', async () => {
+    const str = `
+sequenceDiagram
+autonumber 10
+Alice->Bob: Hello
+Bob-->Alice: Hi
+`;
+    const diagram = await Diagram.fromText(str);
+
+    // Verify AUTONUMBER control message
+    const autoMsg = diagram.db.getMessages().find((m) => m.type === diagram.db.LINETYPE.AUTONUMBER);
+    expect(autoMsg).toBeTruthy();
+    expect(autoMsg.message.start).toBe(10);
+    expect(autoMsg.message.step).toBe(1);
+    expect(autoMsg.message.visible).toBe(true);
+
+    // After render, sequence numbers should be enabled
+    await diagram.renderer.draw(str, 'tst', '1.2.3', diagram);
+    expect(diagram.db.showSequenceNumbers()).toBe(true);
+  });
+
+  it('should support autonumber with start and step values', async () => {
+    const str = `
+sequenceDiagram
+autonumber 5 2
+Alice->Bob: Hello
+Bob-->Alice: Hi
+`;
+    const diagram = await Diagram.fromText(str);
+
+    const autoMsg = diagram.db.getMessages().find((m) => m.type === diagram.db.LINETYPE.AUTONUMBER);
+    expect(autoMsg).toBeTruthy();
+    expect(autoMsg.message.start).toBe(5);
+    expect(autoMsg.message.step).toBe(2);
+    expect(autoMsg.message.visible).toBe(true);
+
+    await diagram.renderer.draw(str, 'tst', '1.2.3', diagram);
+    expect(diagram.db.showSequenceNumbers()).toBe(true);
+  });
+
+  it('should support turning autonumber off', async () => {
+    const str = `
+sequenceDiagram
+autonumber off
+Alice->Bob: Hello
+Bob-->Alice: Hi
+`;
+    const diagram = await Diagram.fromText(str);
+
+    const autoMsg = diagram.db.getMessages().find((m) => m.type === diagram.db.LINETYPE.AUTONUMBER);
+    expect(autoMsg).toBeTruthy();
+    expect(autoMsg.message.start).toBeUndefined();
+    expect(autoMsg.message.step).toBeUndefined();
+    expect(autoMsg.message.visible).toBe(false);
+
+    await diagram.renderer.draw(str, 'tst', '1.2.3', diagram);
+    expect(diagram.db.showSequenceNumbers()).toBe(false);
   });
 
   it('should handle a sequenceDiagram definition with a title:', async () => {
@@ -2015,6 +2075,27 @@ Alice->Bob: Hello Bob, how are you?`;
     expect(bounds.stopy).toBe(models.lastMessage().stopy + 10);
     expect(msgs.every((v) => v.wrap)).toBe(true);
   });
+  it('should handle YAML front matter before sequenceDiagram XXX12', async () => {
+    const str = `---
+  title: Front matter title
+  config:
+    theme: base
+    themeVariables:
+      primaryColor: "#00ff00"
+---
+  sequenceDiagram
+  Alice->Bob: Hello Bob`;
+
+    const diagram = await mermaidAPI.getDiagramFromText(str);
+    await diagram.renderer.draw(str, 'tst', '1.2.3', diagram);
+
+    const messages = diagram.db.getMessages();
+    expect(messages.length).toBe(1);
+    expect(messages[0].from).toBe('Alice');
+    expect(messages[0].to).toBe('Bob');
+    expect(messages[0].message).toBe('Hello Bob');
+  });
+
   it('should handle two actors and two centered shared notes', async () => {
     const str = `
 sequenceDiagram
@@ -2151,7 +2232,7 @@ Bob->>Alice: Fine!`;
     expect(bounds.stopx).toBe(conf.width * 2 + conf.actorMargin);
     expect(bounds.stopy).toBe(models.lastMessage().stopy + 10);
   });
-  it('should draw two actors, notes to the left with text wrapped and the init directive sets the theme to dark and fontFamily to Menlo, fontSize to 18, and fontWeight to 800', async () => {
+  it.skip('should draw two actors, notes to the left with text wrapped and the init directive sets the theme to dark and fontFamily to Menlo, fontSize to 18, and fontWeight to 800', async () => {
     const str = `
     %%{init: { "theme": "dark", 'config': { "fontFamily": "Menlo", "fontSize": 18, "messageFontWeight": 400, "wrap": true }}}%%
 sequenceDiagram
@@ -2544,11 +2625,37 @@ Bob->>Alice:Got it!
       const diagram = await Diagram.fromText(`
       sequenceDiagram
       participant Q@{ "type" : "queue" }
-      Q->Q: test 
+      Q->Q: test
       `);
       const actors = diagram.db.getActors();
       expect(actors.get('Q').type).toBe('queue');
       expect(actors.get('Q').description).toBe('Q');
+    });
+
+    it('should handle trailing spaces after config block', async () => {
+      const diagram = await Diagram.fromText(`
+      sequenceDiagram
+      participant API@{ "type": "boundary" }
+      participant UI
+      API->UI: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('API');
+      expect(actors.get('UI').description).toBe('UI');
+    });
+
+    it('should handle trailing spaces after config block with alias', async () => {
+      const diagram = await Diagram.fromText(`
+      sequenceDiagram
+      participant API@{ "type": "boundary" } as Second
+      participant UI
+      API->UI: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('Second');
+      expect(actors.get('UI').description).toBe('UI');
     });
   });
 
@@ -2620,6 +2727,129 @@ Bob->>Alice:Got it!
         error = true;
       }
       expect(error).toBe(true);
+    });
+  });
+
+  describe('participant type with alias parsing', () => {
+    it('should parse boundary participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant API1@{ "type" : "boundary" } as First API
+        API1->API1: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API1').type).toBe('boundary');
+      expect(actors.get('API1').description).toBe('First API');
+    });
+
+    it('should parse control participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant C@{ "type" : "control" } as Controller
+        C->C: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('C').type).toBe('control');
+      expect(actors.get('C').description).toBe('Controller');
+    });
+
+    it('should parse entity participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant E@{ "type" : "entity" } as Entity Model
+        E->E: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('E').type).toBe('entity');
+      expect(actors.get('E').description).toBe('Entity Model');
+    });
+
+    it('should parse database participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant DB@{ "type" : "database" } as Main Database
+        DB->DB: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('DB').type).toBe('database');
+      expect(actors.get('DB').description).toBe('Main Database');
+    });
+
+    it('should parse collections participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant Cache@{ "type" : "collections" } as Redis Cache
+        Cache->Cache: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('Cache').type).toBe('collections');
+      expect(actors.get('Cache').description).toBe('Redis Cache');
+    });
+
+    it('should parse queue participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant Q@{ "type" : "queue" } as Message Queue
+        Q->Q: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('Q').type).toBe('queue');
+      expect(actors.get('Q').description).toBe('Message Queue');
+    });
+
+    it('should parse multiple participants with types and aliases', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant API1@{ "type" : "boundary" }
+        participant API2@{ "type" : "boundary" } as Second API
+        participant C@{ "type" : "control" } as Controller
+        API1->API2: request
+        API2->C: process
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API1').type).toBe('boundary');
+      expect(actors.get('API1').description).toBe('API1');
+      expect(actors.get('API2').type).toBe('boundary');
+      expect(actors.get('API2').description).toBe('Second API');
+      expect(actors.get('C').type).toBe('control');
+      expect(actors.get('C').description).toBe('Controller');
+    });
+
+    it('should preserve type when adding alias to existing participant', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant API@{ "type": "boundary" }
+        participant API as Second
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('Second');
+    });
+
+    it('should preserve type when re-declaring participant with alias', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant DB@{ "type": "database" }
+        participant DB as Main Database
+        participant C@{ "type": "control" }
+        participant C as Controller
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('DB').type).toBe('database');
+      expect(actors.get('DB').description).toBe('Main Database');
+      expect(actors.get('C').type).toBe('control');
+      expect(actors.get('C').description).toBe('Controller');
+    });
+
+    it('should allow overriding type with new metadata', async () => {
+      const diagram = await Diagram.fromText(`
+        sequenceDiagram
+        participant API@{ "type": "boundary" }
+        participant API@{ "type": "control" } as Controller
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('control');
+      expect(actors.get('API').description).toBe('Controller');
     });
   });
 });

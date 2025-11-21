@@ -1,6 +1,6 @@
 {
   "name": "@mermaid-chart/mermaid",
-  "version": "11.12.0-b.4",
+  "version": "11.12.1-b.8",
   "description": "Markdown-ish syntax for generating flowcharts, mindmaps, sequence diagrams, class diagrams, gantt charts, git graphs and more.",
   "type": "module",
   "module": "./dist/mermaid.core.mjs",
@@ -34,6 +34,8 @@
   "scripts": {
     "clean": "rimraf dist",
     "dev": "pnpm -w dev",
+    "antlr:generate": "tsx ../../scripts/antlr-generate.mts",
+    "antlr:watch": "tsx ../../scripts/antlr-watch.mts",
     "docs:code": "typedoc src/defaultConfig.ts src/config.ts src/mermaid.ts && prettier --write ./src/docs/config/setup",
     "docs:build": "rimraf ../../docs && pnpm docs:code && pnpm docs:spellcheck && tsx scripts/docs.cli.mts",
     "docs:verify": "pnpm docs:code && pnpm docs:spellcheck && tsx scripts/docs.cli.mts --verify",
@@ -48,6 +50,12 @@
     "types:build-config": "tsx scripts/create-types-from-json-schema.mts",
     "types:verify-config": "tsx scripts/create-types-from-json-schema.mts --verify",
     "checkCircle": "npx madge --circular ./src",
+    "antlr:sequence:clean": "rimraf src/diagrams/sequence/parser/antlr/generated",
+    "antlr:sequence": "pnpm run antlr:sequence:clean && antlr4ng -Dlanguage=TypeScript -visitor -Xexact-output-dir -lib src/diagrams/common/parser/antlr -o src/diagrams/sequence/parser/antlr/generated src/diagrams/sequence/parser/antlr/SequenceLexer.g4 src/diagrams/sequence/parser/antlr/SequenceParser.g4",
+    "antlr:class:clean": "rimraf src/diagrams/class/parser/antlr/generated",
+    "antlr:class": "pnpm run antlr:class:clean && antlr4ng -Dlanguage=TypeScript -Xexact-output-dir -o src/diagrams/class/parser/antlr/generated src/diagrams/class/parser/antlr/ClassLexer.g4 src/diagrams/class/parser/antlr/ClassParser.g4",
+    "antlr:flowchart:clean": "rimraf src/diagrams/flowchart/parser/antlr/generated",
+    "antlr:flowchart": "pnpm run antlr:flowchart:clean && antlr4ng -Dlanguage=TypeScript -Xexact-output-dir -o src/diagrams/flowchart/parser/antlr/generated src/diagrams/flowchart/parser/antlr/FlowLexer.g4 src/diagrams/flowchart/parser/antlr/FlowParser.g4",
     "prepublishOnly": "pnpm docs:verify-version"
   },
   "repository": {
@@ -71,6 +79,7 @@
     "@iconify/utils": "^3.0.2",
     "@mermaid-js/parser": "^0.6.3",
     "@types/d3": "^7.4.3",
+    "antlr4ng": "^3.0.16",
     "cytoscape": "^3.33.1",
     "cytoscape-cose-bilkent": "^4.1.0",
     "cytoscape-fcose": "^2.2.0",
@@ -105,6 +114,7 @@
     "@types/stylis": "^4.2.7",
     "@types/uuid": "^10.0.0",
     "ajv": "^8.17.1",
+    "antlr-ng": "^1.0.10",
     "canvas": "^3.2.0",
     "chokidar": "3.6.0",
     "concurrently": "^9.2.1",
@@ -129,7 +139,8 @@
     "unist-util-flatmap": "^1.0.0",
     "unist-util-visit": "^5.0.0",
     "vitepress": "^1.6.4",
-    "vitepress-plugin-search": "1.0.4-alpha.22"
+    "vitepress-plugin-search": "1.0.4-alpha.22",
+    "antlr4ng-cli": "^2.0.0"
   },
   "files": [
     "dist/",

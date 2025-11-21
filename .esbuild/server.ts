@@ -7,6 +7,7 @@ import express from 'express';
 import { packageOptions } from '../.build/common.js';
 import { generateLangium } from '../.build/generateLangium.js';
 import { defaultOptions, getBuildConfig } from './util.js';
+import { generateAntlr } from '../scripts/antlr-generate.mts';
 
 const configs = Object.values(packageOptions).map(({ packageName }) =>
   getBuildConfig({
@@ -89,7 +90,7 @@ async function createServer() {
   handleFileChange();
   const app = express();
   chokidar
-    .watch('**/src/**/*.{js,ts,langium,yaml,json}', {
+    .watch('**/src/**/*.{js,ts,g4,langium,yaml,json}', {
       ignoreInitial: true,
       ignored: [/node_modules/, /dist/, /docs/, /coverage/],
     })
@@ -102,6 +103,9 @@ async function createServer() {
       console.log(`${path} changed. Rebuilding...`);
       if (path.endsWith('.langium')) {
         await generateLangium();
+      }
+      if (path.endsWith('.g4')) {
+        generateAntlr();
       }
       handleFileChange();
     });

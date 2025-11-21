@@ -10,6 +10,11 @@ export interface DiagramMetadata {
   config?: MermaidConfig;
 }
 
+export interface DiagramCode {
+  raw: string;
+  cleaned: string;
+}
+
 export interface InjectUtils {
   _log: any;
   _setLogLevel: any;
@@ -79,6 +84,7 @@ export interface DiagramDefinition {
   db: DiagramDB;
   renderer: DiagramRenderer;
   parser: ParserDefinition;
+  getParser?: (name: string) => ParserDefinition | undefined;
   styles?: any;
   init?: (config: MermaidConfig) => void;
   injectUtils?: (
@@ -148,6 +154,9 @@ export type DrawDefinition = (
 export interface ParserDefinition {
   parse: (text: string) => void | Promise<void>;
   parser?: { yy: DiagramDB };
+  features?: {
+    processRawText?: boolean;
+  };
 }
 
 export type HTML = d3.Selection<HTMLIFrameElement, unknown, Element | null, unknown>;
