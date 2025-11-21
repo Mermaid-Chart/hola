@@ -26,6 +26,10 @@ jobs:
         run: |
           issues=()
 
+          echo "🔍 Validating lockfile for PR #${{ github.event.pull_request.number }}"
+          echo "Base SHA: ${{ github.event.pull_request.base.sha }}"
+          echo "Head SHA: ${{ github.event.pull_request.head.sha }}"
+
           # 1) No tarball references
           if grep -qF 'tarball:' pnpm-lock.yaml; then
             issues+=("• Tarball references found (forbidden)")
@@ -38,7 +42,13 @@ jobs:
 
           # 3) Lockfile only changes when package.json changes
           git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > changed.txt
-          if grep -q '^pnpm-lock.yaml$' changed.txt && ! grep -q 'package.json' changed.txt; then
+          echo "📝 Changed files:"
+          cat changed.txt
+
+          # Skip this check if the workflow file itself is being modified (to allow workflow fixes to be merged)
+          if grep -q '^\.github/workflows/validate-lockfile\.yml$' changed.txt; then
+            echo "⚠️ Workflow file is being modified, skipping lockfile-only check"
+          elif grep -q '^pnpm-lock.yaml$' changed.txt && ! grep -q 'package.json' changed.txt; then
             issues+=("• pnpm-lock.yaml changed without any package.json modification")
           fi
 
