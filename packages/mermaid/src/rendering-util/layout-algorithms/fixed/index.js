@@ -386,12 +386,6 @@ const doRender = async (_elem, data4Layout, siteConfig, positions) => {
     paths.updatedPath = paths.originalPath;
     positionEdgeLabel(edge, paths);
   }
-  if (window) {
-    // TODO: Remove this now that we can do:
-    // import { calcIntersections, calcNodeIntersections } from '@mermaid-chart/mermaid';
-    window.calcIntersections = calcIntersections;
-    window.calcNodeIntersections = calcNodeIntersections;
-  }
   return { elem, diff: 0 };
 };
 /**
