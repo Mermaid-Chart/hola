@@ -1,5 +1,6 @@
 import { select } from 'd3';
 import * as yaml from 'js-yaml';
+import type { MermaidConfig } from '../../config.type.js';
 import { getConfig, defaultConfig } from '../../diagram-api/diagramAPI.js';
 import type { DiagramDB } from '../../diagram-api/types.js';
 import { log } from '../../logger.js';
@@ -18,6 +19,7 @@ import {
   getDiagramTitle,
 } from '../common/commonDb.js';
 import type {
+  EdgeData,
   FlowClass,
   FlowEdge,
   FlowLink,
@@ -25,6 +27,7 @@ import type {
   FlowText,
   FlowVertex,
   FlowVertexTypeParam,
+  FlowchartAST,
 } from './types.js';
 
 interface LinkData {
@@ -49,6 +52,9 @@ export class FlowDB implements DiagramDB {
   private version: string | undefined; // As in graph
   private secCount = -1;
   private posCrossRef: number[] = [];
+
+  // AST storage for ANTLR parser
+  private ast?: FlowchartAST;
 
   // Functions to be run after graph rendering
   private funs: ((element: Element) => void)[] = []; // cspell:ignore funs
@@ -110,14 +116,17 @@ export class FlowDB implements DiagramDB {
     classes: string[],
     dir: string,
     props = {},
-    metadata: any
+    metadata?: string
   ) {
+    log.debug('FlowDB: Adding vertex', { id, textObj, type, style, classes, dir });
     if (!id || id.trim().length === 0) {
+      log.warn('FlowDB: Skipping vertex with empty ID');
       return;
     }
     // Extract the metadata from the shapeData, the syntax for adding metadata for nodes and edges is the same
     // so at this point we don't know if it's a node or an edge, but we can still extract the metadata
     let doc;
+    let originalYamlData = '';
     if (metadata !== undefined) {
       let yamlData;
       // detect if shapeData contains a newline character
@@ -126,6 +135,7 @@ export class FlowDB implements DiagramDB {
       } else {
         yamlData = metadata + '\n';
       }
+      originalYamlData = yamlData; // Store original for multiline detection
       doc = yaml.load(yamlData, { schema: yaml.JSON_SCHEMA }) as NodeMetaData;
     }
 
@@ -207,7 +217,37 @@ export class FlowDB implements DiagramDB {
       }
 
       if (doc?.label) {
-        vertex.text = doc?.label;
+        // Convert newlines to <br/> tags for HTML rendering (except for YAML pipe syntax which preserves \n)
+        let labelText = doc.label;
+
+        // Check if the original YAML had a quoted multiline string pattern
+        const quotedMultilinePattern = /label:\s*"[^"]*\n[^"]*"/;
+        const isQuotedMultiline = quotedMultilinePattern.test(originalYamlData);
+
+        if (typeof labelText === 'string' && labelText.includes('\n')) {
+          // Check if this is a YAML block scalar (ends with \n) vs quoted multiline string
+          if (labelText.endsWith('\n')) {
+            // YAML block scalar (label: |) - preserve as-is with \n
+            vertex.text = labelText;
+          } else {
+            // Quoted multiline string (label: "text\nmore text") - convert \n to <br/>
+            labelText = labelText.replace(/\n/g, '<br/>');
+            vertex.text = labelText;
+          }
+        } else if (isQuotedMultiline && typeof labelText === 'string') {
+          // YAML parsed away the newlines, but original had quoted multiline - add <br/>
+          // Find where the line break should be by analyzing the original YAML
+          const match = /label:\s*"([^"]*)\n\s*([^"]*)"/.exec(originalYamlData);
+          if (match) {
+            const part1 = match[1].trim();
+            const part2 = match[2].trim();
+            vertex.text = `${part1}<br/>${part2}`;
+          } else {
+            vertex.text = labelText;
+          }
+        } else {
+          vertex.text = labelText;
+        }
       }
       if (doc?.icon) {
         vertex.icon = doc?.icon;
@@ -233,6 +273,9 @@ export class FlowDB implements DiagramDB {
       if (doc.w) {
         vertex.assetWidth = Number(doc.w);
       }
+      if (doc.w) {
+        vertex.assetWidth = Number(doc.w);
+      }
       if (doc.h) {
         vertex.assetHeight = Number(doc.h);
       }
@@ -243,7 +286,7 @@ export class FlowDB implements DiagramDB {
    * Function called by parser when a link/edge definition has been found
    *
    */
-  public addSingleLink(_start: string, _end: string, type: any, id?: string) {
+  public addSingleLink(_start: string, _end: string, type: FlowLink | null, id?: string) {
     const start = _start;
     const end = _end;
 
@@ -258,22 +301,31 @@ export class FlowDB implements DiagramDB {
       interpolate: this.edges.defaultInterpolate,
     };
     log.info('abc78 Got edge...', edge);
-    const linkTextObj = type.text;
+    const linkTextObj = type?.text;
 
     if (linkTextObj !== undefined) {
-      edge.text = this.sanitizeText(linkTextObj.text.trim());
+      // Handle both string and object forms of link text
+      // Jison parser may return {text: string, type: 'text'|'markdown'|'string'} object
+      const linkText = typeof linkTextObj === 'string' ? linkTextObj : (linkTextObj.text ?? '');
+      edge.text = this.sanitizeText(linkText.trim());
 
       // strip quotes if string starts and ends with a quote
       if (edge.text.startsWith('"') && edge.text.endsWith('"')) {
         edge.text = edge.text.substring(1, edge.text.length - 1);
       }
-      edge.labelType = linkTextObj.type;
+      // Set labelType based on the text object type (markdown, string, or text)
+      if (typeof linkTextObj !== 'string') {
+        const textType = linkTextObj.type;
+        if (textType === 'markdown' || textType === 'string') {
+          edge.labelType = textType;
+        }
+      }
     }
 
-    if (type !== undefined) {
+    if (type) {
       edge.type = type.type;
-      edge.stroke = type.stroke;
-      edge.length = type.length > 10 ? 10 : type.length;
+      edge.stroke = type.stroke as FlowEdge['stroke'];
+      edge.length = type.length !== undefined && type.length > 10 ? 10 : type.length;
     }
     if (id && !this.edges.some((e) => e.id === id)) {
       edge.id = id;
@@ -291,7 +343,10 @@ export class FlowDB implements DiagramDB {
     }
 
     if (this.edges.length < (this.config.maxEdges ?? 500)) {
-      log.info('Pushing edge...');
+      // Reduced logging for performance - only log every 5000th edge for huge diagrams
+      if (this.edges.length % 5000 === 0) {
+        log.info(`Pushing edge ${this.edges.length}...`);
+      }
       this.edges.push(edge);
     } else {
       throw new Error(
@@ -313,10 +368,24 @@ You have to call mermaid.initialize.`
     );
   }
 
+  private isFlowLink(value: unknown): value is FlowLink {
+    return value !== null && typeof value === 'object' && 'stroke' in value && 'type' in value;
+  }
+
   public addLink(_start: string[], _end: string[], linkData: unknown) {
+    const startTime = performance.now();
     const id = this.isLinkData(linkData) ? linkData.id.replace('@', '') : undefined;
 
+    log.debug('FlowDB: Adding link', { _start, _end, linkData, id });
     log.info('addLink', _start, _end, id);
+
+    // Track performance for huge diagrams - less frequent logging
+    if (this.edges.length % 10000 === 0 && this.edges.length > 0) {
+      log.info(`FlowDB Progress: ${this.edges.length} edges added`);
+    }
+
+    // Convert linkData to FlowLink | null for addSingleLink
+    const typedLinkData: FlowLink | null = this.isFlowLink(linkData) ? linkData : null;
 
     // for a group syntax like A e1@--> B & C, only the first edge should have a userDefined id
     // the rest of the edges should have auto generated ids
@@ -326,11 +395,17 @@ You have to call mermaid.initialize.`
         const isLastStart = start === _start[_start.length - 1];
         const isFirstEnd = end === _end[0];
         if (isLastStart && isFirstEnd) {
-          this.addSingleLink(start, end, linkData, id);
+          this.addSingleLink(start, end, typedLinkData, id);
         } else {
-          this.addSingleLink(start, end, linkData, undefined);
+          this.addSingleLink(start, end, typedLinkData, undefined);
         }
       }
+    }
+
+    const duration = performance.now() - startTime;
+    if (duration > 1) {
+      // Only log if it takes more than 1ms
+      log.debug(`FlowDB: addLink took ${duration.toFixed(2)}ms`);
     }
   }
 
@@ -554,6 +629,7 @@ You have to call mermaid.initialize.`
    *
    */
   public getVertices() {
+    log.debug('FlowDB: Getting vertices, count:', this.vertices.size);
     return this.vertices;
   }
 
@@ -562,6 +638,7 @@ You have to call mermaid.initialize.`
    *
    */
   public getEdges() {
+    log.debug('FlowDB: Getting edges, count:', this.edges.length);
     return this.edges;
   }
 
@@ -615,10 +692,110 @@ You have to call mermaid.initialize.`
   }
 
   /**
+   * Set the AST for this diagram (called by ANTLR parser)
+   */
+  public setAST(ast: FlowchartAST): void {
+    this.ast = ast;
+    log.debug(
+      'ANTLR_DEBUG: AST set with',
+      ast.statements.length,
+      'statements',
+      JSON.stringify(ast, null, 2)
+    );
+  }
+
+  /**
+   * Update the AST with edge data from the database
+   * This should be called after the parse tree has been traversed
+   */
+  public updateASTWithEdges(): void {
+    if (!this.ast?.metadata) {
+      return;
+    }
+
+    // Populate metadata.edges from this.edges
+    this.ast.metadata.edges = this.edges.map((edge) => ({
+      id: edge.id,
+      start: edge.start,
+      end: edge.end,
+      type: edge.type,
+      text: edge.text,
+      stroke: edge.stroke,
+      length: edge.length,
+      interpolate: edge.interpolate,
+      isUserDefinedId: edge.isUserDefinedId,
+      labelType: edge.labelType,
+      classes: edge.classes,
+    }));
+
+    // Update edge statements with IDs from this.edges
+    // Match edges by start and end nodes
+    for (const statement of this.ast.statements) {
+      if (
+        statement.type === 'edge' &&
+        statement.data &&
+        'start' in statement.data &&
+        'end' in statement.data
+      ) {
+        const edgeData = statement.data as EdgeData;
+        // Find matching edge by start and end nodes
+        const matchingEdge = this.edges.find(
+          (e) => e.start === edgeData.start && e.end === edgeData.end
+        );
+        if (matchingEdge) {
+          edgeData.id = matchingEdge.id;
+          edgeData.type = matchingEdge.type;
+          edgeData.text = matchingEdge.text;
+          edgeData.stroke = matchingEdge.stroke;
+          edgeData.length = matchingEdge.length;
+          edgeData.interpolate = matchingEdge.interpolate;
+        }
+      }
+    }
+
+    // Update element mappings with IDs from this.edges
+    // This is needed for bidirectional sync to work correctly
+    if (this.ast.elementMappings) {
+      for (const mapping of this.ast.elementMappings) {
+        if (
+          mapping.type === 'edge' &&
+          mapping.data &&
+          'start' in mapping.data &&
+          'end' in mapping.data
+        ) {
+          const edgeData = mapping.data;
+          // Find matching edge by start and end nodes
+          const matchingEdge = this.edges.find(
+            (e) => e.start === edgeData.start && e.end === edgeData.end
+          );
+          if (matchingEdge) {
+            edgeData.id = matchingEdge.id;
+            edgeData.type = matchingEdge.type;
+            edgeData.text = matchingEdge.text;
+            edgeData.stroke = matchingEdge.stroke;
+            edgeData.length = matchingEdge.length;
+            edgeData.interpolate = matchingEdge.interpolate;
+          }
+        }
+      }
+    }
+
+    log.debug('FlowDB: AST updated with', this.edges.length, 'edges in metadata and statements');
+  }
+
+  /**
+   * Get the AST for this diagram
+   */
+  public getAST(): FlowchartAST | undefined {
+    return this.ast;
+  }
+
+  /**
    * Clears the internal graph db so that a new graph can be parsed.
    *
    */
   public clear(ver = 'gen-2') {
+    log.debug('FlowDB: Clearing database state');
     this.vertices = new Map();
     this.classes = new Map();
     this.edges = [];
@@ -630,11 +807,13 @@ You have to call mermaid.initialize.`
     this.firstGraphFlag = true;
     this.version = ver;
     this.config = getConfig();
+    this.ast = undefined; // Clear AST when clearing database
     commonClear();
+    log.debug('FlowDB: Database cleared successfully');
   }
 
   public setGen(ver: string) {
-    this.version = ver || 'gen-2';
+    this.version = ver ?? 'gen-2';
   }
 
   public defaultStyle() {
@@ -652,25 +831,36 @@ You have to call mermaid.initialize.`
       id = undefined;
     }
 
-    const uniq = (a: any[]) => {
-      const prims: any = { boolean: {}, number: {}, string: {} };
-      const objs: any[] = [];
+    type SubgraphItem = string | { stmt: string; value: string };
+    const uniq = (a: SubgraphItem[]) => {
+      const prims: Record<string, Record<string, boolean>> = {
+        boolean: {},
+        number: {},
+        string: {},
+      };
+      const objs: string[] = [];
 
       let dir: string | undefined;
 
-      const nodeList = a.filter(function (item) {
-        const type = typeof item;
-        if (item.stmt && item.stmt === 'dir') {
-          dir = item.value;
+      const nodeList = a.filter(function (item): item is string {
+        if (typeof item !== 'string') {
+          if (item.stmt && item.stmt === 'dir') {
+            dir = item.value;
+          }
           return false;
         }
+        const type = typeof item;
         if (item.trim() === '') {
           return false;
         }
         if (type in prims) {
           return prims[type].hasOwnProperty(item) ? false : (prims[type][item] = true);
         } else {
-          return objs.includes(item) ? false : objs.push(item);
+          if (objs.includes(item)) {
+            return false;
+          }
+          objs.push(item);
+          return true;
         }
       });
       return { nodeList, dir };
@@ -683,7 +873,7 @@ You have to call mermaid.initialize.`
     dir =
       dir ??
       (flowchartConfig.inheritDir
-        ? (this.getDirection() ?? (getConfig() as any).direction ?? undefined)
+        ? (this.getDirection() ?? (getConfig() as { direction?: string }).direction ?? undefined)
         : undefined);
 
     if (this.version === 'gen-1') {
@@ -693,7 +883,7 @@ You have to call mermaid.initialize.`
     }
 
     id = id ?? 'subGraph' + this.subCount;
-    title = title || '';
+    title = title ?? '';
     title = this.sanitizeText(title);
     this.subCount = this.subCount + 1;
 
@@ -999,7 +1189,7 @@ You have to call mermaid.initialize.`
     nodes: Node[],
     parentDB: Map<string, string>,
     subGraphDB: Map<string, boolean>,
-    config: any,
+    config: MermaidConfig,
     look: string
   ) {
     const parentId = parentDB.get(vertex.id);
@@ -1016,7 +1206,7 @@ You have to call mermaid.initialize.`
         label: vertex.text,
         labelStyle: '',
         parentId,
-        padding: config.flowchart?.padding || 8,
+        padding: (config.flowchart as { padding?: number })?.padding ?? 8,
         cssStyles: vertex.styles,
         cssCompiledStyles: this.getCompiledStyles(['default', 'node', ...vertex.classes]),
         cssClasses: 'default ' + vertex.classes.join(' '),
@@ -1040,10 +1230,11 @@ You have to call mermaid.initialize.`
           shape: 'rect',
         });
       } else {
+        const shapeFromVertex = this.getTypeFromVertex(vertex);
         nodes.push({
           ...baseNode,
           isGroup: false,
-          shape: this.getTypeFromVertex(vertex),
+          shape: shapeFromVertex,
         });
       }
     }

@@ -106,10 +106,12 @@
 
   <body>
     <pre id="diagram4" class="mermaid">
-      sequenceDiagram
+flowchart LR
+    n1["Rectangle"] --> n2("New 1") & n3("New 2")
+    n4(["New 3"])
+    n5["Rectangle 2"] --> n6("New 4") & n7("New 5")
+    n4("Apa")
 
-      %% Hello
-      Alice-->Bob 21
     </pre>
     <pre id="diagram4" class="mermaid2">
       sequenceDiagram
@@ -158,12 +160,75 @@
                     Tools
     </pre>
     <pre id="diagram4" class="mermaid2">
-      ---
-      config:
-        layout: elk
-      ---
-      flowchart
-       aid0
+
+      graph TD
+      subgraph Security ["Auth"]
+          casbin[Casbin Auth]
+          jwt[JWT Auth]
+          noop[No Auth]
+      end
+
+      subgraph Server
+          subgraph API ["API Plugins"]
+              Processor
+
+          end
+      end
+
+      subgraph Storage
+          subgraph Graphlette
+              Searcher
+          end
+
+          subgraph Restlette
+              Repository
+          end
+      end
+
+      subgraph Plugins[Storage Adapters]
+          subgraph Mongo
+              MongoRepository
+              MongoSearcher
+          end
+
+          subgraph Postres
+              PostresRepository
+              PostresSearcher
+          end
+
+          subgraph Sqlite3
+              SqliteRepository
+              SqliteSearcher
+          end
+      end
+
+      Processor --> Restlette
+      Processor --> Graphlette
+
+      Repository --> MongoRepository
+      Repository --> PostresRepository
+      Repository --> SqliteRepository
+
+
+      Searcher --> MongoSearcher
+      Searcher --> PostresSearcher
+      Searcher --> SqliteSearcher
+
+
+      %% Core Dependencies
+      server --> common
+      cli --> common
+      cli --> server
+
+
+
+      %% Security Dependencies
+      casbin --> common
+
+      style Storage fill:#f9f,stroke:#333,stroke-width:2px
+      style API fill:#bbf,stroke:#333,stroke-width:2px
+      style Core fill:#dfd,stroke:#333,stroke-width:2px
+      style Security fill:#fdd,stroke:#333,stroke-width:2px
   </pre
     >
     <pre id="diagram4" class="mermaid2">
@@ -828,10 +893,10 @@ kanban
         // look: 'handDrawn',
         // 'elk.nodePlacement.strategy': 'NETWORK_SIMPLEX',
         // layout: 'dagre',
-        layout: 'elk',
+        // layout: 'elk',
         // layout: 'fixed',
         // htmlLabels: false,
-        flowchart: { titleTopMargin: 10 },
+        flowchart: { titleTopMargin: 10, parser: 'antlr' },
 
         // fontFamily: 'Caveat',
         // fontFamily: 'Kalam',

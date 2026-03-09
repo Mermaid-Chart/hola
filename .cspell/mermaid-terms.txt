@@ -15,7 +15,10 @@ gitgraph
 gzipped
 handDrawn
 headerless
+invtrapezoid
 kanban
+leanleft
+leanright
 marginx
 marginy
 Markdownish

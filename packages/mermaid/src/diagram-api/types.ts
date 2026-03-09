@@ -8,6 +8,7 @@ import type { DiagramOrientation } from '../diagrams/git/gitGraphTypes.js';
 export interface DiagramMetadata {
   title?: string;
   config?: MermaidConfig;
+  diagramType?: string;
 }
 
 export interface DiagramCode {

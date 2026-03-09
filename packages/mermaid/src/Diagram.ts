@@ -40,7 +40,9 @@ export class Diagram {
     }
     const { db, parser: defaultParser, renderer, init, getParser } = getDiagram(type);
     // Check if a parser is configured for this diagram type
-    const parserInConfig = (config[type as keyof MermaidConfig] as BaseDiagramConfig)?.parser;
+    // Map diagram type to config key (e.g., 'flowchart-v2' -> 'flowchart')
+    const configKey = type.replace(/-v2$/, '') as keyof MermaidConfig;
+    const parserInConfig = (config[configKey] as BaseDiagramConfig)?.parser;
     // If a parser is configured, use the getParser function to get the parser instance
     const parser = (parserInConfig && getParser?.(parserInConfig)) ?? defaultParser;
     if (parser.parser) {

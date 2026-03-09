@@ -412,4 +412,34 @@ describe('when parsing directions', function () {
     expect(data4Layout.nodes[1].label).toEqual('label for n4');
     expect(data4Layout.nodes[2].label).toEqual('label for n5');
   });
+
+  describe('node redefinition preserves label and shape', function () {
+    it('should preserve label and shape when node defined first with label/shape, then referenced without', function () {
+      // First n1(a) defines the node with label "a" and round shape
+      // Second n1 is just a reference and should NOT overwrite the label or shape
+      flow.parser.parse(`flowchart TB
+n1(a)
+n1`);
+
+      const data4Layout = flow.parser.yy.getData();
+      expect(data4Layout.nodes.length).toBe(1);
+      expect(data4Layout.nodes[0].label).toEqual('a');
+      // 'round' vertex type is mapped to 'roundedRect' shape by getData()
+      expect(data4Layout.nodes[0].shape).toEqual('roundedRect');
+    });
+
+    it('should use label and shape from last definition when node referenced first, then defined', function () {
+      // First n1 is just a reference (no label/shape defined yet)
+      // Second n1(a) defines label "a" and round shape - should be used
+      flow.parser.parse(`flowchart TB
+n1
+n1(a)`);
+
+      const data4Layout = flow.parser.yy.getData();
+      expect(data4Layout.nodes.length).toBe(1);
+      expect(data4Layout.nodes[0].label).toEqual('a');
+      // 'round' vertex type is mapped to 'roundedRect' shape by getData()
+      expect(data4Layout.nodes[0].shape).toEqual('roundedRect');
+    });
+  });
 });

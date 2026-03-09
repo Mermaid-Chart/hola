@@ -110,6 +110,32 @@ describe('when parsing subgraphs', function () {
 
     expect(edges[0].type).toBe('arrow_point');
   });
+  it('should handle subgraphs with parentheses in quoted title', function () {
+    const res = flow.parser.parse(`graph TD;
+    subgraph "sub_a(a)"
+        A
+    end`);
+
+    const subgraphs = flow.parser.yy.getSubGraphs();
+    expect(subgraphs.length).toBe(1);
+    const subgraph = subgraphs[0];
+
+    expect(subgraph.title).toBe('sub_a(a)');
+  });
+  it('should handle subgraphs with Unicode/Chinese characters in title', function () {
+    const res = flow.parser.parse(`graph TD
+subgraph 治
+    direction LR
+    D <--> E <--> F
+    E <--> H
+end`);
+
+    const subgraphs = flow.parser.yy.getSubGraphs();
+    expect(subgraphs.length).toBe(1);
+    const subgraph = subgraphs[0];
+
+    expect(subgraph.title).toBe('治');
+  });
   it('should handle subgraphs in old style that was broken', function () {
     const res = flow.parser.parse('graph TD;A-->B;subgraph old style that is broken;c-->d;end;');
 
