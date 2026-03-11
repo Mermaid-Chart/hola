@@ -68,8 +68,14 @@ export class FlowDB implements DiagramDB {
   // Inline position tracking: populated by Jison grammar rules during parsing
   private sourceText?: string;
   private lineOffsets: number[] = [];
+  // Text with comments preserved (before cleanupComments), for line remapping
+  private textWithComments?: string;
+  // Maps cleaned-text line number → original-text line number
+  private cleanedToOriginalLineMap: number[] = [];
+  // Original-text comment lines (1-based)
+  private commentLines = new Set<number>();
   private inlineMappings: {
-    type: 'vertex' | 'edge' | 'subgraph' | 'comment';
+    type: 'vertex' | 'edge' | 'subgraph';
     id: string;
     position: ElementPosition;
     svgId?: string;
@@ -107,7 +113,7 @@ export class FlowDB implements DiagramDB {
     this.addVertexMapping = this.addVertexMapping.bind(this);
     this.addEdgeMapping = this.addEdgeMapping.bind(this);
     this.addSubgraphMapping = this.addSubgraphMapping.bind(this);
-    this.addComment = this.addComment.bind(this);
+    this.setTextWithComments = this.setTextWithComments.bind(this);
 
     this.lex = {
       firstGraph: this.firstGraph.bind(this),
@@ -973,21 +979,49 @@ You have to call mermaid.initialize.`
   }
 
   /**
-   * Record a comment during parsing.
-   * Called from Jison grammar line rule when a COMMENT token is matched.
+   * Store the text with comments preserved (before cleanupComments).
+   * Used to build a line mapping from cleaned-text lines to original-text lines,
+   * so that Jison \@$ positions (in cleaned-text space) can be remapped to original lines.
    */
-  public addComment(text: string, loc: JisonLocation): void {
-    if (!loc) {
-      return;
+  public setTextWithComments(text: string): void {
+    this.textWithComments = text;
+    // Build the cleaned→original line map by identifying comment lines
+    const lines = text.split('\n');
+    this.commentLines = new Set<number>();
+    for (const [i, line] of lines.entries()) {
+      const trimmed = line.trim();
+      // Comment lines start with %% but not %%{ (which are directives)
+      if (trimmed.startsWith('%%') && !trimmed.startsWith('%%{')) {
+        this.commentLines.add(i + 1); // 1-based
+      }
     }
-    const position = this.jisonLocToPosition(loc);
-    this.inlineMappings.push({
-      id: `comment-${this.inlineMappingCount++}`,
-      type: 'comment',
-      position,
-      data: { text: text.trim() },
-      statementOriginalIndex: this.inlineStatementIndex++,
-    });
+    // Build mapping: cleanedLine → originalLine
+    // Cleaned text has comment lines removed, so each cleaned line maps to
+    // the next non-comment original line.
+    this.cleanedToOriginalLineMap = [];
+    let cleanedLine = 1;
+    for (let origLine = 1; origLine <= lines.length; origLine++) {
+      if (!this.commentLines.has(origLine)) {
+        this.cleanedToOriginalLineMap[cleanedLine] = origLine;
+        cleanedLine++;
+      }
+    }
+  }
+
+  /**
+   * Remap a position from cleaned-text line space to original-text line space.
+   * If no comment lines exist, returns the position unchanged.
+   */
+  private remapPosition(pos: ElementPosition): ElementPosition {
+    if (this.cleanedToOriginalLineMap.length === 0) {
+      return pos;
+    }
+    const mapLine = (line: number): number => this.cleanedToOriginalLineMap[line] ?? line;
+    return {
+      ...pos,
+      startLine: mapLine(pos.startLine),
+      endLine: mapLine(pos.endLine),
+    };
   }
 
   /**
@@ -1015,6 +1049,12 @@ You have to call mermaid.initialize.`
     const sorted = [...this.inlineMappings].sort(
       (a, b) => a.statementOriginalIndex - b.statementOriginalIndex
     );
+
+    // Remap all positions from cleaned-text line space to original-text line space.
+    // This accounts for comment lines that were stripped before parsing.
+    for (const im of sorted) {
+      im.position = this.remapPosition(im.position);
+    }
 
     // First pass: collect which lines have edges
     // (so we know which vertex mappings are standalone vs edge-embedded)
@@ -1174,25 +1214,36 @@ You have to call mermaid.initialize.`
           });
           break;
         }
+      }
+    }
 
-        case 'comment': {
-          const commentText = typeof im.data.text === 'string' ? im.data.text : '';
-          const commentData: CommentData = { text: commentText };
-          statements.push({
-            type: 'comment',
-            data: commentData,
-            position: { ...im.position },
-            statementId: im.id,
-            originalIndex: im.statementOriginalIndex,
-          });
-          break;
-        }
+    // Insert comment statements from the original text (comments are stripped before parsing)
+    if (this.textWithComments) {
+      const origLines = this.textWithComments.split('\n');
+      for (const commentLine of this.commentLines) {
+        const commentText = origLines[commentLine - 1]?.trim() ?? '';
+        statements.push({
+          type: 'comment',
+          data: { text: commentText } as CommentData,
+          position: {
+            startLine: commentLine,
+            startColumn: 0,
+            endLine: commentLine,
+            endColumn: commentText.length,
+            startIndex: 0,
+            endIndex: 0,
+          },
+          statementId: `comment-${commentLine}`,
+          originalIndex: commentLine * 1000,
+        });
       }
     }
 
     // Insert blank lines for gaps between statements
-    if (this.sourceText) {
-      const totalLines = this.lineOffsets.length;
+    // Use original-text lines (from textWithComments) for accurate gap detection
+    const textForGaps = this.textWithComments ?? this.sourceText;
+    if (textForGaps) {
+      const gapLines = textForGaps.split('\n');
       const coveredLines = new Set<number>();
       for (const stmt of statements) {
         if (stmt.position) {
@@ -1202,29 +1253,23 @@ You have to call mermaid.initialize.`
         }
       }
       // Line 1 is typically the "flowchart LR" header — skip it
-      for (let line = 2; line <= totalLines; line++) {
-        if (!coveredLines.has(line)) {
-          const lineStart = this.lineOffsets[line - 1] ?? 0;
-          const lineEnd = (this.lineOffsets[line] ?? this.sourceText.length) - 1;
-          const lineText = this.sourceText.slice(lineStart, lineEnd + 1).trim();
-          // Only add blank lines for truly empty lines (not header/direction lines)
-          if (lineText === '') {
-            const blankData: BlankLineData = {};
-            statements.push({
-              type: 'blankLine',
-              data: blankData,
-              position: {
-                startLine: line,
-                startColumn: 0,
-                endLine: line,
-                endColumn: 0,
-                startIndex: lineStart,
-                endIndex: lineStart,
-              },
-              statementId: `blank-${line}`,
-              originalIndex: line * 1000,
-            });
-          }
+      for (let line = 2; line <= gapLines.length; line++) {
+        if (!coveredLines.has(line) && gapLines[line - 1]?.trim() === '') {
+          const blankData: BlankLineData = {};
+          statements.push({
+            type: 'blankLine',
+            data: blankData,
+            position: {
+              startLine: line,
+              startColumn: 0,
+              endLine: line,
+              endColumn: 0,
+              startIndex: 0,
+              endIndex: 0,
+            },
+            statementId: `blank-${line}`,
+            originalIndex: line * 1000,
+          });
         }
       }
     }
@@ -1284,6 +1329,9 @@ You have to call mermaid.initialize.`
     // Clear inline position tracking
     this.sourceText = undefined;
     this.lineOffsets = [];
+    this.textWithComments = undefined;
+    this.cleanedToOriginalLineMap = [];
+    this.commentLines = new Set();
     this.inlineMappings = [];
     this.inlineMappingCount = 0;
     this.inlineEdgeMappingCount = 0;
