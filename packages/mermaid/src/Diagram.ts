@@ -55,6 +55,12 @@ export class Diagram {
     if (metadata.title) {
       db.setDiagramTitle?.(metadata.title);
     }
+    // Store original text (before comment cleanup) for correct line number mapping
+    // This is used by the Jison AST builder to compute positions matching the original source
+    const dbAny = db as Record<string, unknown>;
+    if (typeof dbAny.setOriginalText === 'function') {
+      (dbAny.setOriginalText as (text: string) => void)(encodeEntities(code.raw) + '\n');
+    }
     const text = encodeEntities(parser.features?.processRawText ? code.raw : code.cleaned) + '\n';
     await parser.parse(text);
     return new Diagram(type, text, db, parser, renderer);
