@@ -55,15 +55,19 @@ export class Diagram {
     if (metadata.title) {
       db.setDiagramTitle?.(metadata.title);
     }
-    // Store original text (before comment cleanup) for correct line number mapping
-    // This is used by the Jison AST builder to compute positions matching the original source
-    const dbAny = db as Record<string, unknown>;
-    if (typeof dbAny.setOriginalText === 'function') {
-      (dbAny.setOriginalText as (text: string) => void)(encodeEntities(code.raw) + '\n');
+    // Use text with comments preserved when the DB supports inline position tracking.
+    // This ensures Jison @$ positions are in original-text space (no comment-stripping offset).
+    // The Jison grammar handles %% comments natively, so they don't need pre-stripping.
+    let textToParse: string;
+    if (parser.features?.processRawText) {
+      textToParse = encodeEntities(code.raw) + '\n';
+    } else if (code.withComments) {
+      textToParse = encodeEntities(code.withComments) + '\n';
+    } else {
+      textToParse = encodeEntities(code.cleaned) + '\n';
     }
-    const text = encodeEntities(parser.features?.processRawText ? code.raw : code.cleaned) + '\n';
-    await parser.parse(text);
-    return new Diagram(type, text, db, parser, renderer);
+    await parser.parse(textToParse);
+    return new Diagram(type, textToParse, db, parser, renderer);
   }
 
   private constructor(

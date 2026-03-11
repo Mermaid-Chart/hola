@@ -43,19 +43,15 @@ async function parseWithAntlr(input: string): Promise<FlowchartAST> {
 async function parseWithJison(input: string): Promise<FlowchartAST> {
   const { FlowDB } = await import('../../flowDb.js');
   const flowParserModule = await import('../flowParser.js');
-  const { cleanupComments } = await import('../../../../diagram-api/comments.js');
   const flowParser = flowParserModule.default;
 
   const db = new FlowDB();
   db.clear();
   flowParser.parser.yy = db;
 
-  // Store original text (with comments) for correct line number mapping
-  db.setOriginalText(input);
-
-  // Clean up comments before parsing (matches the real pipeline in preprocessDiagram)
-  const cleanedInput = cleanupComments(input);
-  flowParser.parse(cleanedInput);
+  // Parse WITH comments — the Jison grammar handles %% comments natively.
+  // This ensures @$ positions are in original-text space.
+  flowParser.parse(input);
 
   const ast = db.getAST();
   if (!ast) {

@@ -284,6 +284,8 @@ that id.
 <text>[^\[\]\(\)\{\}\|\"]+    return "TEXT";
 
 "\""                  return 'QUOTE';
+[ \t]*"%%"[^\n{][^\n]*          return 'COMMENT';
+[ \t]*"%%"[ \t]*$               return 'COMMENT';
 (\r?\n)+              return 'NEWLINE';
 \s                    return 'SPACE';
 <<EOF>>               return 'EOF';
@@ -317,6 +319,8 @@ document
 line
 	: statement
 	{$$=$statement;}
+	| COMMENT
+	{if(yy.addComment){yy.addComment($COMMENT,@1);} $$=[];}
 	| SEMI
 	| NEWLINE
 	| SPACE
@@ -353,8 +357,10 @@ FirstStmtSeparator
 spaceListNewline
     : SPACE spaceListNewline
     | NEWLINE spaceListNewline
+    | COMMENT spaceListNewline
     | NEWLINE
     | SPACE
+    | COMMENT
     ;
 
 
@@ -377,13 +383,13 @@ statement
     | clickStatement separator
     {$$=[];}
     | subgraph SPACE textNoTags SQS text SQE separator document end
-    {$$=yy.addSubGraph($textNoTags,$document,$text);}
+    {$$=yy.addSubGraph($textNoTags,$document,$text);if(yy.addSubgraphMapping){yy.addSubgraphMapping($textNoTags,$text,@1,@9);}}
     | subgraph SPACE textNoTags separator document end
-    {$$=yy.addSubGraph($textNoTags,$document,$textNoTags);}
+    {$$=yy.addSubGraph($textNoTags,$document,$textNoTags);if(yy.addSubgraphMapping){yy.addSubgraphMapping($textNoTags,$textNoTags,@1,@6);}}
     // | subgraph SPACE textNoTags separator document end
     // {$$=yy.addSubGraph($textNoTags,$document,$textNoTags);}
     | subgraph separator document end
-    {$$=yy.addSubGraph(undefined,$document,undefined);}
+    {$$=yy.addSubGraph(undefined,$document,undefined);if(yy.addSubgraphMapping){yy.addSubgraphMapping(undefined,undefined,@1,@4);}}
     | direction
     | acc_title acc_title_value  { $$=$acc_title_value.trim();yy.setAccTitle($$); }
     | acc_descr acc_descr_value  { $$=$acc_descr_value.trim();yy.setAccDescription($$); }
@@ -400,18 +406,17 @@ shapeData:
     ;
 
 vertexStatement: vertexStatement link node shapeData
-        { /* console.warn('vs shapeData',$vertexStatement.stmt,$node, $shapeData);*/ yy.addVertex($node[$node.length-1],undefined,undefined,undefined, undefined,undefined, undefined,$shapeData); yy.addLink($vertexStatement.stmt,$node,$link); $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
+        { yy.addVertex($node[$node.length-1],undefined,undefined,undefined, undefined,undefined, undefined,$shapeData); yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
     | vertexStatement link node
-        { /*console.warn('vs',$vertexStatement.stmt,$node);*/ yy.addLink($vertexStatement.stmt,$node,$link); $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
+        { yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
     |  vertexStatement link node spaceList
-        { /* console.warn('vs',$vertexStatement.stmt,$node); */ yy.addLink($vertexStatement.stmt,$node,$link); $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
-    |node spaceList { /*console.warn('vertexStatement: node spaceList', $node);*/ $$ = {stmt: $node, nodes:$node }}
+        { yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
+    |node spaceList { $$ = {stmt: $node, nodes:$node }}
     |node shapeData {
-        /*console.warn('vertexStatement: node shapeData', $node[0], $shapeData);*/
         yy.addVertex($node[$node.length-1],undefined,undefined,undefined, undefined,undefined, undefined,$shapeData);
         $$ = {stmt: $node, nodes:$node, shapeData: $shapeData}
     }
-    |node { /* console.warn('vertexStatement: single node', $node); */ $$ = {stmt: $node, nodes:$node }}
+    |node { $$ = {stmt: $node, nodes:$node }}
     ;
 
 node: styledVertex
@@ -429,39 +434,39 @@ styledVertex: vertex
     ;
 
 vertex:  idString SQS text SQE
-        {$$ = $idString;yy.addVertex($idString,$text,'square');}
+        {$$ = $idString;yy.addVertex($idString,$text,'square');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'square',@$);}}
     | idString DOUBLECIRCLESTART text DOUBLECIRCLEEND
-        {$$ = $idString;yy.addVertex($idString,$text,'doublecircle');}
+        {$$ = $idString;yy.addVertex($idString,$text,'doublecircle');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'doublecircle',@$);}}
     | idString PS PS text PE PE
-        {$$ = $idString;yy.addVertex($idString,$text,'circle');}
+        {$$ = $idString;yy.addVertex($idString,$text,'circle');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'circle',@$);}}
     | idString '(-' text '-)'
-        {$$ = $idString;yy.addVertex($idString,$text,'ellipse');}
+        {$$ = $idString;yy.addVertex($idString,$text,'ellipse');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'ellipse',@$);}}
     | idString STADIUMSTART text STADIUMEND
-        {$$ = $idString;yy.addVertex($idString,$text,'stadium');}
+        {$$ = $idString;yy.addVertex($idString,$text,'stadium');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'stadium',@$);}}
     | idString SUBROUTINESTART text SUBROUTINEEND
-        {$$ = $idString;yy.addVertex($idString,$text,'subroutine');}
+        {$$ = $idString;yy.addVertex($idString,$text,'subroutine');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'subroutine',@$);}}
     | idString VERTEX_WITH_PROPS_START NODE_STRING\[field] COLON NODE_STRING\[value] PIPE text SQE
-        {$$ = $idString;yy.addVertex($idString,$text,'rect',undefined,undefined,undefined, Object.fromEntries([[$field, $value]]));}
+        {$$ = $idString;yy.addVertex($idString,$text,'rect',undefined,undefined,undefined, Object.fromEntries([[$field, $value]]));if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'rect',@$);}}
     | idString CYLINDERSTART text CYLINDEREND
-        {$$ = $idString;yy.addVertex($idString,$text,'cylinder');}
+        {$$ = $idString;yy.addVertex($idString,$text,'cylinder');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'cylinder',@$);}}
     | idString PS text PE
-        {$$ = $idString;yy.addVertex($idString,$text,'round');}
+        {$$ = $idString;yy.addVertex($idString,$text,'round');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'round',@$);}}
     | idString DIAMOND_START text DIAMOND_STOP
-        {$$ = $idString;yy.addVertex($idString,$text,'diamond');}
+        {$$ = $idString;yy.addVertex($idString,$text,'diamond');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'diamond',@$);}}
     | idString DIAMOND_START DIAMOND_START text DIAMOND_STOP DIAMOND_STOP
-        {$$ = $idString;yy.addVertex($idString,$text,'hexagon');}
+        {$$ = $idString;yy.addVertex($idString,$text,'hexagon');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'hexagon',@$);}}
     | idString TAGEND text SQE
-        {$$ = $idString;yy.addVertex($idString,$text,'odd');}
+        {$$ = $idString;yy.addVertex($idString,$text,'odd');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'odd',@$);}}
     | idString TRAPSTART text TRAPEND
-        {$$ = $idString;yy.addVertex($idString,$text,'trapezoid');}
+        {$$ = $idString;yy.addVertex($idString,$text,'trapezoid');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'trapezoid',@$);}}
     | idString INVTRAPSTART text INVTRAPEND
-        {$$ = $idString;yy.addVertex($idString,$text,'inv_trapezoid');}
+        {$$ = $idString;yy.addVertex($idString,$text,'inv_trapezoid');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'inv_trapezoid',@$);}}
     | idString TRAPSTART text INVTRAPEND
-        {$$ = $idString;yy.addVertex($idString,$text,'lean_right');}
+        {$$ = $idString;yy.addVertex($idString,$text,'lean_right');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'lean_right',@$);}}
     | idString INVTRAPSTART text TRAPEND
-        {$$ = $idString;yy.addVertex($idString,$text,'lean_left');}
+        {$$ = $idString;yy.addVertex($idString,$text,'lean_left');if(yy.addVertexMapping){yy.addVertexMapping($idString,$text,'lean_left',@$);}}
     | idString
-        { /*console.warn('h: ', $idString);*/$$ = $idString;yy.addVertex($idString);}
+        {$$ = $idString;yy.addVertex($idString);if(yy.addVertexMapping){yy.addVertexMapping($idString,undefined,undefined,@$);}}
     ;
 
 

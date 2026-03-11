@@ -55,11 +55,13 @@ export function preprocessDiagram(code: string) {
   const frontMatterResult = processFrontmatter(cleanedCode);
   const directiveResult = processDirectives(frontMatterResult.text);
   const config = cleanAndMerge(frontMatterResult.config, directiveResult.directive);
-  cleanedCode = cleanupComments(directiveResult.text);
+  const withComments = directiveResult.text;
+  cleanedCode = cleanupComments(withComments);
   return {
     code: {
       raw: rawCode,
       cleaned: cleanedCode,
+      withComments,
     },
     title: frontMatterResult.title,
     config,

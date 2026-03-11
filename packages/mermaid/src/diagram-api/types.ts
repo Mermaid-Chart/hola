@@ -14,6 +14,8 @@ export interface DiagramMetadata {
 export interface DiagramCode {
   raw: string;
   cleaned: string;
+  /** Text after frontmatter/directive removal but before comment cleanup. */
+  withComments?: string;
 }
 
 export interface InjectUtils {
