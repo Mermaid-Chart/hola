@@ -56,6 +56,9 @@ export class FlowDB implements DiagramDB {
   // AST storage for ANTLR parser
   private ast?: FlowchartAST;
 
+  // Original source text (before comment cleanup) for correct line number mapping
+  private originalText?: string;
+
   // Functions to be run after graph rendering
   private funs: ((element: Element) => void)[] = []; // cspell:ignore funs
 
@@ -791,6 +794,21 @@ You have to call mermaid.initialize.`
   }
 
   /**
+   * Store the original source text (before comment cleanup) for correct line number mapping.
+   * This is used by the Jison AST builder to compute positions that match the original source.
+   */
+  public setOriginalText(text: string): void {
+    this.originalText = text;
+  }
+
+  /**
+   * Get the original source text (before comment cleanup).
+   */
+  public getOriginalText(): string | undefined {
+    return this.originalText;
+  }
+
+  /**
    * Clears the internal graph db so that a new graph can be parsed.
    *
    */
@@ -808,6 +826,7 @@ You have to call mermaid.initialize.`
     this.version = ver;
     this.config = getConfig();
     this.ast = undefined; // Clear AST when clearing database
+    this.originalText = undefined;
     commonClear();
     log.debug('FlowDB: Database cleared successfully');
   }
