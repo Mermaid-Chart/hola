@@ -55,13 +55,15 @@ export class Diagram {
     if (metadata.title) {
       db.setDiagramTitle?.(metadata.title);
     }
-    // Use text with comments preserved when the DB supports inline position tracking.
-    // This ensures Jison @$ positions are in original-text space (no comment-stripping offset).
-    // The Jison grammar handles %% comments natively, so they don't need pre-stripping.
+    // For flowcharts, use text with comments preserved so that Jison @$ positions
+    // are in original-text space. The flowchart Jison grammar handles %% comments
+    // natively. For all other diagram types, use the cleaned text (comments stripped).
+    const dbAny = db as Record<string, unknown>;
+    const supportsInlinePositions = typeof dbAny.setSourceText === 'function';
     let textToParse: string;
     if (parser.features?.processRawText) {
       textToParse = encodeEntities(code.raw) + '\n';
-    } else if (code.withComments) {
+    } else if (supportsInlinePositions && code.withComments) {
       textToParse = encodeEntities(code.withComments) + '\n';
     } else {
       textToParse = encodeEntities(code.cleaned) + '\n';
