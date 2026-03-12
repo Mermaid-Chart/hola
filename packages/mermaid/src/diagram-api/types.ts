@@ -16,6 +16,8 @@ export interface DiagramCode {
   cleaned: string;
   /** Text after frontmatter/directive removal but before comment cleanup. */
   withComments?: string;
+  /** Number of lines occupied by YAML frontmatter (0 if none). */
+  frontmatterLineOffset?: number;
 }
 
 export interface InjectUtils {

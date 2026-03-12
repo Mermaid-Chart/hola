@@ -167,6 +167,7 @@ that id.
 
 <*>\s*\~\~[\~]+\s*              return 'LINK';
 
+<ellipseText>"%%"(?!\{)[^\n]*   { /* inline comment - skip */ }
 <ellipseText>[-/\)][\)]         { this.popState(); return '-)'; }
 <ellipseText>[^\(\)\[\]\{\}]|-\!\)+       return "TEXT"
 <*>"(-"                         { this.pushState("ellipseText"); return '(-'; }
@@ -187,9 +188,10 @@ that id.
 <text>")))"               { this.popState(); return 'DOUBLECIRCLEEND'; }
 <*>"((("                  { this.pushState("text"); return 'DOUBLECIRCLESTART'; }
 
+<trapText>"%%"(?!\{)[^\n]*   { /* inline comment - skip */ }
 <trapText>[\\(?=\])][\]]  { this.popState(); return 'TRAPEND'; }
 <trapText>\/(?=\])\]     { this.popState(); return 'INVTRAPEND'; }
-<trapText>\/(?!\])|\\(?!\])|[^\\\[\]\(\)\{\}\/]+        return 'TEXT';
+<trapText>\/(?!\])|\\(?!\])|(?:[^\\\[\]\(\)\{\}\/%]+|%(?!%))+        return 'TEXT';
 <*>"[/"                   { this.pushState("trapText"); return 'TRAPSTART'; }
 
 <*>"[\\"                 { this.pushState("trapText"); return 'INVTRAPSTART'; }
@@ -203,6 +205,7 @@ that id.
 "*"                   return 'MULT';
 "#"                   return 'BRKT';
 "&"                   return 'AMP';
+[ \t]*"%%"(?!\{)[^\n]*         return 'COMMENT';
 ([A-Za-z0-9!"\#$%&'*+\.`?\\_\/]|\-(?=[^\>\-\.])|=(?!=))+  {
     return 'NODE_STRING';
 }
@@ -281,11 +284,10 @@ that id.
 
 <text>(\})            { this.popState(); return 'DIAMOND_STOP' }
 <*>"{"                { this.pushState("text"); return 'DIAMOND_START' }
-<text>[^\[\]\(\)\{\}\|\"]+    return "TEXT";
+<text>"%%"(?!\{)[^\n]*    { /* inline comment - skip */ }
+<text>(?:[^\[\]\(\)\{\}\|\"%]+|%(?!%))+    return "TEXT";
 
 "\""                  return 'QUOTE';
-[ \t]*"%%"[^\n{][^\n]*          return 'COMMENT';
-[ \t]*"%%"[ \t]*$               return 'COMMENT';
 (\r?\n)+              return 'NEWLINE';
 \s                    return 'SPACE';
 <<EOF>>               return 'EOF';
@@ -330,6 +332,7 @@ line
 graphConfig
     : SPACE graphConfig
     | NEWLINE graphConfig
+    | COMMENT graphConfig
     | GRAPH NODIR
         { yy.setDirection('TB');$$ = 'TB';}
     | GRAPH DIR FirstStmtSeparator
@@ -351,7 +354,7 @@ ending: endToken ending
 endToken: NEWLINE | SPACE | EOF;
 
 FirstStmtSeparator
-    : SEMI | NEWLINE | spaceList NEWLINE ;
+    : SEMI | NEWLINE | spaceList NEWLINE | COMMENT ;
 
 
 spaceListNewline
@@ -396,7 +399,7 @@ statement
     | acc_descr_multiline_value { $$=$acc_descr_multiline_value.trim();yy.setAccDescription($$); }
     ;
 
-separator: NEWLINE | SEMI | EOF ;
+separator: NEWLINE | SEMI | EOF | COMMENT ;
 
 shapeData:
     shapeData SHAPE_DATA

@@ -79,6 +79,10 @@ export class FlowDB implements DiagramDB {
   private inlineMappingCount = 0;
   private inlineEdgeMappingCount = 0;
   private inlineStatementIndex = 0;
+  // Tracks how many times each (start->end) pair has been consumed during addEdgeMapping
+  private edgePairOccurrences = new Map<string, number>();
+  // Number of frontmatter lines to offset all positions by (so they match the original source)
+  private frontmatterLineOffset = 0;
 
   // Functions to be run after graph rendering
   private funs: ((element: Element) => void)[] = []; // cspell:ignore funs
@@ -104,6 +108,7 @@ export class FlowDB implements DiagramDB {
     this.bindFunctions = this.bindFunctions.bind(this);
     // Inline position capture (called from Jison grammar rules)
     this.setSourceText = this.setSourceText.bind(this);
+    this.setFrontmatterLineOffset = this.setFrontmatterLineOffset.bind(this);
     this.addVertexMapping = this.addVertexMapping.bind(this);
     this.addEdgeMapping = this.addEdgeMapping.bind(this);
     this.addSubgraphMapping = this.addSubgraphMapping.bind(this);
@@ -758,8 +763,9 @@ You have to call mermaid.initialize.`
       classes: edge.classes,
     }));
 
-    // Update edge statements with IDs from this.edges
-    // Match edges by start and end nodes
+    // Update edge statements with IDs from this.edges.
+    // Use occurrence tracking so that the Nth (start, end) pair matches the Nth edge.
+    const stmtOccurrences = new Map<string, number>();
     for (const statement of this.ast.statements) {
       if (
         statement.type === 'edge' &&
@@ -768,10 +774,20 @@ You have to call mermaid.initialize.`
         'end' in statement.data
       ) {
         const edgeData = statement.data as EdgeData;
-        // Find matching edge by start and end nodes
-        const matchingEdge = this.edges.find(
-          (e) => e.start === edgeData.start && e.end === edgeData.end
-        );
+        const pairKey = `${edgeData.start}->${edgeData.end}`;
+        const consumed = stmtOccurrences.get(pairKey) ?? 0;
+        let idx = 0;
+        let matchingEdge: (typeof this.edges)[number] | undefined;
+        for (const e of this.edges) {
+          if (e.start === edgeData.start && e.end === edgeData.end) {
+            if (idx === consumed) {
+              matchingEdge = e;
+              break;
+            }
+            idx++;
+          }
+        }
+        stmtOccurrences.set(pairKey, consumed + 1);
         if (matchingEdge) {
           edgeData.id = matchingEdge.id;
           edgeData.type = matchingEdge.type;
@@ -786,6 +802,7 @@ You have to call mermaid.initialize.`
     // Update element mappings with IDs from this.edges
     // This is needed for bidirectional sync to work correctly
     if (this.ast.elementMappings) {
+      const mappingOccurrences = new Map<string, number>();
       for (const mapping of this.ast.elementMappings) {
         if (
           mapping.type === 'edge' &&
@@ -794,10 +811,20 @@ You have to call mermaid.initialize.`
           'end' in mapping.data
         ) {
           const edgeData = mapping.data;
-          // Find matching edge by start and end nodes
-          const matchingEdge = this.edges.find(
-            (e) => e.start === edgeData.start && e.end === edgeData.end
-          );
+          const pairKey = `${edgeData.start}->${edgeData.end}`;
+          const consumed = mappingOccurrences.get(pairKey) ?? 0;
+          let idx = 0;
+          let matchingEdge: (typeof this.edges)[number] | undefined;
+          for (const e of this.edges) {
+            if (e.start === edgeData.start && e.end === edgeData.end) {
+              if (idx === consumed) {
+                matchingEdge = e;
+                break;
+              }
+              idx++;
+            }
+          }
+          mappingOccurrences.set(pairKey, consumed + 1);
           if (matchingEdge) {
             edgeData.id = matchingEdge.id;
             edgeData.type = matchingEdge.type;
@@ -836,6 +863,15 @@ You have to call mermaid.initialize.`
         this.lineOffsets.push(i + 1);
       }
     }
+  }
+
+  /**
+   * Set the number of frontmatter lines to add to all AST positions.
+   * This compensates for the frontmatter being stripped before parsing,
+   * so that AST positions match the original source shown in the editor.
+   */
+  public setFrontmatterLineOffset(offset: number): void {
+    this.frontmatterLineOffset = offset;
   }
 
   /**
@@ -901,7 +937,23 @@ You have to call mermaid.initialize.`
 
     for (const start of startArr) {
       for (const end of endArr) {
-        const matchingEdge = this.edges.find((e) => e.start === start && e.end === end);
+        // Find the Nth occurrence of this (start, end) pair in this.edges
+        // by skipping edges that were already consumed by earlier mappings.
+        const pairKey = `${start}->${end}`;
+        const alreadyConsumed = this.edgePairOccurrences.get(pairKey) ?? 0;
+        let occurrenceIdx = 0;
+        let matchingEdge: (typeof this.edges)[number] | undefined;
+        for (const e of this.edges) {
+          if (e.start === start && e.end === end) {
+            if (occurrenceIdx === alreadyConsumed) {
+              matchingEdge = e;
+              break;
+            }
+            occurrenceIdx++;
+          }
+        }
+        this.edgePairOccurrences.set(pairKey, alreadyConsumed + 1);
+
         const edgeId = matchingEdge?.id ?? getEdgeId(start, end, { counter: 0, prefix: 'L' });
 
         this.inlineMappings.push({
@@ -1247,8 +1299,12 @@ You have to call mermaid.initialize.`
       sgMap.set(sg.id, { id: sg.id, title: sg.title, statements: [] });
     }
 
+    // Detect header keyword from source text
+    const detectedHeader: 'flowchart' | 'graph' =
+      this.sourceText && /^\s*graph\b/m.test(this.sourceText) ? 'graph' : 'flowchart';
+
     const ast: FlowchartAST = {
-      header: 'flowchart',
+      header: detectedHeader,
       direction: firstDir,
       statements,
       elementMappings,
@@ -1258,6 +1314,26 @@ You have to call mermaid.initialize.`
         subgraphs: sgMap,
       },
     };
+
+    // Apply frontmatter line offset to all positions so they match
+    // the original source (which includes the frontmatter block) shown in the editor.
+    if (this.frontmatterLineOffset > 0) {
+      const offset = this.frontmatterLineOffset;
+      const offsetPos = (pos: ElementPosition) => {
+        pos.startLine += offset;
+        pos.endLine += offset;
+      };
+      for (const stmt of statements) {
+        if (stmt.position) {
+          offsetPos(stmt.position);
+        }
+      }
+      for (const mapping of elementMappings) {
+        if (mapping.position) {
+          offsetPos(mapping.position);
+        }
+      }
+    }
 
     attachSyncMethodsToAST(ast, elementMappings);
     return ast;
@@ -1288,6 +1364,8 @@ You have to call mermaid.initialize.`
     this.inlineMappingCount = 0;
     this.inlineEdgeMappingCount = 0;
     this.inlineStatementIndex = 0;
+    this.edgePairOccurrences = new Map();
+    this.frontmatterLineOffset = 0;
     commonClear();
     log.debug('FlowDB: Database cleared successfully');
   }

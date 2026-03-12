@@ -68,6 +68,15 @@ export class Diagram {
     } else {
       textToParse = encodeEntities(code.cleaned) + '\n';
     }
+    // Pass frontmatter line offset so AST positions can be adjusted
+    // to match the original source (which includes frontmatter) shown in the editor.
+    if (
+      supportsInlinePositions &&
+      code.frontmatterLineOffset &&
+      typeof dbAny.setFrontmatterLineOffset === 'function'
+    ) {
+      (dbAny.setFrontmatterLineOffset as (offset: number) => void)(code.frontmatterLineOffset);
+    }
     await parser.parse(textToParse);
     return new Diagram(type, textToParse, db, parser, renderer);
   }
