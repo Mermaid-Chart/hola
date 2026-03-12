@@ -284,6 +284,8 @@ that id.
 <text>[^\[\]\(\)\{\}\|\"]+    return "TEXT";
 
 "\""                  return 'QUOTE';
+[ \t]*"%%"[^\n{][^\n]*          return 'COMMENT';
+[ \t]*"%%"[ \t]*$               return 'COMMENT';
 (\r?\n)+              return 'NEWLINE';
 \s                    return 'SPACE';
 <<EOF>>               return 'EOF';
@@ -317,6 +319,8 @@ document
 line
 	: statement
 	{$$=$statement;}
+	| COMMENT
+	{if(yy.addComment){yy.addComment($COMMENT,@1);} $$=[];}
 	| SEMI
 	| NEWLINE
 	| SPACE
@@ -353,8 +357,10 @@ FirstStmtSeparator
 spaceListNewline
     : SPACE spaceListNewline
     | NEWLINE spaceListNewline
+    | COMMENT spaceListNewline
     | NEWLINE
     | SPACE
+    | COMMENT
     ;
 
 

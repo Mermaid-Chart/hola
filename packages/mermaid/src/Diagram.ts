@@ -55,17 +55,19 @@ export class Diagram {
     if (metadata.title) {
       db.setDiagramTitle?.(metadata.title);
     }
-    // Pass the text with comments to FlowDB for position mapping.
-    // The parser always receives cleaned text (comments stripped), but FlowDB
-    // uses the withComments text to map cleaned-text positions back to original lines.
+    // For flowcharts, use text with comments preserved so that Jison @$ positions
+    // are in original-text space. The flowchart Jison grammar handles %% comments
+    // natively. For all other diagram types, use the cleaned text (comments stripped).
     const dbAny = db as Record<string, unknown>;
-    if (code.withComments && typeof dbAny.setTextWithComments === 'function') {
-      (dbAny.setTextWithComments as (text: string) => void)(
-        encodeEntities(code.withComments) + '\n'
-      );
+    const supportsInlinePositions = typeof dbAny.setSourceText === 'function';
+    let textToParse: string;
+    if (parser.features?.processRawText) {
+      textToParse = encodeEntities(code.raw) + '\n';
+    } else if (supportsInlinePositions && code.withComments) {
+      textToParse = encodeEntities(code.withComments) + '\n';
+    } else {
+      textToParse = encodeEntities(code.cleaned) + '\n';
     }
-    const textToParse =
-      encodeEntities(parser.features?.processRawText ? code.raw : code.cleaned) + '\n';
     await parser.parse(textToParse);
     return new Diagram(type, textToParse, db, parser, renderer);
   }
