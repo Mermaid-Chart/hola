@@ -366,6 +366,17 @@ export interface FlowchartStatement extends DiagramStatement {
 }
 
 /**
+ * Jison location object provided by the parser's \@$ / \@1 / \@2 ... location tracking.
+ * Lines are 1-based, columns are 0-based.
+ */
+export interface JisonLocation {
+  first_line: number;
+  last_line: number;
+  first_column: number;
+  last_column: number;
+}
+
+/**
  * Element position for bidirectional sync
  */
 export interface ElementPosition {

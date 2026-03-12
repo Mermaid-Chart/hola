@@ -51,15 +51,33 @@ export const antlrDiagram = (diagramType: string) =>
  */
 export function preprocessDiagram(code: string) {
   const rawCode = code;
-  let cleanedCode = cleanupText(code);
-  const frontMatterResult = processFrontmatter(cleanedCode);
+  const normalizedCode = cleanupText(code);
+  const frontMatterResult = processFrontmatter(normalizedCode);
   const directiveResult = processDirectives(frontMatterResult.text);
   const config = cleanAndMerge(frontMatterResult.config, directiveResult.directive);
-  cleanedCode = cleanupComments(directiveResult.text);
+  const withComments = directiveResult.text;
+  const cleanedCode = cleanupComments(withComments);
+
+  // Compute the number of lines occupied by frontmatter so that Jison @$ positions
+  // (which are relative to the post-frontmatter text) can be mapped back to the
+  // original source shown in the editor.
+  // Compare the normalized code (before frontmatter removal) with the text after
+  // frontmatter removal to get the frontmatter block length.
+  const frontmatterLineOffset =
+    normalizedCode.length > frontMatterResult.text.length
+      ? (
+          normalizedCode
+            .substring(0, normalizedCode.length - frontMatterResult.text.length)
+            .match(/\n/g) ?? []
+        ).length
+      : 0;
+
   return {
     code: {
       raw: rawCode,
       cleaned: cleanedCode,
+      withComments,
+      frontmatterLineOffset,
     },
     title: frontMatterResult.title,
     config,

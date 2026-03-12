@@ -43,19 +43,32 @@ async function parseWithAntlr(input: string): Promise<FlowchartAST> {
 async function parseWithJison(input: string): Promise<FlowchartAST> {
   const { FlowDB } = await import('../../flowDb.js');
   const flowParserModule = await import('../flowParser.js');
-  const { cleanupComments } = await import('../../../../diagram-api/comments.js');
   const flowParser = flowParserModule.default;
+  const { extractFrontMatter } = await import('../../../../diagram-api/frontmatter.js');
+  const { removeDirectives } = await import('../../../../utils.js');
 
   const db = new FlowDB();
   db.clear();
   flowParser.parser.yy = db;
 
-  // Store original text (with comments) for correct line number mapping
-  db.setOriginalText(input);
+  // Preprocess: strip frontmatter and directives (but keep comments).
+  // This mirrors the real pipeline in Diagram.ts / preprocessDiagram.
+  let textToParse = input.replace(/\r\n?/g, '\n');
+  const { text: noFrontMatter } = extractFrontMatter(textToParse);
 
-  // Clean up comments before parsing (matches the real pipeline in preprocessDiagram)
-  const cleanedInput = cleanupComments(input);
-  flowParser.parse(cleanedInput);
+  // Compute frontmatter line offset (same logic as preprocessDiagram)
+  const frontmatterLineOffset =
+    textToParse.length > noFrontMatter.length
+      ? (textToParse.substring(0, textToParse.length - noFrontMatter.length).match(/\n/g) ?? [])
+          .length
+      : 0;
+  if (frontmatterLineOffset > 0) {
+    db.setFrontmatterLineOffset(frontmatterLineOffset);
+  }
+
+  textToParse = removeDirectives(noFrontMatter);
+
+  flowParser.parse(textToParse);
 
   const ast = db.getAST();
   if (!ast) {

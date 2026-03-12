@@ -55,15 +55,30 @@ export class Diagram {
     if (metadata.title) {
       db.setDiagramTitle?.(metadata.title);
     }
-    // Store original text (before comment cleanup) for correct line number mapping
-    // This is used by the Jison AST builder to compute positions matching the original source
+    // For flowcharts, use text with comments preserved so that Jison @$ positions
+    // are in original-text space. The flowchart Jison grammar handles %% comments
+    // natively. For all other diagram types, use the cleaned text (comments stripped).
     const dbAny = db as Record<string, unknown>;
-    if (typeof dbAny.setOriginalText === 'function') {
-      (dbAny.setOriginalText as (text: string) => void)(encodeEntities(code.raw) + '\n');
+    const supportsInlinePositions = typeof dbAny.setSourceText === 'function';
+    let textToParse: string;
+    if (parser.features?.processRawText) {
+      textToParse = encodeEntities(code.raw) + '\n';
+    } else if (supportsInlinePositions && code.withComments) {
+      textToParse = encodeEntities(code.withComments) + '\n';
+    } else {
+      textToParse = encodeEntities(code.cleaned) + '\n';
     }
-    const text = encodeEntities(parser.features?.processRawText ? code.raw : code.cleaned) + '\n';
-    await parser.parse(text);
-    return new Diagram(type, text, db, parser, renderer);
+    // Pass frontmatter line offset so AST positions can be adjusted
+    // to match the original source (which includes frontmatter) shown in the editor.
+    if (
+      supportsInlinePositions &&
+      code.frontmatterLineOffset &&
+      typeof dbAny.setFrontmatterLineOffset === 'function'
+    ) {
+      (dbAny.setFrontmatterLineOffset as (offset: number) => void)(code.frontmatterLineOffset);
+    }
+    await parser.parse(textToParse);
+    return new Diagram(type, textToParse, db, parser, renderer);
   }
 
   private constructor(

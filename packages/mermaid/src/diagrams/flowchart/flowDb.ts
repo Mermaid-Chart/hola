@@ -19,16 +19,25 @@ import {
   getDiagramTitle,
 } from '../common/commonDb.js';
 import type {
+  BlankLineData,
+  CommentData,
   EdgeData,
+  ElementPosition,
   FlowClass,
   FlowEdge,
+  FlowchartAST,
+  FlowchartElementMapping,
+  FlowchartStatement,
   FlowLink,
   FlowSubGraph,
   FlowText,
   FlowVertex,
   FlowVertexTypeParam,
-  FlowchartAST,
+  JisonLocation,
+  SubgraphData,
+  VertexData,
 } from './types.js';
+import { attachSyncMethodsToAST } from './parser/FlowchartSyncMethods.js';
 
 interface LinkData {
   id: string;
@@ -53,11 +62,27 @@ export class FlowDB implements DiagramDB {
   private secCount = -1;
   private posCrossRef: number[] = [];
 
-  // AST storage for ANTLR parser
+  // AST storage (built from inline mappings or set by ANTLR parser)
   private ast?: FlowchartAST;
 
-  // Original source text (before comment cleanup) for correct line number mapping
-  private originalText?: string;
+  // Inline position tracking: populated by Jison grammar rules during parsing
+  private sourceText?: string;
+  private lineOffsets: number[] = [];
+  private inlineMappings: {
+    type: 'vertex' | 'edge' | 'subgraph' | 'comment';
+    id: string;
+    position: ElementPosition;
+    svgId?: string;
+    data: Record<string, unknown>;
+    statementOriginalIndex: number;
+  }[] = [];
+  private inlineMappingCount = 0;
+  private inlineEdgeMappingCount = 0;
+  private inlineStatementIndex = 0;
+  // Tracks how many times each (start->end) pair has been consumed during addEdgeMapping
+  private edgePairOccurrences = new Map<string, number>();
+  // Number of frontmatter lines to offset all positions by (so they match the original source)
+  private frontmatterLineOffset = 0;
 
   // Functions to be run after graph rendering
   private funs: ((element: Element) => void)[] = []; // cspell:ignore funs
@@ -81,6 +106,13 @@ export class FlowDB implements DiagramDB {
     this.updateLinkInterpolate = this.updateLinkInterpolate.bind(this);
     this.setClickFun = this.setClickFun.bind(this);
     this.bindFunctions = this.bindFunctions.bind(this);
+    // Inline position capture (called from Jison grammar rules)
+    this.setSourceText = this.setSourceText.bind(this);
+    this.setFrontmatterLineOffset = this.setFrontmatterLineOffset.bind(this);
+    this.addVertexMapping = this.addVertexMapping.bind(this);
+    this.addEdgeMapping = this.addEdgeMapping.bind(this);
+    this.addSubgraphMapping = this.addSubgraphMapping.bind(this);
+    this.addComment = this.addComment.bind(this);
 
     this.lex = {
       firstGraph: this.firstGraph.bind(this),
@@ -731,8 +763,9 @@ You have to call mermaid.initialize.`
       classes: edge.classes,
     }));
 
-    // Update edge statements with IDs from this.edges
-    // Match edges by start and end nodes
+    // Update edge statements with IDs from this.edges.
+    // Use occurrence tracking so that the Nth (start, end) pair matches the Nth edge.
+    const stmtOccurrences = new Map<string, number>();
     for (const statement of this.ast.statements) {
       if (
         statement.type === 'edge' &&
@@ -741,10 +774,20 @@ You have to call mermaid.initialize.`
         'end' in statement.data
       ) {
         const edgeData = statement.data as EdgeData;
-        // Find matching edge by start and end nodes
-        const matchingEdge = this.edges.find(
-          (e) => e.start === edgeData.start && e.end === edgeData.end
-        );
+        const pairKey = `${edgeData.start}->${edgeData.end}`;
+        const consumed = stmtOccurrences.get(pairKey) ?? 0;
+        let idx = 0;
+        let matchingEdge: (typeof this.edges)[number] | undefined;
+        for (const e of this.edges) {
+          if (e.start === edgeData.start && e.end === edgeData.end) {
+            if (idx === consumed) {
+              matchingEdge = e;
+              break;
+            }
+            idx++;
+          }
+        }
+        stmtOccurrences.set(pairKey, consumed + 1);
         if (matchingEdge) {
           edgeData.id = matchingEdge.id;
           edgeData.type = matchingEdge.type;
@@ -759,6 +802,7 @@ You have to call mermaid.initialize.`
     // Update element mappings with IDs from this.edges
     // This is needed for bidirectional sync to work correctly
     if (this.ast.elementMappings) {
+      const mappingOccurrences = new Map<string, number>();
       for (const mapping of this.ast.elementMappings) {
         if (
           mapping.type === 'edge' &&
@@ -767,10 +811,20 @@ You have to call mermaid.initialize.`
           'end' in mapping.data
         ) {
           const edgeData = mapping.data;
-          // Find matching edge by start and end nodes
-          const matchingEdge = this.edges.find(
-            (e) => e.start === edgeData.start && e.end === edgeData.end
-          );
+          const pairKey = `${edgeData.start}->${edgeData.end}`;
+          const consumed = mappingOccurrences.get(pairKey) ?? 0;
+          let idx = 0;
+          let matchingEdge: (typeof this.edges)[number] | undefined;
+          for (const e of this.edges) {
+            if (e.start === edgeData.start && e.end === edgeData.end) {
+              if (idx === consumed) {
+                matchingEdge = e;
+                break;
+              }
+              idx++;
+            }
+          }
+          mappingOccurrences.set(pairKey, consumed + 1);
           if (matchingEdge) {
             edgeData.id = matchingEdge.id;
             edgeData.type = matchingEdge.type;
@@ -793,19 +847,496 @@ You have to call mermaid.initialize.`
     return this.ast;
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // Inline position capture (called from Jison grammar rules via @$)
+  // ────────────────────────────────────────────────────────────────
+
   /**
-   * Store the original source text (before comment cleanup) for correct line number mapping.
-   * This is used by the Jison AST builder to compute positions that match the original source.
+   * Store the source text and precompute line offsets for O(1) position conversion.
+   * Called from Diagram.ts before parsing.
    */
-  public setOriginalText(text: string): void {
-    this.originalText = text;
+  public setSourceText(text: string): void {
+    this.sourceText = text;
+    this.lineOffsets = [0];
+    for (const [i, ch] of [...text].entries()) {
+      if (ch === '\n') {
+        this.lineOffsets.push(i + 1);
+      }
+    }
   }
 
   /**
-   * Get the original source text (before comment cleanup).
+   * Set the number of frontmatter lines to add to all AST positions.
+   * This compensates for the frontmatter being stripped before parsing,
+   * so that AST positions match the original source shown in the editor.
    */
-  public getOriginalText(): string | undefined {
-    return this.originalText;
+  public setFrontmatterLineOffset(offset: number): void {
+    this.frontmatterLineOffset = offset;
+  }
+
+  /**
+   * Convert a Jison \@$ location to an ElementPosition.
+   */
+  private jisonLocToPosition(loc: JisonLocation): ElementPosition {
+    const startLine = loc.first_line;
+    const startColumn = loc.first_column;
+    const endLine = loc.last_line;
+    const endColumn = loc.last_column;
+    const startIndex = (this.lineOffsets[startLine - 1] ?? 0) + startColumn;
+    const endIndex = (this.lineOffsets[endLine - 1] ?? 0) + endColumn - 1;
+    return { startLine, startColumn, endLine, endColumn, startIndex, endIndex };
+  }
+
+  /**
+   * Record a vertex mapping during parsing.
+   * Called from Jison grammar vertex rules with \@$.
+   */
+  public addVertexMapping(
+    id: string,
+    textObj: FlowText | undefined,
+    type: string | undefined,
+    loc: JisonLocation
+  ): void {
+    if (!loc) {
+      return;
+    }
+    const position = this.jisonLocToPosition(loc);
+    const data: Record<string, unknown> = { id };
+    if (textObj !== undefined) {
+      data.text = textObj.text.trim();
+    } else {
+      data.text = '';
+    }
+    if (type !== undefined) {
+      data.type = type;
+    }
+    this.inlineMappings.push({
+      id: `vertex-${this.inlineMappingCount++}`,
+      type: 'vertex',
+      position,
+      data,
+      statementOriginalIndex: this.inlineStatementIndex++,
+    });
+  }
+
+  /**
+   * Record an edge mapping during parsing.
+   * Called from Jison grammar vertexStatement rules with \@$.
+   */
+  public addEdgeMapping(
+    startArr: string[],
+    endArr: string[],
+    _linkData: unknown,
+    loc: JisonLocation
+  ): void {
+    if (!loc) {
+      return;
+    }
+    const stmtPosition = this.jisonLocToPosition(loc);
+    const stmtOrigIdx = this.inlineStatementIndex++;
+
+    for (const start of startArr) {
+      for (const end of endArr) {
+        // Find the Nth occurrence of this (start, end) pair in this.edges
+        // by skipping edges that were already consumed by earlier mappings.
+        const pairKey = `${start}->${end}`;
+        const alreadyConsumed = this.edgePairOccurrences.get(pairKey) ?? 0;
+        let occurrenceIdx = 0;
+        let matchingEdge: (typeof this.edges)[number] | undefined;
+        for (const e of this.edges) {
+          if (e.start === start && e.end === end) {
+            if (occurrenceIdx === alreadyConsumed) {
+              matchingEdge = e;
+              break;
+            }
+            occurrenceIdx++;
+          }
+        }
+        this.edgePairOccurrences.set(pairKey, alreadyConsumed + 1);
+
+        const edgeId = matchingEdge?.id ?? getEdgeId(start, end, { counter: 0, prefix: 'L' });
+
+        this.inlineMappings.push({
+          id: `edge-${this.inlineEdgeMappingCount++}`,
+          type: 'edge',
+          position: { ...stmtPosition },
+          svgId: edgeId,
+          data: {
+            id: edgeId,
+            start,
+            end,
+            text: matchingEdge?.text ?? '',
+            svgId: edgeId,
+            type: matchingEdge?.type ?? 'arrow_point',
+            stroke: matchingEdge?.stroke ?? 'normal',
+            length: matchingEdge?.length ?? 1,
+          },
+          statementOriginalIndex: stmtOrigIdx,
+        });
+      }
+    }
+
+    // Add vertex-reference mappings for all nodes in start and end arrays
+    const allNodes = new Set([...startArr, ...endArr]);
+    for (const nodeId of allNodes) {
+      this.inlineMappings.push({
+        id: `vertex-${this.inlineMappingCount++}`,
+        type: 'vertex',
+        position: { ...stmtPosition },
+        data: { id: nodeId, text: nodeId },
+        statementOriginalIndex: stmtOrigIdx,
+      });
+    }
+  }
+
+  /**
+   * Record a subgraph mapping during parsing.
+   * Called from Jison grammar statement rules with \@1 (subgraph keyword) and \@end.
+   */
+  public addSubgraphMapping(
+    id: { text: string } | undefined,
+    title: { text: string; type: string } | undefined,
+    loc: JisonLocation,
+    endLoc?: JisonLocation
+  ): void {
+    if (!loc) {
+      return;
+    }
+    const position = this.jisonLocToPosition(loc);
+    const sgId = id?.text?.trim() ?? '';
+
+    // Extend position to include the 'end' keyword
+    if (endLoc) {
+      const endPosition = this.jisonLocToPosition(endLoc);
+      position.endLine = endPosition.endLine;
+      position.endColumn = endPosition.endColumn;
+      position.endIndex = endPosition.endIndex;
+    }
+
+    const titleText = title?.text ?? '';
+    this.inlineMappings.push({
+      id: `subgraph-${this.inlineMappingCount++}`,
+      type: 'subgraph',
+      position,
+      svgId: sgId,
+      data: { id: sgId, title: titleText },
+      statementOriginalIndex: this.inlineStatementIndex++,
+    });
+  }
+
+  /**
+   * Record a comment during parsing.
+   * Called from Jison grammar line rule when a COMMENT token is matched.
+   */
+  public addComment(text: string, loc: JisonLocation): void {
+    if (!loc) {
+      return;
+    }
+    const position = this.jisonLocToPosition(loc);
+    this.inlineMappings.push({
+      id: `comment-${this.inlineMappingCount++}`,
+      type: 'comment',
+      position,
+      data: { text: text.trim() },
+      statementOriginalIndex: this.inlineStatementIndex++,
+    });
+  }
+
+  /**
+   * Build a FlowchartAST from inline mappings captured during parsing.
+   * Returns undefined if no inline mappings were captured.
+   */
+  public buildASTFromInlineMappings(): FlowchartAST | undefined {
+    if (this.inlineMappings.length === 0) {
+      return undefined;
+    }
+
+    const statements: FlowchartStatement[] = [];
+    const elementMappings: FlowchartElementMapping[] = [];
+    const direction = (this.getDirection()?.trim() as FlowchartAST['direction']) ?? 'TB';
+    const firstDir = direction === 'TD' ? 'TB' : direction;
+
+    // Track which vertices we've already created statements for
+    const seenVertexStatements = new Set<string>();
+    // Track vertex element mappings per (vertexId, line) to deduplicate
+    const seenVertexLines = new Set<string>();
+    // Track edge IDs for proper occurrence indexing
+    let edgeMappingIndex = 0;
+
+    // Sort by statement index to preserve parse order
+    const sorted = [...this.inlineMappings].sort(
+      (a, b) => a.statementOriginalIndex - b.statementOriginalIndex
+    );
+
+    // First pass: collect which lines have edges
+    // (so we know which vertex mappings are standalone vs edge-embedded)
+    const edgeLines = new Set<number>();
+    for (const im of sorted) {
+      if (im.type === 'edge') {
+        for (let l = im.position.startLine; l <= im.position.endLine; l++) {
+          edgeLines.add(l);
+        }
+      }
+    }
+
+    for (const im of sorted) {
+      const dataId = typeof im.data.id === 'string' ? im.data.id : '';
+
+      switch (im.type) {
+        case 'vertex': {
+          // Look up full vertex data from FlowDB
+          const dbVertex = this.getVertices().get(dataId);
+          const vtxText = dbVertex?.text ?? (typeof im.data.text === 'string' ? im.data.text : '');
+          const vertexData: VertexData = {
+            id: dataId,
+            text: vtxText,
+            type: (dbVertex?.type ??
+              (typeof im.data.type === 'string' ? im.data.type : undefined)) as FlowVertexTypeParam,
+          };
+
+          // Create a vertex STATEMENT only for standalone vertex definitions
+          // (not vertices embedded in edge lines)
+          const isStandalone = !edgeLines.has(im.position.startLine);
+          if (isStandalone && !seenVertexStatements.has(dataId)) {
+            seenVertexStatements.add(dataId);
+            statements.push({
+              type: 'vertex',
+              data: vertexData,
+              position: { ...im.position },
+              statementId: `stmt-vertex-${dataId}`,
+              originalIndex: im.statementOriginalIndex,
+            });
+          }
+
+          // Create element mapping, deduplicated per (vertexId, line).
+          const vtxLineKey = `${dataId}@L${im.position.startLine}`;
+          if (!seenVertexLines.has(vtxLineKey)) {
+            seenVertexLines.add(vtxLineKey);
+            elementMappings.push({
+              id: `vertex-${dataId}-${im.statementOriginalIndex}`,
+              type: 'vertex',
+              position: { ...im.position },
+              svgId: dataId,
+              svgSelector: `[data-id="${dataId}"]`,
+              data: vertexData,
+              statementId: `stmt-vertex-${dataId}`,
+              statementOriginalIndex: im.statementOriginalIndex,
+            });
+          }
+          break;
+        }
+
+        case 'edge': {
+          const edgeData: EdgeData = {
+            id: typeof im.data.id === 'string' ? im.data.id : '',
+            start: typeof im.data.start === 'string' ? im.data.start : '',
+            end: typeof im.data.end === 'string' ? im.data.end : '',
+            text: typeof im.data.text === 'string' ? im.data.text : '',
+            svgId: im.svgId ?? (typeof im.data.svgId === 'string' ? im.data.svgId : ''),
+            type: (typeof im.data.type === 'string'
+              ? im.data.type
+              : 'arrow_point') as EdgeData['type'],
+            stroke: (typeof im.data.stroke === 'string'
+              ? im.data.stroke
+              : 'normal') as EdgeData['stroke'],
+            length: typeof im.data.length === 'number' ? im.data.length : 1,
+          };
+
+          const stmtId = `stmt-edge-${edgeMappingIndex}`;
+          const stmt: FlowchartStatement = {
+            type: 'edge',
+            data: edgeData,
+            position: { ...im.position },
+            statementId: stmtId,
+            originalIndex: im.statementOriginalIndex,
+          };
+          statements.push(stmt);
+
+          elementMappings.push({
+            id: `edge-${edgeMappingIndex}`,
+            type: 'edge',
+            position: { ...im.position },
+            svgId: edgeData.svgId,
+            svgSelector: edgeData.svgId ? `[id*="${edgeData.svgId}"]` : undefined,
+            data: edgeData,
+            statementId: stmtId,
+            statementOriginalIndex: im.statementOriginalIndex,
+            occurrenceIndex: edgeMappingIndex,
+          });
+          edgeMappingIndex++;
+          break;
+        }
+
+        case 'subgraph': {
+          const sgId = typeof im.data.id === 'string' ? im.data.id : '';
+          const sgTitle = typeof im.data.title === 'string' ? im.data.title : sgId;
+
+          const sgData: SubgraphData = {
+            id: sgId,
+            title: sgTitle,
+            statements: [],
+          };
+
+          // Subgraph declaration-line-only position (for element mapping / highlighting).
+          // The full block span (subgraph...end) is kept in the statement.
+          const declLinePos: ElementPosition = {
+            startLine: im.position.startLine,
+            startColumn: im.position.startColumn,
+            endLine: im.position.startLine,
+            endColumn: this.sourceText
+              ? this.sourceText
+                  .slice(
+                    im.position.startIndex,
+                    this.lineOffsets[im.position.startLine] ?? this.sourceText.length
+                  )
+                  .trimEnd().length + im.position.startColumn
+              : im.position.endColumn,
+            startIndex: im.position.startIndex,
+            endIndex: this.sourceText
+              ? im.position.startIndex +
+                this.sourceText
+                  .slice(
+                    im.position.startIndex,
+                    this.lineOffsets[im.position.startLine] ?? this.sourceText.length
+                  )
+                  .trimEnd().length -
+                1
+              : im.position.endIndex,
+          };
+
+          const sgStmtId = `stmt-subgraph-${sgId}`;
+          const stmt: FlowchartStatement = {
+            type: 'subgraph',
+            data: sgData,
+            position: { ...im.position }, // Full block span
+            statementId: sgStmtId,
+            originalIndex: im.statementOriginalIndex,
+          };
+          statements.push(stmt);
+
+          elementMappings.push({
+            id: `subgraph-${sgId}`,
+            type: 'subgraph',
+            position: declLinePos, // Declaration line only
+            svgId: sgId,
+            svgSelector: `[data-id="${sgId}"]`,
+            data: sgData,
+            statementId: sgStmtId,
+            statementOriginalIndex: im.statementOriginalIndex,
+          });
+          break;
+        }
+
+        case 'comment': {
+          const commentText = typeof im.data.text === 'string' ? im.data.text : '';
+          const commentData: CommentData = { text: commentText };
+          statements.push({
+            type: 'comment',
+            data: commentData,
+            position: { ...im.position },
+            statementId: im.id,
+            originalIndex: im.statementOriginalIndex,
+          });
+          break;
+        }
+      }
+    }
+
+    // Insert blank lines for gaps between statements
+    if (this.sourceText) {
+      const totalLines = this.lineOffsets.length;
+      const coveredLines = new Set<number>();
+      for (const stmt of statements) {
+        if (stmt.position) {
+          for (let l = stmt.position.startLine; l <= stmt.position.endLine; l++) {
+            coveredLines.add(l);
+          }
+        }
+      }
+      // Line 1 is typically the "flowchart LR" header — skip it
+      for (let line = 2; line <= totalLines; line++) {
+        if (!coveredLines.has(line)) {
+          const lineStart = this.lineOffsets[line - 1] ?? 0;
+          const lineEnd = (this.lineOffsets[line] ?? this.sourceText.length) - 1;
+          const lineText = this.sourceText.slice(lineStart, lineEnd + 1).trim();
+          // Only add blank lines for truly empty lines (not header/direction lines)
+          if (lineText === '') {
+            const blankData: BlankLineData = {};
+            statements.push({
+              type: 'blankLine',
+              data: blankData,
+              position: {
+                startLine: line,
+                startColumn: 0,
+                endLine: line,
+                endColumn: 0,
+                startIndex: lineStart,
+                endIndex: lineStart,
+              },
+              statementId: `blank-${line}`,
+              originalIndex: line * 1000,
+            });
+          }
+        }
+      }
+    }
+
+    // Sort statements by originalIndex
+    statements.sort((a, b) => (a.originalIndex ?? 0) - (b.originalIndex ?? 0));
+
+    // Build metadata
+    const nodesMap: Record<string, VertexData> = {};
+    for (const [id, v] of this.getVertices()) {
+      nodesMap[id] = {
+        id,
+        text: v.text ?? '',
+        type: v.type as FlowVertexTypeParam,
+      };
+    }
+
+    const sgMap = new Map<string, SubgraphData>();
+    for (const sg of this.getSubGraphs()) {
+      sgMap.set(sg.id, { id: sg.id, title: sg.title, statements: [] });
+    }
+
+    // Detect header keyword from source text
+    const detectedHeader: 'flowchart' | 'graph' =
+      this.sourceText && /^\s*graph\b/m.test(this.sourceText) ? 'graph' : 'flowchart';
+
+    const ast: FlowchartAST = {
+      header: detectedHeader,
+      direction: firstDir,
+      statements,
+      elementMappings,
+      metadata: {
+        nodes: nodesMap,
+        edges: this.getEdges(),
+        subgraphs: sgMap,
+      },
+    };
+
+    // Apply frontmatter line offset to all positions so they match
+    // the original source (which includes the frontmatter block) shown in the editor.
+    if (this.frontmatterLineOffset > 0) {
+      const offset = this.frontmatterLineOffset;
+      const offsetPos = (pos: ElementPosition) => {
+        pos.startLine += offset;
+        pos.endLine += offset;
+      };
+      for (const stmt of statements) {
+        if (stmt.position) {
+          offsetPos(stmt.position);
+        }
+      }
+      for (const mapping of elementMappings) {
+        if (mapping.position) {
+          offsetPos(mapping.position);
+        }
+      }
+    }
+
+    attachSyncMethodsToAST(ast, elementMappings);
+    return ast;
   }
 
   /**
@@ -825,8 +1356,16 @@ You have to call mermaid.initialize.`
     this.firstGraphFlag = true;
     this.version = ver;
     this.config = getConfig();
-    this.ast = undefined; // Clear AST when clearing database
-    this.originalText = undefined;
+    this.ast = undefined;
+    // Clear inline position tracking
+    this.sourceText = undefined;
+    this.lineOffsets = [];
+    this.inlineMappings = [];
+    this.inlineMappingCount = 0;
+    this.inlineEdgeMappingCount = 0;
+    this.inlineStatementIndex = 0;
+    this.edgePairOccurrences = new Map();
+    this.frontmatterLineOffset = 0;
     commonClear();
     log.debug('FlowDB: Database cleared successfully');
   }
