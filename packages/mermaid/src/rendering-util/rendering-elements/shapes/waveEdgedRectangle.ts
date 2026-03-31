@@ -29,7 +29,6 @@ export async function waveEdgedRectangle<T extends SVGGraphicsElement>(
     if (node.width < 10) {
       node.width = 10;
     }
-
     node.height = (node?.height ?? 0) - labelPaddingY * 2;
     if (node.height < 10) {
       node.height = 10;

@@ -1,6 +1,6 @@
 const getStyles = (options) =>
   `
-defs #statediagram-barbEnd {
+defs [id$="-barbEnd"] {
     fill: ${options.transitionColor};
     stroke: ${options.transitionColor};
   }
@@ -27,7 +27,7 @@ g.stateGroup rect {
 
 g.stateGroup line {
   stroke: ${options.lineColor};
-  stroke-width: 1;
+  stroke-width: ${options.strokeWidth || 1};
 }
 
 .transition {
@@ -136,9 +136,9 @@ g.stateGroup line {
 .node polygon {
   fill: ${options.mainBkg};
   stroke: ${options.stateBorder || options.nodeBorder};;
-  stroke-width: 1px;
+  stroke-width: ${options.strokeWidth || 1}px;
 }
-#statediagram-barbEnd {
+[id$="-barbEnd"] {
   fill: ${options.lineColor};
 }
 
@@ -229,10 +229,10 @@ g.stateGroup line {
   color: red; // ${options.noteTextColor};
 }
 
-#dependencyStart, #dependencyEnd {
+[id$="-dependencyStart"], [id$="-dependencyEnd"] {
   fill: ${options.lineColor};
   stroke: ${options.lineColor};
-  stroke-width: 1;
+  stroke-width: ${options.strokeWidth || 1};
 }
 
 .statediagramTitleText {
@@ -241,14 +241,15 @@ g.stateGroup line {
   fill: ${options.textColor};
 }
 
+[data-look="neo"].statediagram-cluster rect {
+  fill: ${options.mainBkg};
+  stroke: ${options.useGradient ? 'url(' + options.svgId + '-gradient)' : options.stateBorder || options.nodeBorder};
+  stroke-width: ${options.strokeWidth ?? 1};
+}
 [data-look="neo"].statediagram-cluster rect.outer {
   rx: ${options.radius}px;
   ry: ${options.radius}px;
-  filter: ${options.dropShadow}
-}
-[data-look="neo"].statediagram-cluster .inner {
-  rx: ${options.radius}px;
-  ry: ${options.radius}px;
+  filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${options.svgId}-drop-shadow)`) : 'none'}
 }
 `;
 

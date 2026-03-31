@@ -1,6 +1,6 @@
 {
   "name": "@mermaid-js/tiny",
-  "version": "11.12.2-b.7",
+  "version": "11.14.0-b.1",
   "description": "Tiny version of mermaid",
   "type": "commonjs",
   "main": "./dist/mermaid.tiny.js",

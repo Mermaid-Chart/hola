@@ -47,7 +47,7 @@ const registerDefaultLayoutLoaders = () => {
       name: 'fixed',
       loader: async () => await import('./layout-algorithms/fixed/index.js'),
     },
-    ...(includeLargeFeatures
+    ...(injected.includeLargeFeatures
       ? [
           {
             name: 'cose-bilkent',
@@ -65,16 +65,27 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: any)
     throw new Error(`Unknown layout algorithm: ${data4Layout.layoutAlgorithm}`);
   }
 
+  // Prefix all node domIds with the diagram's SVG element ID to ensure uniqueness
+  // across multiple diagrams on the same page.
+  if (data4Layout.diagramId) {
+    for (const node of data4Layout.nodes) {
+      const originalDomId = node.domId || node.id;
+      node.domId = `${data4Layout.diagramId}-${originalDomId}`;
+    }
+  }
+
   const layoutDefinition = layoutAlgorithms[data4Layout.layoutAlgorithm];
   const layoutRenderer = await layoutDefinition.loader();
 
   const { theme, themeVariables } = data4Layout.config;
   const { useGradient, gradientStart, gradientStop } = themeVariables;
 
+  const svgId = svg.attr('id');
+
   svg
     .append('defs')
     .append('filter')
-    .attr('id', 'drop-shadow')
+    .attr('id', `${svgId}-drop-shadow`)
     .attr('height', '130%')
     .attr('width', '130%')
     .append('feDropShadow')
@@ -87,7 +98,7 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: any)
   svg
     .append('defs')
     .append('filter')
-    .attr('id', 'drop-shadow-small')
+    .attr('id', `${svgId}-drop-shadow-small`)
     .attr('height', '150%')
     .attr('width', '150%')
     .append('feDropShadow')
@@ -101,7 +112,7 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: any)
     const gradient = svg
       .append('linearGradient')
       .attr('id', svg.attr('id') + '-gradient')
-      .attr('gradientUnits', 'objectBoundingBox') // Changed to objectBoundingBox for relative sizing
+      .attr('gradientUnits', 'objectBoundingBox')
       .attr('x1', '0%')
       .attr('y1', '0%')
       .attr('x2', '100%')
@@ -115,19 +126,16 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: any)
 
     gradient
       .append('svg:stop')
-      .attr('offset', '100%') // Adjusted to 100% to ensure full gradient spread
+      .attr('offset', '100%')
       .attr('stop-color', gradientStop)
       .attr('stop-opacity', 1);
   }
-  return layoutRenderer.render(
-    data4Layout,
-    svg,
-    internalHelpers,
-    {
-      algorithm: layoutDefinition.algorithm,
-    },
-    positions
-  );
+
+  return layoutRenderer.render(data4Layout, svg, internalHelpers, {
+    algorithm: layoutDefinition.algorithm,
+  },
+  positions
+);
 };
 
 /**

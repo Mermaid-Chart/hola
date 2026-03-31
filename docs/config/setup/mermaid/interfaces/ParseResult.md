@@ -28,7 +28,7 @@ The mermaid code after extracting the config.
 
 > **config**: [`MermaidConfig`](MermaidConfig.md)
 
-Defined in: [packages/mermaid/src/types.ts:107](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L107)
+Defined in: [packages/mermaid/src/types.ts:106](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L106)
 
 The config passed as YAML frontmatter or directives
 
@@ -38,30 +38,6 @@ The config passed as YAML frontmatter or directives
 
 > `optional` **diagram**: `Diagram`
 
-Defined in: [packages/mermaid/src/types.ts:109](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L109)
+Defined in: [packages/mermaid/src/types.ts:102](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L102)
 
----
-
-### error?
-
-> `optional` **error**: `unknown`
-
-Defined in: [packages/mermaid/src/types.ts:113](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L113)
-
-The error that occurred during parsing, if any.
-
----
-
-### success
-
-> **success**: `boolean`
-
-Defined in: [packages/mermaid/src/types.ts:99](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L99)
-
----
-
-### title?
-
-> `optional` **title**: `string`
-
-Defined in: [packages/mermaid/src/types.ts:108](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L108)
+The diagram type, e.g. 'flowchart', 'sequence', etc.

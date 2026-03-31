@@ -46,9 +46,12 @@ export async function card<T extends SVGGraphicsElement>(parent: D3Selection<T>,
   const bottom = 0;
   const points = [
     { x: left + NOTCH_SIZE, y: top },
+    { x: left + NOTCH_SIZE, y: top },
     { x: right, y: top },
     { x: right, y: bottom },
     { x: left, y: bottom },
+    { x: left, y: top + NOTCH_SIZE },
+    { x: left + NOTCH_SIZE, y: top },
     { x: left, y: top + NOTCH_SIZE },
     { x: left + NOTCH_SIZE, y: top },
   ];

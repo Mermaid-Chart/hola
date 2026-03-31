@@ -15,9 +15,12 @@ const ACTOR_BOX_CLASS = 'actor-box';
 const ACTOR_MAN_FIGURE_CLASS = 'actor-man';
 const config = configApi.getConfig();
 
+/** Exact set of themes that use color arrays for actor styling */
+const COLOR_THEMES = new Set(['redux-color', 'redux-dark-color']);
 export const drawRect = function (elem, rectData) {
   const rectElement = svgDrawCommon.drawRect(elem, rectData);
-  if (config.look === 'neo') {
+  // Call getConfig() here (not at module level) so multi-diagram pages get fresh config
+  if (configApi.getConfig().look === 'neo') {
     rectElement.attr('data-look', 'neo');
   }
   return rectElement;
@@ -335,7 +338,7 @@ export const fixLifeLineHeights = (diagram, actors, actorKeys, conf) => {
  * @param {any} conf - DrawText implementation discriminator object
  * @param {boolean} isFooter - If the actor is the footer one
  */
-const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeParticipant = function (elem, actor, conf, isFooter, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
@@ -401,8 +404,8 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj)
   }
   const rectElem = drawRect(g, rect);
 
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
   }
@@ -425,22 +428,8 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj)
     g.attr('data-et', 'participant');
     g.attr('data-type', 'participant');
     g.attr('data-id', actor.name);
-    if (look === 'neo' && theme?.includes('redux')) {
-      g.append('defs')
-        .append('filter')
-        .attr('id', 'drop-shadow')
-        .attr('height', '130%')
-        .attr('width', '130%')
-        .append('feDropShadow')
-        .attr('dx', '4')
-        .attr('dy', '4')
-        .attr('stdDeviation', 0)
-        .attr('flood-opacity', '0.06')
-        .attr(
-          'flood-color',
-          `${theme === 'redux' || theme === 'redux-color' ? '#000000' : '#FFFFFF'}`
-        );
-    }
+    // Note: drop-shadow filter is inserted globally via insertDropShadow() in sequenceRenderer.ts
+    // — per-actor filter definitions are redundant and have been removed.
   }
 
   _drawTextCandidateFunc(conf, hasKatex(actor.description))(
@@ -472,7 +461,7 @@ const drawActorTypeParticipant = function (elem, actor, conf, isFooter, diagObj)
  * @param {any} conf - DrawText implementation discriminator object
  * @param {boolean} isFooter - If the actor is the footer one
  */
-const drawActorTypeCollections = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeCollections = function (elem, actor, conf, isFooter, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
@@ -546,8 +535,8 @@ const drawActorTypeCollections = function (elem, actor, conf, isFooter, diagObj)
     g.attr('filter', 'url(#drop-shadow)');
   }
 
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
     stackedRect.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
@@ -590,7 +579,7 @@ const drawActorTypeCollections = function (elem, actor, conf, isFooter, diagObj)
   return height;
 };
 
-const drawActorTypeQueue = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeQueue = function (elem, actor, conf, isFooter, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height;
@@ -681,8 +670,8 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter, diagObj) {
     cylinderGroup.attr('filter', 'url(#drop-shadow)');
   }
 
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     cylinderGroup.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     cylinderGroup.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
     cylinderArc.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
@@ -728,12 +717,12 @@ const drawActorTypeQueue = function (elem, actor, conf, isFooter, diagObj) {
   return height;
 };
 
-const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeControl = function (elem, actor, conf, isFooter, diagramId, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 75;
   const { look, theme, themeVariables } = conf;
-  const { bkgColorArray, borderColorArray } = themeVariables;
+  const { bkgColorArray, borderColorArray, actorBorder, actorBkg } = themeVariables;
 
   const line = elem.append('g').lower();
 
@@ -780,7 +769,7 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
   actElem
     .append('defs')
     .append('marker')
-    .attr('id', 'filled-head-control')
+    .attr('id', diagramId + '-filled-head-control')
     .attr('refX', 11)
     .attr('refY', 5.8)
     .attr('markerWidth', 20)
@@ -801,13 +790,16 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
   // Draw looping arrow as arc path
   actElem
     .append('line')
-    .attr('marker-end', 'url(#filled-head-control)')
+    .attr('marker-end', 'url(#' + diagramId + '-filled-head-control)')
     .attr('transform', `translate(${cx}, ${cy - r})`);
 
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  } else {
+    actElem.style('stroke', actorBorder);
+    actElem.style('fill', actorBkg);
   }
   const bounds = actElem.node().getBBox();
   actor.height = bounds.height + 2 * (conf?.sequence?.labelBoxHeight ?? 0);
@@ -832,11 +824,11 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter, diagObj) {
   return actor.height;
 };
 
-const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeEntity = function (elem, actor, conf, isFooter, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 75;
-  const { theme, themeVariables } = conf;
+  const { look, theme, themeVariables } = conf;
   const { bkgColorArray, borderColorArray } = themeVariables;
 
   const line = elem.append('g').lower();
@@ -879,10 +871,12 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
     .attr('y2', cy + r)
     .attr('stroke-width', 2);
 
-  actElem.attr('filter', 'url(#drop-shadow)');
+  if (look === 'neo') {
+    actElem.attr('filter', 'url(#drop-shadow)');
+  }
 
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
   }
@@ -932,12 +926,12 @@ const drawActorTypeEntity = function (elem, actor, conf, isFooter, diagObj) {
   return actor.height;
 };
 
-const drawActorTypeDatabase = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeDatabase = function (elem, actor, conf, isFooter, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + actor.height + 2 * conf.boxTextMargin;
   const { theme, themeVariables, look } = conf;
-  const { bkgColorArray, borderColorArray } = themeVariables;
+  const { bkgColorArray, borderColorArray, actorBorder } = themeVariables;
 
   const boxplusLineGroup = elem.append('g').lower();
   let g = boxplusLineGroup;
@@ -1018,17 +1012,16 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter, diagObj) {
   if (look === 'neo') {
     cylinderGroup.attr('filter', 'url(#drop-shadow)');
   }
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     cylinderGroup.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     cylinderGroup.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  } else {
+    cylinderGroup.style('stroke', actorBorder);
   }
 
-  if (!isFooter) {
-    cylinderGroup.attr('transform', `translate(${w}, ${ry})`);
-  } else {
-    cylinderGroup.attr('transform', `translate(${w}, ${ry})`);
-  }
+  // Both branches were identical — simplified to a single unconditional statement
+  cylinderGroup.attr('transform', `translate(${w}, ${ry})`);
   actor.rectData = rect;
   _drawTextCandidateFunc(conf, hasKatex(actor.description))(
     actor.description,
@@ -1056,14 +1049,14 @@ const drawActorTypeDatabase = function (elem, actor, conf, isFooter, diagObj) {
   return actor.height;
 };
 
-const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeBoundary = function (elem, actor, conf, isFooter, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 80;
   const radius = 22;
   const line = elem.append('g').lower();
   const { look, theme, themeVariables } = conf;
-  const { bkgColorArray, borderColorArray } = themeVariables;
+  const { bkgColorArray, borderColorArray, actorBorder } = themeVariables;
 
   if (!isFooter) {
     actorCnt++;
@@ -1127,10 +1120,12 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
     actElem.attr('filter', 'url(#drop-shadow)');
   }
 
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
+  } else {
+    actElem.style('stroke', actorBorder);
   }
   const bounds = actElem.node().getBBox();
   actor.height = bounds.height + (conf.sequence.labelBoxHeight ?? 0);
@@ -1146,11 +1141,7 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
     conf
   );
 
-  if (!isFooter) {
-    actElem.attr('transform', `translate(0,${radius / 2 + 10})`);
-  } else {
-    actElem.attr('transform', `translate(0,${radius / 2 + 10})`);
-  }
+  actElem.attr('transform', `translate(0,${radius / 2 + 10})`);
 
   if (!isFooter) {
     actElem.attr('data-et', 'participant');
@@ -1161,7 +1152,7 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagObj) {
   return actor.height;
 };
 
-const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
+const drawActorTypeActor = function (elem, actor, conf, isFooter, actorIndexMap) {
   const actorY = isFooter ? actor.stopy : actor.starty;
   const center = actor.x + actor.width / 2;
   const centerY = actorY + 80;
@@ -1258,8 +1249,8 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   rect.rx = 3;
   rect.ry = 3;
 
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor.name);
-  if (theme?.includes('color')) {
+  const actorCount = actorIndexMap.get(actor.name) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     actElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     actElem.style('fill', bkgColorArray[actorCount % borderColorArray.length]);
   } else {
@@ -1280,24 +1271,52 @@ const drawActorTypeActor = function (elem, actor, conf, isFooter, diagObj) {
   return actor.height;
 };
 
-export const drawActor = async function (elem, actor, conf, isFooter, diagObj) {
+export const drawActor = async function (
+  elem,
+  actor,
+  conf,
+  isFooter,
+  diagramId,
+  diagObj,
+  actorIndexMap
+) {
+  const resolvedActorIndexMap =
+    actorIndexMap ??
+    new Map(
+      [...diagObj.db.getActors().values()].map((participant, index) => [participant.name, index])
+    );
+
   switch (actor.type) {
     case 'actor':
       return await drawActorTypeActor(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeActor(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'participant':
       return await drawActorTypeParticipant(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeParticipant(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'boundary':
       return await drawActorTypeBoundary(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeBoundary(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'control':
       return await drawActorTypeControl(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeControl(
+        elem,
+        actor,
+        conf,
+        isFooter,
+        diagramId,
+        resolvedActorIndexMap
+      );
     case 'entity':
       return await drawActorTypeEntity(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeEntity(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'database':
       return await drawActorTypeDatabase(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeDatabase(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'collections':
       return await drawActorTypeCollections(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeCollections(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'queue':
-      return await drawActorTypeQueue(elem, actor, conf, isFooter, diagObj);
+      return await drawActorTypeQueue(elem, actor, conf, isFooter, resolvedActorIndexMap);
   }
 };
 
@@ -1334,12 +1353,13 @@ export const anchorElement = function (elem) {
  * @param {any} actorActivations - Number of activations on the actor.
  */
 export const drawActivation = function (
-  elem,
+  _elem,
   bounds,
   verticalPos,
   conf,
   actorActivations,
-  diagObj
+  diagObj,
+  actorIndexMap
 ) {
   const { theme, themeVariables } = conf;
   const { bkgColorArray, borderColorArray, mainBkg } = themeVariables;
@@ -1353,8 +1373,13 @@ export const drawActivation = function (
   rect.height = verticalPos - bounds.starty;
 
   const rectElem = drawRect(g, rect);
-  let actorCount = [...diagObj.db.getActors().values()].findIndex((a) => a.name === actor);
-  if (theme?.includes('color')) {
+  const resolvedActorIndexMap =
+    actorIndexMap ??
+    new Map(
+      [...diagObj.db.getActors().values()].map((participant, index) => [participant.name, index])
+    );
+  const actorCount = resolvedActorIndexMap.get(actor) ?? 0;
+  if (COLOR_THEMES.has(theme)) {
     rectElem.style('stroke', borderColorArray[actorCount % borderColorArray.length]);
     rectElem.style('fill', bkgColorArray[actorCount % borderColorArray.length] ?? mainBkg);
   }
@@ -1481,11 +1506,11 @@ export const drawBackgroundRect = function (elem, bounds) {
   svgDrawCommon.drawBackgroundRect(elem, bounds);
 };
 
-export const insertDatabaseIcon = function (elem) {
+export const insertDatabaseIcon = function (elem, id) {
   elem
     .append('defs')
     .append('symbol')
-    .attr('id', 'database')
+    .attr('id', id + '-database')
     .attr('fill-rule', 'evenodd')
     .attr('clip-rule', 'evenodd')
     .append('path')
@@ -1496,11 +1521,11 @@ export const insertDatabaseIcon = function (elem) {
     );
 };
 
-export const insertComputerIcon = function (elem) {
+export const insertComputerIcon = function (elem, id) {
   elem
     .append('defs')
     .append('symbol')
-    .attr('id', 'computer')
+    .attr('id', id + '-computer')
     .attr('width', '24')
     .attr('height', '24')
     .append('path')
@@ -1511,11 +1536,11 @@ export const insertComputerIcon = function (elem) {
     );
 };
 
-export const insertClockIcon = function (elem) {
+export const insertClockIcon = function (elem, id) {
   elem
     .append('defs')
     .append('symbol')
-    .attr('id', 'clock')
+    .attr('id', id + '-clock')
     .attr('width', '24')
     .attr('height', '24')
     .append('path')
@@ -1531,11 +1556,11 @@ export const insertClockIcon = function (elem) {
  *
  * @param elem
  */
-export const insertArrowHead = function (elem) {
+export const insertArrowHead = function (elem, id) {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', 'arrowhead')
+    .attr('id', id + '-arrowhead')
     .attr('refX', 7.9)
     .attr('refY', 5)
     .attr('markerUnits', 'userSpaceOnUse')
@@ -1551,11 +1576,11 @@ export const insertArrowHead = function (elem) {
  *
  * @param {any} elem
  */
-export const insertArrowFilledHead = function (elem) {
+export const insertArrowFilledHead = function (elem, id) {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', 'filled-head')
+    .attr('id', id + '-filled-head')
     .attr('refX', 15.5)
     .attr('refY', 7)
     .attr('markerWidth', 20)
@@ -1570,11 +1595,11 @@ export const insertArrowFilledHead = function (elem) {
  *
  * @param {any} elem
  */
-export const insertSequenceNumber = function (elem) {
+export const insertSequenceNumber = function (elem, id) {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', 'sequencenumber')
+    .attr('id', id + '-sequencenumber')
     .attr('refX', 15)
     .attr('refY', 15)
     .attr('markerWidth', 60)
@@ -1593,11 +1618,11 @@ export const insertSequenceNumber = function (elem) {
  *
  * @param {any} elem
  */
-export const insertArrowCrossHead = function (elem) {
+export const insertArrowCrossHead = function (elem, id) {
   const defs = elem.append('defs');
   const marker = defs
     .append('marker')
-    .attr('id', 'crosshead')
+    .attr('id', id + '-crosshead')
     .attr('markerWidth', 15)
     .attr('markerHeight', 8)
     .attr('orient', 'auto')
@@ -1925,11 +1950,11 @@ const _drawMenuItemTextCandidateFunc = (function () {
  *
  * @param elem
  */
-export const insertSolidTopArrowHead = function (elem) {
+export const insertSolidTopArrowHead = function (elem, id) {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', 'solidTopArrowHead')
+    .attr('id', id + '-solidTopArrowHead')
     .attr('refX', 7.9)
     .attr('refY', 7.25)
     .attr('markerUnits', 'userSpaceOnUse')
@@ -1940,11 +1965,11 @@ export const insertSolidTopArrowHead = function (elem) {
     .attr('d', 'M 0 0 L 10 8 L 0 8 z'); // this is actual shape for arrowhead
 };
 
-export const insertSolidBottomArrowHead = function (elem) {
+export const insertSolidBottomArrowHead = function (elem, id) {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', 'solidBottomArrowHead')
+    .attr('id', id + '-solidBottomArrowHead')
     .attr('refX', 7.9)
     .attr('refY', 0.75)
     .attr('markerUnits', 'userSpaceOnUse')
@@ -1955,11 +1980,11 @@ export const insertSolidBottomArrowHead = function (elem) {
     .attr('d', 'M 0 0 L 10 0 L 0 8 z');
 };
 
-export const insertStickTopArrowHead = function (elem) {
+export const insertStickTopArrowHead = function (elem, id) {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', 'stickTopArrowHead')
+    .attr('id', id + '-stickTopArrowHead')
     .attr('refX', 7.5)
     .attr('refY', 7)
     .attr('markerUnits', 'userSpaceOnUse')
@@ -1973,11 +1998,11 @@ export const insertStickTopArrowHead = function (elem) {
     .attr('fill', 'none');
 };
 
-export const insertStickBottomArrowHead = function (elem) {
+export const insertStickBottomArrowHead = function (elem, id) {
   elem
     .append('defs')
     .append('marker')
-    .attr('id', 'stickBottomArrowHead')
+    .attr('id', id + '-stickBottomArrowHead')
     .attr('refX', 7.5)
     .attr('refY', 0)
     .attr('markerUnits', 'userSpaceOnUse')

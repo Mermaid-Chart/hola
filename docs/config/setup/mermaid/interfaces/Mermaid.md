@@ -312,7 +312,7 @@ Defined in: [packages/mermaid/src/mermaid.ts:454](https://github.com/mermaid-js/
 
 ##### iconLoaders
 
-`IconLoader`\[]
+[`IconLoader`](../type-aliases/IconLoader.md)\[]
 
 #### Returns
 

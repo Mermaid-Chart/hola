@@ -56,7 +56,7 @@ export async function insertNode(
   newEl.attr('data-node', true);
   newEl.attr('data-et', 'node');
   newEl.attr('data-look', handleUndefinedAttr(node.look));
-
+  
   if (node.tooltip) {
     el.attr('title', node.tooltip);
   }

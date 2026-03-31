@@ -82,10 +82,10 @@ export async function taggedWaveEdgedRectangle<T extends SVGGraphicsElement>(
     { x: x + w - extraW, y: (y + h) * 0.9 },
     ...generateFullSineWavePoints(
       x + w,
-      (y + h) * 1.3,
+      (y + h) * 1.25,
       x + w - tagWidth,
-      (y + h) * 1.5,
-      -h * 0.03,
+      (y + h) * 1.3,
+      -h * 0.02,
       0.5
     ),
   ];
@@ -102,6 +102,7 @@ export async function taggedWaveEdgedRectangle<T extends SVGGraphicsElement>(
   const waveEdgeRect = shapeSvg.insert(() => taggedWaveEdgeRectNode, ':first-child');
   waveEdgeRect.insert(() => waveEdgeRectNode, ':first-child');
 
+  waveEdgeRect.attr('class', 'basic label-container outer-path');
   waveEdgeRect.attr('class', 'basic label-container outer-path');
 
   if (cssStyles && node.look !== 'handDrawn') {

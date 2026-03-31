@@ -6,7 +6,7 @@ import type { MermaidConfig } from '../../config.type.js';
 import * as configApi from '../../config.js';
 import type { MindmapDB } from './mindmapDb.js';
 
-const MAX_SECTIONS = 12;
+export const MAX_SECTIONS = 12;
 
 type ShapeFunction = (
   db: MindmapDB,

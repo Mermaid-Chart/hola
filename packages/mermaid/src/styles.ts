@@ -16,11 +16,16 @@ const getStyles = (
     errorBkgColor: string;
     errorTextColor: string;
     lineColor: string;
-    useGradient: boolean;
-    dropShadow: string;
-    primaryBorderColor: string;
-    compositeTitleBackground: string;
-    THEME_COLOR_LIMIT: number;
+    useGradient?: boolean;
+    dropShadow?: string;
+    primaryBorderColor?: string;
+    compositeTitleBackground?: string;
+    THEME_COLOR_LIMIT?: number;
+    nodeBorder?: string;
+    mainBkg?: string;
+    strokeWidth?: number;
+    theme?: string;
+    look?: string;
   } & FlowChartStyleOptions,
   svgId: string
 ) => {
@@ -28,7 +33,9 @@ const getStyles = (
   const config = configApi.getConfig();
   const { theme, look } = config;
   if (type in themes && themes[type]) {
-    diagramStyles = themes[type](options);
+    // Pass svgId through options so diagram-specific style functions can use it
+    // (e.g., for gradient URL references like url(svgId-gradient)).
+    diagramStyles = themes[type]({ ...options, svgId });
   } else {
     log.warn(`No theme found for ${type}`);
   }
@@ -70,7 +77,7 @@ const getStyles = (
   }
 
   & .edge-thickness-normal {
-    stroke-width: ${options.strokeWidth}px;
+    stroke-width: ${(options.strokeWidth ?? 1) as number}px;
   }
   & .edge-thickness-thick {
     stroke-width: 3.5px
@@ -112,17 +119,17 @@ const getStyles = (
 
   [data-look="neo"].node rect, [data-look="neo"].cluster rect, [data-look="neo"].node polygon {
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
 
   [data-look="neo"].node path {
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    stroke-width: ${options.strokeWidth};
+    stroke-width: ${(options.strokeWidth ?? 1) as number}px;
   }
 
   [data-look="neo"].node .outer-path {
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
   [data-look="neo"].node .neo-line path {
@@ -132,31 +139,22 @@ const getStyles = (
 
   [data-look="neo"].node circle{
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
   [data-look="neo"].node circle .state-start{
     fill: #000000;
   }
 
-  [data-look="neo"].statediagram-cluster rect {
-    fill: ${options.compositeTitleBackground};
-    stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    stroke-width: ${options.strokeWidth};
-  }
-
   [data-look="neo"].icon-shape .icon {
     fill: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
     [data-look="neo"].icon-shape .icon-neo path {
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
-  ${type === 'mindmap' ? genGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
-  ${type === 'timeline' && theme?.includes('neo') && look === 'neo' ? genTimelineGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
-  ${type === 'gitGraph' && theme?.includes('neo') && look === 'neo' ? genGitGraphGradient(config, svgId) : ''}
 
   ${userStyles}
 `;

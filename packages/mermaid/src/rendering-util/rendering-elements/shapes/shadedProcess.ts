@@ -8,7 +8,6 @@ import { handleUndefinedAttr } from '../../../utils.js';
 
 /// Width of the frame on the left of the shape
 const FRAME_WIDTH = 8;
-
 export async function shadedProcess<T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
   node: Node

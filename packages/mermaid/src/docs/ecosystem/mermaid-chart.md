@@ -2,7 +2,7 @@
 
 The Future of Diagramming & Visual Collaboration
 
-Try the Ultimate AI, Mermaid, and Visual Diagramming Suite by creating an account at [Mermaid Chart](https://www.mermaidchart.com/app/sign-up).
+Try the Ultimate AI, Mermaid, and Visual Diagramming Suite by creating an account at [Mermaid Chart](https://mermaid.ai/app/sign-up).
 
 <br />
 
@@ -10,7 +10,7 @@ Try the Ultimate AI, Mermaid, and Visual Diagramming Suite by creating an accoun
 
 ## About
 
-[Mermaid Chart](https://www.mermaidchart.com) was born out of the Mermaid open source project and was founded by Knut Sveidqvist together with Open Core Ventures. The lead developers from Mermaid have joined the company and there is a strong connection between the project we all love and Mermaid Chart. Mermaid Chart brings resources to the open source development of Mermaid and makes it possible to work with Mermaid professionally.
+[Mermaid Chart](https://mermaid.ai) was born out of the Mermaid open source project and was founded by Knut Sveidqvist together with Open Core Ventures. The lead developers from Mermaid have joined the company and there is a strong connection between the project we all love and Mermaid Chart. Mermaid Chart brings resources to the open source development of Mermaid and makes it possible to work with Mermaid professionally.
 
 ## Features
 
@@ -31,7 +31,7 @@ Try the Ultimate AI, Mermaid, and Visual Diagramming Suite by creating an accoun
   - [Google Docs](https://gsuite.google.com/marketplace/app/mermaidchart/947683068472)
   - [Microsoft PowerPoint and Word](https://appsource.microsoft.com/en-us/product/office/WA200006214?tab=Overview)
 
-  Visit our [Plugins](https://www.mermaidchart.com/plugins) page for more information.
+  Visit our [Plugins](https://mermaid.ai/plugins) page for more information.
 
 - **Collaboration** - A web based collaboration feature for multi-user editing on Mermaid diagrams in real-time (Pro and Enterprise plans).
 
@@ -49,9 +49,9 @@ Try the Ultimate AI, Mermaid, and Visual Diagramming Suite by creating an accoun
 
 - **Enterprise** - A paid plan for enterprise use that includes all Premium features, custom contracts, support, and more.
 
-To learn more, visit our [Pricing](https://www.mermaidchart.com/pricing) page.
+To learn more, visit our [Pricing](https://mermaid.ai/pricing) page.
 
-Sign up for a free account on the [Mermaid](https://www.mermaidchart.com/app/sign-up) website and trial paid features at any time for 7 days free.
+Sign up for a free account on the [Mermaid](https://mermaid.ai/app/sign-up) website and trial paid features at any time for 7 days free.
 
 ## Mermaid JS contributions
 

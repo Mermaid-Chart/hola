@@ -376,6 +376,38 @@ const point = (elem, type, id) => {
     .attr('class', 'arrowMarkerPath')
     .style('stroke-width', 0)
     .style('stroke-dasharray', '1,0');
+  elem
+    .append('marker')
+    .attr('id', id + '_' + type + '-pointEnd-margin') //arrows with gap(offset)
+    .attr('class', 'marker ' + type)
+    .attr('viewBox', '0 0 11.5 14')
+    .attr('refX', 11.5) // Adjust to position the arrowhead relative to the line
+    .attr('refY', 7) // Half of 14 for vertical center
+    .attr('markerUnits', 'userSpaceOnUse')
+    .attr('markerWidth', 10.5)
+    .attr('markerHeight', 14)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 0 0 L 11.5 7 L 0 14 z')
+    .attr('class', 'arrowMarkerPath')
+    .style('stroke-width', 0)
+    .style('stroke-dasharray', '1,0');
+  elem
+    .append('marker')
+    .attr('id', id + '_' + type + '-pointStart-margin')
+    .attr('class', 'marker ' + type)
+    .attr('viewBox', '0 0 11.5 14')
+    .attr('refX', 1)
+    .attr('refY', 7)
+    .attr('markerUnits', 'userSpaceOnUse')
+    .attr('markerWidth', 11.5)
+    .attr('markerHeight', 14)
+    .attr('orient', 'auto')
+    .append('polygon')
+    .attr('points', '0,7 11.5,14 11.5,0')
+    .attr('class', 'arrowMarkerPath')
+    .style('stroke-width', 0)
+    .style('stroke-dasharray', '1,0');
 };
 const circle = (elem, type, id) => {
   elem
@@ -421,6 +453,43 @@ const circle = (elem, type, id) => {
     .attr('class', 'marker ' + type)
     .attr('viewBox', '0 0 10 10')
     .attr('refY', 5) // What!!!??
+    .attr('refX', 12.25)
+    .attr('markerUnits', 'userSpaceOnUse')
+    .attr('markerWidth', 14)
+    .attr('markerHeight', 14)
+    .attr('orient', 'auto')
+    .append('circle')
+    .attr('cx', '5')
+    .attr('cy', '5')
+    .attr('r', '5')
+    .attr('class', 'arrowMarkerPath')
+    .style('stroke-width', 0)
+    .style('stroke-dasharray', '1,0');
+
+  elem
+    .append('marker')
+    .attr('id', id + '_' + type + '-circleStart-margin')
+    .attr('class', 'marker ' + type)
+    .attr('viewBox', '0 0 10 10')
+    .attr('refX', -2)
+    .attr('refY', 5)
+    .attr('markerUnits', 'userSpaceOnUse')
+    .attr('markerWidth', 14)
+    .attr('markerHeight', 14)
+    .attr('orient', 'auto')
+    .append('circle')
+    .attr('cx', '5')
+    .attr('cy', '5')
+    .attr('r', '5')
+    .attr('class', 'arrowMarkerPath')
+    .style('stroke-width', 0)
+    .style('stroke-dasharray', '1,0');
+  elem
+    .append('marker')
+    .attr('id', id + '_' + type + '-circleEnd-margin')
+    .attr('class', 'marker ' + type)
+    .attr('viewBox', '0 0 10 10')
+    .attr('refY', 5) // Vertical center of viewBox (0 0 10 10)
     .attr('refX', 12.25)
     .attr('markerUnits', 'userSpaceOnUse')
     .attr('markerWidth', 14)
@@ -518,6 +587,38 @@ const cross = (elem, type, id) => {
     .attr('class', 'arrowMarkerPath')
     .style('stroke-width', 2.5)
     .style('stroke-dasharray', '1,0');
+  elem
+    .append('marker')
+    .attr('id', id + '_' + type + '-crossEnd-margin')
+    .attr('class', 'marker cross ' + type)
+    .attr('viewBox', '0 0 15 15')
+    .attr('refX', 17.7)
+    .attr('refY', 7.5)
+    .attr('markerUnits', 'userSpaceOnUse')
+    .attr('markerWidth', 12)
+    .attr('markerHeight', 12)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 1,1 L 14,14 M 1,14 L 14,1')
+    .attr('class', 'arrowMarkerPath')
+    .style('stroke-width', 2.5);
+
+  elem
+    .append('marker')
+    .attr('id', id + '_' + type + '-crossStart-margin')
+    .attr('class', 'marker cross ' + type)
+    .attr('viewBox', '0 0 15 15')
+    .attr('refX', -3.5)
+    .attr('refY', 7.5)
+    .attr('markerUnits', 'userSpaceOnUse')
+    .attr('markerWidth', 12)
+    .attr('markerHeight', 12)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M 1,1 L 14,14 M 1,14 L 14,1')
+    .attr('class', 'arrowMarkerPath')
+    .style('stroke-width', 2.5)
+    .style('stroke-dasharray', '1,0');
 };
 const barb = (elem, type, id) => {
   elem
@@ -536,7 +637,7 @@ const barb = (elem, type, id) => {
 const barbNeo = (elem, type, id) => {
   const config = configApi.getConfig();
   const { themeVariables } = config;
-  const { archEdgeArrowColor } = themeVariables;
+  const { transitionColor } = themeVariables;
   elem
     .append('defs')
     .append('marker')
@@ -558,12 +659,11 @@ const barbNeo = (elem, type, id) => {
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 14)
-    .attr('markerUnits', 'strokeWidth')
     .attr('markerUnits', 'userSpaceOnUse')
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M 19,7 L11,14 L13,7 L11,0 Z')
-    .attr('fill', `${archEdgeArrowColor}`);
+    .attr('fill', `${transitionColor}`);
 };
 // erDiagram specific markers
 const only_one = (elem, type, id) => {
@@ -775,6 +875,57 @@ const one_or_more_neo = (elem, type, id) => {
     .attr('stroke-width', `${strokeWidth}`);
 };
 
+const zero_or_more_neo = (elem, type, id) => {
+  const config = configApi.getConfig();
+  const { themeVariables } = config;
+  const { strokeWidth, mainBkg } = themeVariables;
+  const startMarker = elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-zeroOrMoreStart')
+    .attr('class', 'marker zeroOrMore ' + type)
+    .attr('refX', 18)
+    .attr('refY', 18)
+    .attr('markerWidth', 57)
+    .attr('markerHeight', 36)
+    .attr('markerUnits', 'userSpaceOnUse')
+    .attr('orient', 'auto');
+  startMarker
+    .append('circle')
+    .attr('fill', mainBkg ?? 'white')
+    .attr('cx', 45.5)
+    .attr('cy', 18)
+    .attr('r', 6)
+    .attr('stroke-width', `${strokeWidth}`);
+  startMarker
+    .append('path')
+    .attr('d', 'M0,18 Q18,0 36,18 Q18,36 0,18')
+    .attr('stroke-width', `${strokeWidth}`);
+
+  const endMarker = elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-zeroOrMoreEnd')
+    .attr('class', 'marker zeroOrMore ' + type)
+    .attr('refX', 39)
+    .attr('refY', 18)
+    .attr('markerWidth', 57)
+    .attr('markerHeight', 36)
+    .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse');
+  endMarker
+    .append('circle')
+    .attr('fill', mainBkg ?? 'white')
+    .attr('cx', 11)
+    .attr('cy', 18)
+    .attr('r', 6)
+    .attr('stroke-width', `${strokeWidth}`);
+  endMarker
+    .append('path')
+    .attr('d', 'M21,18 Q39,0 57,18 Q39,36 21,18')
+    .attr('stroke-width', `${strokeWidth}`);
+};
+
 const zero_or_more = (elem, type, id) => {
   const startMarker = elem
     .append('defs')
@@ -801,57 +952,6 @@ const zero_or_more = (elem, type, id) => {
     .attr('orient', 'auto');
   endMarker.append('circle').attr('fill', 'white').attr('cx', 9).attr('cy', 18).attr('r', 6);
   endMarker.append('path').attr('d', 'M21,18 Q39,0 57,18 Q39,36 21,18');
-};
-
-const zero_or_more_neo = (elem, type, id) => {
-  const config = configApi.getConfig();
-  const { themeVariables } = config;
-  const { strokeWidth } = themeVariables;
-  const startMarker = elem
-    .append('defs')
-    .append('marker')
-    .attr('id', id + '_' + type + '-zeroOrMoreStart')
-    .attr('class', 'marker zeroOrMore ' + type)
-    .attr('refX', 18)
-    .attr('refY', 18)
-    .attr('markerWidth', 57)
-    .attr('markerHeight', 36)
-    .attr('markerUnits', 'userSpaceOnUse')
-    .attr('orient', 'auto');
-  startMarker
-    .append('circle')
-    .attr('fill', 'white')
-    .attr('cx', 45.5)
-    .attr('cy', 18)
-    .attr('r', 6)
-    .attr('stroke-width', `${strokeWidth}`);
-  startMarker
-    .append('path')
-    .attr('d', 'M0,18 Q18,0 36,18 Q18,36 0,18')
-    .attr('stroke-width', `${strokeWidth}`);
-
-  const endMarker = elem
-    .append('defs')
-    .append('marker')
-    .attr('id', id + '_' + type + '-zeroOrMoreEnd')
-    .attr('class', 'marker zeroOrMore ' + type)
-    .attr('refX', 39)
-    .attr('refY', 18)
-    .attr('markerWidth', 57)
-    .attr('markerHeight', 36)
-    .attr('orient', 'auto')
-    .attr('markerUnits', 'userSpaceOnUse');
-  endMarker
-    .append('circle')
-    .attr('fill', 'white')
-    .attr('cx', 11)
-    .attr('cy', 18)
-    .attr('r', 6)
-    .attr('stroke-width', `${strokeWidth}`);
-  endMarker
-    .append('path')
-    .attr('d', 'M21,18 Q39,0 57,18 Q39,36 21,18')
-    .attr('stroke-width', `${strokeWidth}`);
 };
 
 const requirement_arrow = (elem, type, id) => {

@@ -59,7 +59,7 @@ const getStyles = (options: FlowChartStyleOptions) =>
   .node path {
     fill: ${options.mainBkg};
     stroke: ${options.nodeBorder};
-    stroke-width: ${options.strokeWidth}px;
+    stroke-width: ${options.strokeWidth ?? 1}px;
   }
   .rough-node .label text , .node .label text, .image-shape .label, .icon-shape .label {
     text-anchor: middle;
@@ -91,7 +91,7 @@ const getStyles = (options: FlowChartStyleOptions) =>
 
   .edgePath .path {
     stroke: ${options.lineColor};
-    stroke-width: ${options.strokeWidth}px;
+    stroke-width: ${options.strokeWidth ?? 2}px;
   }
 
   .flowchart-link {
@@ -166,7 +166,7 @@ const getStyles = (options: FlowChartStyleOptions) =>
       background-color: ${options.edgeLabelBackground};
       padding: 2px;
     }
-    rect {
+    .label rect {
       opacity: 0.5;
       background-color: ${options.edgeLabelBackground};
       fill: ${options.edgeLabelBackground};

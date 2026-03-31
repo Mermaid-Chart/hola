@@ -37,6 +37,7 @@
 <ID>[^<>:\n,;@\s]+(?=\s+as\s)                                   { yytext = yytext.trim(); this.begin('ALIAS'); return 'ACTOR'; }
 <ID>[^<>:\n,;@]+(?=\s*[\n;#]|$)                                 { yytext = yytext.trim(); this.popState(); return 'ACTOR'; }
 <ID>[^<>:\n,;@]*\<[^\n]*                                        { this.popState(); return 'INVALID'; }
+<ID>[^\n]+                                                      { yytext = yytext.trim(); this.popState(); return 'INVALID'; }
 "box"															{ this.begin('LINE'); return 'box'; }
 "participant"                                                   { this.begin('ID'); return 'participant'; }
 "actor"                                                   		{ this.begin('ID'); return 'participant_actor'; }
@@ -268,6 +269,8 @@ participant_statement
 	| 'destroy' actor 'NEWLINE' {$2.type='destroyParticipant'; $$=$2;}
     | 'participant' actor_with_config_alias restOfLine 'NEWLINE' {$2.draw='participant'; $2.type='addParticipant'; $2.description=yy.parseMessage($3); $$=$2;}
     | 'participant' actor_with_config 'NEWLINE' {$2.draw='participant'; $2.type='addParticipant'; $$=$2;}
+    | 'participant_actor' actor_with_config 'AS' restOfLine 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $2.description=yy.parseMessage($4); $$=$2;}
+    | 'participant_actor' actor_with_config 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $$=$2;}
 
 	;
 

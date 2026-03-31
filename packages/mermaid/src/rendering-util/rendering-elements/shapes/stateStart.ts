@@ -10,7 +10,7 @@ export function stateStart<T extends SVGGraphicsElement>(
   node: Node,
   { config: { themeVariables, theme } }: ShapeRenderOptions
 ) {
-  const { lineColor } = themeVariables;
+  const { lineColor, nodeShadow } = themeVariables;
 
   // If incoming height & width are present, subtract the padding from them
   // as labelHelper does not take padding into account
@@ -31,7 +31,7 @@ export function stateStart<T extends SVGGraphicsElement>(
   }
 
   if (!node.height) {
-    node.width = 14;
+    node.height = 14;
   }
 
   const shapeSvg = parent
@@ -62,8 +62,10 @@ export function stateStart<T extends SVGGraphicsElement>(
       .attr('height', node.height ?? 14);
   }
 
-  if (node.width < 25 && theme?.includes('redux') && node.look !== 'handDrawn') {
-    circle.attr('style', 'filter:url(#drop-shadow-small)');
+  if (node.width < 25 && nodeShadow && node.look !== 'handDrawn') {
+    const svgId = parent.node()?.ownerSVGElement?.id ?? '';
+    const filterId = svgId ? `${svgId}-drop-shadow-small` : 'drop-shadow-small';
+    circle.attr('style', `filter:url(#${filterId})`);
   }
 
   updateNodeBounds(node, circle);
