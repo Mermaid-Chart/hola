@@ -269,6 +269,7 @@ participant_statement
 	| 'destroy' actor 'NEWLINE' {$2.type='destroyParticipant'; $$=$2;}
     | 'participant' actor_with_config_alias restOfLine 'NEWLINE' {$2.draw='participant'; $2.type='addParticipant'; $2.description=yy.parseMessage($3); $$=$2;}
     | 'participant' actor_with_config 'NEWLINE' {$2.draw='participant'; $2.type='addParticipant'; $$=$2;}
+    | 'participant_actor' actor_with_config_alias restOfLine 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $2.description=yy.parseMessage($3); $$=$2;}
     | 'participant_actor' actor_with_config 'AS' restOfLine 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $2.description=yy.parseMessage($4); $$=$2;}
     | 'participant_actor' actor_with_config 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $$=$2;}
 

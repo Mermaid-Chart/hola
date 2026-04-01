@@ -82,33 +82,6 @@ const genSections: DiagramStylesProvider = (options) => {
 };
 
 /**
- * Generates gradient-specific CSS styles for neo look mindmap nodes.
- *
- * This function creates CSS rules that apply gradient styling to mindmap nodes when
- * the gradient feature is enabled. It works in conjunction with SVG gradient definitions
- * to provide enhanced visual appearance for nodes in the neo look variant.
- *
- * @param THEME_COLOR_LIMIT - Maximum number of theme colors to process
- * @param svgId - SVG element identifier used for scoped gradient references
- * @param mainBkg - Main background color for gradient-enabled nodes
- * @returns CSS string containing gradient-specific node styling
- */
-const genGradient = (THEME_COLOR_LIMIT: number, svgId: string, mainBkg: string) => {
-  let sections = '';
-  for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
-    sections += `
-    [data-look="neo"].mindmap-node.section-${i - 1} rect, [data-look="neo"].mindmap-node.section-${i - 1} path, [data-look="neo"].mindmap-node.section-${i - 1} circle, [data-look="neo"].mindmap-node.section-${i - 1} polygon {
-      stroke: url(${svgId}-gradient);
-      fill: ${mainBkg};
-    }
-    .section-${i - 1} line {
-      stroke-width: 0;
-    }`;
-  }
-  return sections;
-};
-
-/**
  * Generates the main CSS styles for mindmap diagrams.
  *
  * This is the primary style provider function that combines section-specific styles

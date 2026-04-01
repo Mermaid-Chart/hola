@@ -1,7 +1,6 @@
 import type { FlowChartStyleOptions } from './diagrams/flowchart/styles.js';
 import { log } from './logger.js';
 import type { DiagramStylesProvider } from './diagram-api/types.js';
-import type { MermaidConfig } from './config.type.js';
 
 const themes: Record<string, DiagramStylesProvider> = {};
 
@@ -155,67 +154,6 @@ const getStyles = (
 
   ${userStyles}
 `;
-};
-
-const _genGradient = (
-  useGradient: boolean,
-  THEME_COLOR_LIMIT: number,
-  svgId: string,
-  mainBkg: string
-) => {
-  let sections = '';
-  if (useGradient) {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
-      sections += `
-      [data-look="neo"].section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${i - 1} polygon, .section-${i - 1} path {
-        stroke: ${'url(' + svgId + '-gradient)'};
-        fill: ${mainBkg}
-        }
-      .section-${i - 1} line {
-      stroke-width: 0;
-    }`;
-    }
-  }
-  return sections;
-};
-
-const _genGitGraphGradient = (config: MermaidConfig, svgId: string) => {
-  const { themeVariables: options } = config;
-  let sections = '';
-  if (options.useGradient) {
-    for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-      sections += `
-      .label${i}  { fill: ${options.mainBkg}; stroke: ${'url(' + svgId + '-gradient)'}; stroke-width: ${options.strokeWidth};}
-             `;
-    }
-  }
-  return sections;
-};
-
-const _genTimelineGradient = (
-  useGradient: boolean,
-  THEME_COLOR_LIMIT: number,
-  svgId: string,
-  mainBkg: string
-) => {
-  let sections = '';
-  if (useGradient) {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
-      sections += `
-     .section-${i - 1} rect,
-    .section-${i - 1} path,
-    .section-${i - 1} circle {
-      fill: ${mainBkg};
-      stroke: ${'url(' + svgId + '-gradient)'};
-       stroke-width: 2;
-    }
-    .section-${i - 1} line {
-     stroke: ${'url(' + svgId + '-gradient)'};
-      stroke-width: 2;
-    }`;
-    }
-  }
-  return sections;
 };
 
 export const addStylesForDiagram = (type: string, diagramTheme?: DiagramStylesProvider): void => {

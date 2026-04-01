@@ -264,29 +264,6 @@ export const draw = function (text: string, id: string, version: string, diagObj
     conf.timeline?.useMaxWidth ?? false
   );
 
-  if (look === 'neo' && useGradient) {
-    const gradient = svg
-      .append('linearGradient')
-      .attr('id', svg.attr('id') + '-gradient')
-      .attr('gradientUnits', 'objectBoundingBox')
-      .attr('x1', '0%')
-      .attr('y1', '0%')
-      .attr('x2', '100%')
-      .attr('y2', '0%');
-
-    gradient
-      .append('svg:stop')
-      .attr('offset', '0%')
-      .attr('stop-color', gradientStart)
-      .attr('stop-opacity', 1);
-
-    gradient
-      .append('svg:stop')
-      .attr('offset', '100%')
-      .attr('stop-color', gradientStop)
-      .attr('stop-opacity', 1);
-  }
-
   // addSVGAccessibilityFields(diagObj.db, diagram, id);
 };
 

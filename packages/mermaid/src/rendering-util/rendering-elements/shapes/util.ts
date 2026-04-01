@@ -3,11 +3,11 @@ import type { Node } from '../../types.js';
 import { getConfig } from '../../../diagram-api/diagramAPI.js';
 import { evaluate, getEffectiveHtmlLabels } from '../../../config.js';
 import { select } from 'd3';
+import { log } from '../../../logger.js';
 import { sanitizeText } from '../../../diagrams/common/common.js';
 import { decodeEntities, handleUndefinedAttr } from '../../../utils.js';
 import type { D3Selection, Point } from '../../../types.js';
 import { configureLabelImages } from './labelImageUtils.js';
-import { log } from '../../../logger.js';
 
 export const labelHelper = async <T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
