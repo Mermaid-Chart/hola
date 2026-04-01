@@ -19,6 +19,7 @@ export async function flippedTriangle<T extends SVGGraphicsElement>(
   const nodePadding = node.padding ?? 0;
   const labelPaddingX = node.look === 'neo' ? nodePadding * 2 : nodePadding;
   const labelPaddingY = node.look === 'neo' ? nodePadding * 1 : nodePadding;
+
   if (node.width || node.height) {
     node.height = node?.height ?? 0;
     if (node.height < MIN_HEIGHT) {

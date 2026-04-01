@@ -35,7 +35,6 @@ export async function curvedTrapezoid<T extends SVGGraphicsElement>(
   }
 
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
-
   const w =
     (node?.width ? node?.width : Math.max(minWidth, bbox.width)) + (labelPaddingX ?? 0) * 2 * 1.25;
   const h =

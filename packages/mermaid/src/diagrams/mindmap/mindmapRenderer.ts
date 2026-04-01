@@ -2,18 +2,18 @@ import cytoscape from 'cytoscape';
 import coseBilkent from 'cytoscape-cose-bilkent';
 import { select } from 'd3';
 import type { MermaidConfig } from '../../config.type.js';
-import { getConfig } from '../../diagram-api/diagramAPI.js';
 import type { DrawDefinition } from '../../diagram-api/types.js';
 import { log } from '../../logger.js';
 import type { D3Element } from '../../types.js';
 import { selectSvgElement } from '../../rendering-util/selectSvgElement.js';
-import { setupGraphViewbox } from '../../setupGraphViewbox.js';
 import type { FilledMindMapNode, MindmapNode } from './mindmapTypes.js';
 import { drawNode, positionNode } from './svgDraw.js';
 import defaultConfig from '../../defaultConfig.js';
 import * as configApi from '../../config.js';
 import type { MindmapDB } from './mindmapDb.js';
+import { getConfig } from '../../config.js';
 import type { LayoutData } from '../../mermaid.js';
+import { setupGraphViewbox } from '../../setupGraphViewbox.js';
 
 // Inject the layout algorithm into cytoscape
 cytoscape.use(coseBilkent);
@@ -216,9 +216,8 @@ export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
   drawEdges(edgesElem, cy);
   positionNodes(db, cy);
 
-  // Setup the view box and size of the svg element
+  // Setup the view box and size of the svg element using config from data4Layout
   setupGraphViewbox(
-    undefined,
     svg,
     conf.mindmap?.padding ?? defaultConfig.mindmap.padding,
     conf.mindmap?.useMaxWidth ?? defaultConfig.mindmap.useMaxWidth

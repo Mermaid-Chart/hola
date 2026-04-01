@@ -32,7 +32,7 @@ g.stateGroup line {
 
 .transition {
   stroke: ${options.transitionColor};
-  stroke-width: ${options.strokeWidth};
+  stroke-width: ${options.strokeWidth || 1};
   fill: none;
 }
 
@@ -130,7 +130,7 @@ g.stateGroup line {
 .node-rect-neo {
   fill: ${options.stateBkg || options.mainBkg};
   stroke: none;
-  stroke-width: 1px;
+  stroke-width: ${options.strokeWidth || 1}px;
 }
 
 .node polygon {
@@ -145,7 +145,7 @@ g.stateGroup line {
 .statediagram-cluster rect {
   fill: ${options.compositeTitleBackground};
   stroke: ${options.stateBorder || options.nodeBorder};
-  stroke-width: ${options.strokeWidth};
+  stroke-width: ${options.strokeWidth || 1}px;
 }
 
 .cluster-label, .nodeLabel {

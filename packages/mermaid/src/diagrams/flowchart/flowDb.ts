@@ -38,8 +38,8 @@ import type {
   SubgraphData,
   VertexData,
 } from './types.js';
-import { attachSyncMethodsToAST } from './parser/FlowchartSyncMethods.js';
 import DOMPurify from 'dompurify';
+import { attachSyncMethodsToAST } from './parser/FlowchartSyncMethods.js';
 interface LinkData {
   id: string;
 }
@@ -310,8 +310,7 @@ export class FlowDB implements DiagramDB {
         } else {
           vertex.text = labelText;
         }
-      vertex.labelType = this.sanitizeNodeLabelType(doc?.labelType);
-
+        vertex.labelType = this.sanitizeNodeLabelType(doc?.labelType);
       }
       if (doc?.icon) {
         vertex.icon = doc?.icon;
@@ -378,12 +377,11 @@ export class FlowDB implements DiagramDB {
         edge.text = edge.text.substring(1, edge.text.length - 1);
       }
       // Only set labelType if linkTextObj is an object with a type property
-      edge.labelType = typeof linkTextObj === 'object'
-        ? this.sanitizeNodeLabelType(linkTextObj.type)
-        : 'text';
+      edge.labelType =
+        typeof linkTextObj === 'object' ? this.sanitizeNodeLabelType(linkTextObj.type) : 'text';
     }
 
-    if (type !== undefined && type !== null) {
+    if (type !== null && type !== undefined) {
       edge.type = type.type;
       edge.stroke = type.stroke as FlowEdge['stroke'];
       edge.length = type.length !== undefined && type.length > 10 ? 10 : type.length;

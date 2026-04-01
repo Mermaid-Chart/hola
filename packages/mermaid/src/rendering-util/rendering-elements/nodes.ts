@@ -51,12 +51,14 @@ export async function insertNode(
     el = await shapeHandler(elem, node, renderOptions);
     newEl = el;
   }
+  // Add data attributes for neo look support
+  newEl.attr('data-look', handleUndefinedAttr(node.look));
+
   // MC Special
   newEl.attr('data-id', node.id);
   newEl.attr('data-node', true);
   newEl.attr('data-et', 'node');
-  newEl.attr('data-look', handleUndefinedAttr(node.look));
-  
+
   if (node.tooltip) {
     el.attr('title', node.tooltip);
   }

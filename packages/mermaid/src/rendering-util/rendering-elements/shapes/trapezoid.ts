@@ -28,8 +28,8 @@ export async function trapezoid<T extends SVGGraphicsElement>(parent: D3Selectio
     node.width = node.width - 2 * _dx;
   }
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
-  const h = (node?.height ? node?.height : bbox.height) + labelPaddingY;
-  const w = node?.width ? node?.width : bbox.width + labelPaddingX * 2;
+  const h = (node?.height ?? bbox.height) + labelPaddingY;
+  const w = (node?.width ?? bbox.width) + labelPaddingX * 2;
 
   const points = [
     { x: (-3 * h) / 6, y: 0 },

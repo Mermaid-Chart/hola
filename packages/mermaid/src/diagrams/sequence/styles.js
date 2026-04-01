@@ -137,9 +137,10 @@ const getStyles = (options) => {
   }
 
   g rect.rect {
-    filter: ${options.dropShadow};
+    filter: ${dropShadow};
     stroke: ${options.nodeBorder};
     stroke-width: ${options.strokeWidth};
+
   }
 `;
 };

@@ -1755,10 +1755,6 @@ const buildNoteModel = async function (msg, actors, diagObj) {
 // Central connection positioning constants
 const CENTRAL_CONNECTION_BASE_OFFSET = 4;
 const CENTRAL_CONNECTION_BIDIRECTIONAL_OFFSET = 6;
-const CENTRAL_CONNECTION_CIRCLE_OFFSET_LTR = 15; // Left-to-right offset
-const CENTRAL_CONNECTION_CIRCLE_OFFSET_RTL = -15; // Right-to-left offset
-const CENTRAL_CONNECTION_REVERSE_CIRCLE_OFFSET_LTR = -15; // Reverse arrow left-to-right
-const CENTRAL_CONNECTION_REVERSE_CIRCLE_OFFSET_RTL = 15; // Reverse arrow right-to-left
 
 /**
  * Check if a message has central connection
@@ -1841,7 +1837,6 @@ const calculateCentralConnectionOffset = function (msg, diagObj, isArrowToRight)
 
   return offset;
 };
-
 
 /**
  * Check if a message is a bidirectional arrow type

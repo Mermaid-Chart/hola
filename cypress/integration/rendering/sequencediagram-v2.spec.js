@@ -776,6 +776,7 @@ describe('Sequence Diagram Special Cases', () => {
         );
       });
     });
+
     describe('Sequence Diagram Rendering with Autonumber and All Arrow Types', () => {
       describe('Autonumber with All Arrow Types', () => {
         it('should render all arrow types with autonumbering', () => {
@@ -1231,18 +1232,18 @@ sequenceDiagram
         it('should render self-reference with reverse arrows - without autonumber', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice/|-Alice: Solid top reverse self-reference
-    Bob\\|-Bob: Solid bottom reverse self-reference
-    Charlie//-Charlie: Stick top reverse self-reference
-    Alice\\\\-Alice: Stick bottom reverse self-reference
-    Bob/|--Bob: Dotted solid top reverse self-reference
-    Charlie\\|--Charlie: Dotted solid bottom reverse self-reference
-    Alice//--Alice: Dotted stick top reverse self-reference
-    Bob\\\\--Bob: Dotted stick bottom reverse self-reference`,
+  sequenceDiagram
+      participant Alice
+      participant Bob
+      participant Charlie
+      Alice/|-Alice: Solid top reverse self-reference
+      Bob\\|-Bob: Solid bottom reverse self-reference
+      Charlie//-Charlie: Stick top reverse self-reference
+      Alice\\\\-Alice: Stick bottom reverse self-reference
+      Bob/|--Bob: Dotted solid top reverse self-reference
+      Charlie\\|--Charlie: Dotted solid bottom reverse self-reference
+      Alice//--Alice: Dotted stick top reverse self-reference
+      Bob\\\\--Bob: Dotted stick bottom reverse self-reference`,
             { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
           );
         });
@@ -1298,253 +1299,6 @@ sequenceDiagram
           );
         });
 
-        it('should render self-reference with CENTRAL_CONNECTION - without autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice->>()Alice: Solid arrow with circle at destination
-    Bob-->>()Bob: Dotted arrow with circle at destination
-    Charlie->()Charlie: Open arrow with circle at destination
-    Alice--x()Alice: Cross arrow with circle at destination
-    Bob--)()Bob: Close arrow with circle at destination`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with CENTRAL_CONNECTION - with autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    autonumber
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice->>()Alice: Solid arrow with circle at destination
-    Bob-->>()Bob: Dotted arrow with circle at destination
-    Charlie->()Charlie: Open arrow with circle at destination
-    Alice--x()Alice: Cross arrow with circle at destination
-    Bob--)()Bob: Close arrow with circle at destination`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with CENTRAL_CONNECTION_REVERSE  - without autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()->>Alice: Circle at source with solid arrow
-    Bob()-->>Bob: Circle at source with dotted arrow
-    Charlie()->Charlie: Circle at source with open arrow
-    Alice()--xAlice: Circle at source with cross arrow
-    Bob()--)Bob: Circle at source with close arrow`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with CENTRAL_CONNECTION_REVERSE - with autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    autonumber
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()->>Alice: Circle at source with solid arrow
-    Bob()-->>Bob: Circle at source with dotted arrow
-    Charlie()->Charlie: Circle at source with open arrow
-    Alice()--xAlice: Circle at source with cross arrow
-    Bob()--)Bob: Circle at source with close arrow`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with CENTRAL_CONNECTION_DUAL - without autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()->>()Alice: Circles at both ends with solid arrow
-    Bob()-->>()Bob: Circles at both ends with dotted arrow
-    Charlie()->()Charlie: Circles at both ends with open arrow
-    Alice()--x()Alice: Circles at both ends with cross arrow
-    Bob()--)()Bob: Circles at both ends with close arrow`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with CENTRAL_CONNECTION_DUAL - with autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    autonumber
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()->>()Alice: Circles at both ends with solid arrow
-    Bob()-->>()Bob: Circles at both ends with dotted arrow
-    Charlie()->()Charlie: Circles at both ends with open arrow
-    Alice()--x()Alice: Circles at both ends with cross arrow
-    Bob()--)()Bob: Circles at both ends with close arrow`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice/|-()Alice: Solid top reverse with circle at destination
-    Bob\\|-()Bob: Solid bottom reverse with circle at destination
-    Charlie//-()Charlie: Stick top reverse with circle at destination
-    Alice\\\\-()Alice: Stick bottom reverse with circle at destination
-    Bob/|--()Bob: Dotted solid top reverse with circle at destination
-    Charlie\\|--()Charlie: Dotted solid bottom reverse with circle at destination
-    Alice//--()Alice: Dotted stick top reverse with circle at destination
-    Bob\\\\--()Bob: Dotted stick bottom reverse with circle at destination`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with reverse arrows and CENTRAL_CONNECTION - with autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    autonumber
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice/|-()Alice: Solid top reverse with circle at destination
-    Bob\\|-()Bob: Solid bottom reverse with circle at destination
-    Charlie//-()Charlie: Stick top reverse with circle at destination
-    Alice\\\\-()Alice: Stick bottom reverse with circle at destination
-    Bob/|--()Bob: Dotted solid top reverse with circle at destination
-    Charlie\\|--()Charlie: Dotted solid bottom reverse with circle at destination
-    Alice//--()Alice: Dotted stick top reverse with circle at destination
-    Bob\\\\--()Bob: Dotted stick bottom reverse with circle at destination`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-ref reverse Central_Connection_REVERSE no-autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()/|-Alice: Circle at source with solid top reverse
-    Bob()\\|-Bob: Circle at source with solid bottom reverse
-    Charlie()//-Charlie: Circle at source with stick top reverse
-    Alice()\\\\-Alice: Circle at source with stick bottom reverse
-    Bob()/|--Bob: Circle at source with dotted solid top reverse
-    Charlie()\\|--Charlie: Circle at source with dotted solid bottom reverse
-    Alice()//--Alice: Circle at source with dotted stick top reverse
-    Bob()\\\\--Bob: Circle at source with dotted stick bottom reverse`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-ref reverse Central_Connection_REVERSE autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    autonumber
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()/|-Alice: Circle at source with solid top reverse
-    Bob()\\|-Bob: Circle at source with solid bottom reverse
-    Charlie()//-Charlie: Circle at source with stick top reverse
-    Alice()\\\\-Alice: Circle at source with stick bottom reverse
-    Bob()/|--Bob: Circle at source with dotted solid top reverse
-    Charlie()\\|--Charlie: Circle at source with dotted solid bottom reverse
-    Alice()//--Alice: Circle at source with dotted stick top reverse
-    Bob()\\\\--Bob: Circle at source with dotted stick bottom reverse`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-ref reverse Central_Connection_DUAL no-autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()/|-()Alice: Circles at both ends with solid top reverse
-    Bob()\\|-()Bob: Circles at both ends with solid bottom reverse
-    Charlie()//-()Charlie: Circles at both ends with stick top reverse
-    Alice()\\\\-()Alice: Circles at both ends with stick bottom reverse
-    Bob()/|--()Bob: Circles at both ends with dotted solid top reverse
-    Charlie()\\|--()Charlie: Circles at both ends with dotted solid bottom reverse
-    Alice()//--()Alice: Circles at both ends with dotted stick top reverse
-    Bob()\\\\--()Bob: Circles at both ends with dotted stick bottom reverse`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-references, reverse arrows & dual central connection (autonumber).', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    autonumber
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()/|-()Alice: Circles at both ends with solid top reverse
-    Bob()\\|-()Bob: Circles at both ends with solid bottom reverse
-    Charlie()//-()Charlie: Circles at both ends with stick top reverse
-    Alice()\\\\-()Alice: Circles at both ends with stick bottom reverse
-    Bob()/|--()Bob: Circles at both ends with dotted solid top reverse
-    Charlie()\\|--()Charlie: Circles at both ends with dotted solid bottom reverse
-    Alice()//--()Alice: Circles at both ends with dotted stick top reverse
-    Bob()\\\\--()Bob: Circles at both ends with dotted stick bottom reverse`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('Render self-references with bidirectional central connections (no autonumber).', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()<<->>()Alice: Dual central with bidirectional solid
-    Bob()<<-->>()Bob: Dual central with bidirectional dotted
-    Charlie<<->>()Alice: Central at end with bidirectional
-    Bob()<<->>Bob: Central at start with bidirectional`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
-        it('should render self-reference with bidirectional and central connections - with autonumber', () => {
-          imgSnapshotTest(
-            `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    autonumber
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice()<<->>()Alice: Dual central with bidirectional solid
-    Bob()<<-->>()Bob: Dual central with bidirectional dotted
-    Charlie<<->>()Charlie: Central at end with bidirectional
-    Bob()<<->>Bob: Central at start with bidirectional`,
-            { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
-          );
-        });
-
         it('should render comprehensive self-reference scenario - all arrow types mixed', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
@@ -1565,19 +1319,7 @@ sequenceDiagram
 
     Note over Alice,Charlie: Bidirectional arrows
     Charlie<<->>Charlie: Bidirectional solid
-    Alice<<-->>Alice: Bidirectional dotted
-
-    Note over Alice,Charlie: Central connections
-    Bob->>()Bob: Central at destination
-    Charlie()->>Charlie: Central at source
-    Alice()->>()Alice: Dual central
-
-    Note over Alice,Charlie: Reverse with central
-    Bob()/|-()Bob: Reverse with dual central
-    Charlie/|-()Charlie: Reverse with central at destination
-
-    Note over Alice,Charlie: Bidirectional with central
-    Alice()<<->>()Alice: Bidirectional with dual central`,
+    Alice<<-->>Alice: Bidirectional dotted`,
             { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
           );
         });
@@ -1594,15 +1336,293 @@ sequenceDiagram
     Alice->>Bob: Regular message
     Bob->>Bob: Self-reference solid
     Bob-->>Charlie: Regular dotted
-    Charlie()->>()Charlie: Self-ref dual central
     Charlie->>Alice: Regular back
     Alice<<->>Alice: Self-ref bidirectional
     Alice()->>Bob: Regular with central
-    Bob()/|-()Bob: Self-ref reverse dual central
     Bob-->>Alice: Regular dotted back`,
             { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
           );
         });
+      });
+    });
+
+    describe('Comprehensive Test - All Message Types and Arrow Types', () => {
+      it('should render all message types and arrow types in a single comprehensive test', () => {
+        imgSnapshotTest(
+          `%%{init: {'theme':'base'}}%%
+sequenceDiagram
+    autonumber
+    participant Alice
+    participant Bob
+    participant Charlie
+    participant David
+
+    Note over Alice,David: SOLID ARROWS (Filled arrowhead)
+    Alice->>Bob: Solid arrow (->>)
+    Alice->Charlie: Solid open arrow (->)
+    Alice-xDavid: Solid cross (-x)
+    Alice-)Bob: Solid point async (-)
+
+    Note over Alice,David: DOTTED ARROWS (Dashed line)
+    Bob-->>Alice: Dotted arrow (-->>)
+    Bob-->Charlie: Dotted open arrow (-->)
+    Bob--xDavid: Dotted cross (--x)
+    Bob--)Alice: Dotted point async (--)
+
+    Note over Alice,David: BIDIRECTIONAL ARROWS
+    Alice<<->>Bob: Bidirectional solid (<<->>)
+    Charlie<<-->>David: Bidirectional dotted (<<-->>)
+
+    Note over Alice,David: REVERSE ARROWS (Half arrows)
+    Bob/|-Alice: Solid top reverse (/|-)
+    Charlie\\|-Bob: Solid bottom reverse (\\|-)
+    David//-Alice: Stick top reverse (//)
+    Alice\\\\-Bob: Stick bottom reverse (\\\\-)
+
+    Note over Alice,David: DOTTED REVERSE ARROWS
+    Bob/|--Alice: Dotted solid top reverse (/|--)
+    Charlie\\|--Bob: Dotted solid bottom reverse (\\|--)
+    David//--Alice: Dotted stick top reverse (//--)
+    Alice\\\\--Bob: Dotted stick bottom reverse (\\\\--)
+
+    Note over Alice,David: CENTRAL CONNECTIONS (Circle at destination)
+    Alice->>()Bob: Solid with circle at destination
+    Alice-->>()Charlie: Dotted with circle at destination
+    Alice->()David: Open with circle at destination
+    Alice--x()Bob: Cross with circle at destination
+
+    Note over Alice,David: CENTRAL CONNECTIONS REVERSE (Circle at source)
+    Bob()->>Alice: Circle at source with solid
+    Charlie()-->>Bob: Circle at source with dotted
+    David()->Alice: Circle at source with open
+    Bob()--xAlice: Circle at source with cross
+
+    Note over Alice,David: CENTRAL CONNECTIONS DUAL (Circles at both ends)
+    Alice()->>()Bob: Dual circles with solid
+    Alice()-->>()Charlie: Dual circles with dotted
+    Alice()->()David: Dual circles with open
+    Alice()--x()Bob: Dual circles with cross
+
+    Note over Alice,David: BIDIRECTIONAL WITH CENTRAL CONNECTIONS
+    Alice()<<->>()Bob: Dual circles with bidirectional solid
+    Charlie()<<-->>()David: Dual circles with bidirectional dotted
+
+    Note over Alice,David: SELF-REFERENCES (Same participant)
+    Alice->>Alice: Self-reference solid
+    Bob-->>Bob: Self-reference dotted
+    Charlie->Charlie: Self-reference open
+    David-xDavid: Self-reference cross
+
+    Note over Alice,David: SELF-REFERENCES WITH REVERSE ARROWS
+    Alice/|-Alice: Self-ref reverse solid top
+    Bob\\|-Bob: Self-ref reverse solid bottom
+    Charlie//-Charlie: Self-ref reverse stick top
+    David\\\\-David: Self-ref reverse stick bottom
+
+    Note over Alice,David: SELF-REFERENCES BIDIRECTIONAL
+    Alice<<->>Alice: Self-ref bidirectional solid
+    Bob<<-->>Bob: Self-ref bidirectional dotted
+
+    Note over Alice,David: MIXED COMPLEX SCENARIO
+    Alice->>Bob: Regular message
+    Bob()->>()Charlie: Central dual connection
+    Charlie-->>David: Dotted response
+    David/|-Alice: Reverse arrow
+    Alice<<->>Bob: Bidirectional back
+    Bob-xCharlie: Cross message
+    Charlie()->>David: Central reverse
+    David-->>()Alice: Dotted with circle`,
+          { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+    });
+
+    describe('Participant Stereotypes with Aliases', () => {
+      it('should render participants with stereotypes and aliases', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          participant API@{ "type" : "boundary" } as Public API
+          participant Auth@{ "type" : "control" } as Auth Controller
+          participant DB@{ "type" : "database" } as User Database
+          participant Cache@{ "type" : "entity" } as Cache Layer
+          API ->> Auth: Authenticate request
+          Auth ->> DB: Query user
+          DB -->> Auth: User data
+          Auth ->> Cache: Store session
+          Cache -->> Auth: Confirmed
+          Auth -->> API: Token`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should render actors with stereotypes and aliases', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          actor U@{ "type" : "actor" } as End User
+          actor A@{ "type" : "boundary" } as API Gateway
+          actor S@{ "type" : "control" } as Service Layer
+          actor D@{ "type" : "database" } as Data Store
+          U ->> A: Send request
+          A ->> S: Process
+          S ->> D: Persist
+          D -->> S: Success
+          S -->> A: Response
+          A -->> U: Result`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should render mixed participants and actors with stereotypes and aliases', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          actor Client@{ "type" : "actor" } AS Mobile Client
+          participant Gateway@{ "type" : "boundary" } as API Gateway
+          participant OrderSvc@{ "type" : "control" } as Order Service
+          participant Queue@{ "type" : "queue" } as Message Queue
+          participant DB@{ "type" : "database" } as Order Database
+          participant Logs@{ "type" : "collections" } as Audit Logs
+          Client ->> Gateway: Place order
+          Gateway ->> OrderSvc: Validate order
+          OrderSvc ->> Queue: Queue for processing  as well
+          OrderSvc ->> DB: Save order
+          OrderSvc ->> Logs: Log transaction
+          Queue -->> OrderSvc: Processing started AS Well
+          DB -->> OrderSvc: Order saved
+          Logs -->> OrderSvc: Logged
+          OrderSvc -->> Gateway: Order confirmed
+          Gateway -->> Client: Confirmation`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should render stereotypes with aliases in boxes', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          box rgb(200,220,255) Frontend Layer
+            actor User@{ "type" : "actor" } as End User
+            participant UI@{ "type" : "boundary" } as User Interface
+          end
+          box rgb(255,220,200) Backend Layer
+            participant API@{ "type" : "boundary" } as REST API
+            participant Svc@{ "type" : "control" } as Business Logic
+          end
+          box rgb(220,255,200) Data Layer
+            participant DB@{ "type" : "database" } as Primary DB
+            participant Cache@{ "type" : "entity" } as Cache Store
+          end
+          User ->> UI: Click button
+          UI ->> API: HTTP request
+          API ->> Svc: Process
+          Svc ->> Cache: Check cache
+          Cache -->> Svc: Cache miss
+          Svc ->> DB: Query data
+          DB -->> Svc: Data
+          Svc ->> Cache: Update cache
+          Svc -->> API: Response
+          API -->> UI: Data
+          UI -->> User: Display`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should render stereotypes with aliases and complex interactions', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          participant Web@{ "type" : "boundary" } as Web Portal
+          participant Auth@{ "type" : "control" } as Auth Service
+          participant UserDB@{ "type" : "database" } as User DB
+          participant Queue@{ "type" : "queue" } as Event Queue
+          participant Audit@{ "type" : "collections" } as Audit Trail
+          Web ->> Auth: Login request
+          activate Auth
+          Auth ->> UserDB: Verify credentials
+          activate UserDB
+          UserDB -->> Auth: User found
+          deactivate UserDB
+          alt Valid credentials
+            Auth ->> Queue: Publish login event
+            Auth ->> Audit: Log success
+            par Parallel processing
+              Queue -->> Auth: Event queued
+              and
+              Audit -->> Auth: Logged
+            end
+            Auth -->> Web: Success token
+          else Invalid credentials
+            Auth ->> Audit: Log failure
+            Audit -->> Auth: Logged
+            Auth --x Web: Access denied
+          end
+          deactivate Auth
+          Note over Web,Audit: All interactions logged`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+    });
+
+    describe('Participant Inline Alias in Config', () => {
+      it('should render participants with inline alias in config object', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          participant API@{ "type" : "boundary", "alias": "Public API" }
+          participant Auth@{ "type" : "control", "alias": "Auth Service" }
+          participant DB@{ "type" : "database", "alias": "User DB" }
+          API ->> Auth: Login request
+          Auth ->> DB: Query user
+          DB -->> Auth: User data
+          Auth -->> API: Token`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should render actors with inline alias in config object', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          actor U@{ "type" : "actor", "alias": "End User" }
+          actor G@{ "type" : "boundary", "alias": "Gateway" }
+          actor S@{ "type" : "control", "alias": "Service" }
+          U ->> G: Request
+          G ->> S: Process
+          S -->> G: Response
+          G -->> U: Result`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should handle mixed inline and external alias syntax', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          participant A@{ "type" : "boundary", "alias": "Service A" }
+          participant B@{ "type" : "control" } as Service B
+          participant C@{ "type" : "database" }
+          A ->> B: Request
+          B ->> C: Query
+          C -->> B: Data
+          B -->> A: Response`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should prioritize external alias over inline alias', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          participant API@{ "type" : "boundary", "alias": "Internal Name" } as External Name
+          participant DB@{ "type" : "database", "alias": "Internal DB" } AS External DB
+          API ->> DB: Query
+          DB -->> API: Result`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
+      });
+
+      it('should render inline alias with only alias field (no type)', () => {
+        imgSnapshotTest(
+          `sequenceDiagram
+          participant API@{ "alias": "Public API" }
+          participant Auth@{ "alias": "Auth Service" }
+          API ->> Auth: Request
+          Auth -->> API: Response`,
+          { look: 'classic', sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
+        );
       });
     });
   });

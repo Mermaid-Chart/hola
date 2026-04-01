@@ -92,7 +92,7 @@ export async function bowTieRect<T extends SVGGraphicsElement>(parent: D3Selecti
   const labelPaddingX = node.look === 'neo' ? 16 : nodePadding;
   const labelPaddingY = node.look === 'neo' ? 12 : nodePadding;
 
-  const calcTotalHeight = (labelHeight: number) => labelHeight + labelPaddingY * 2;
+  const calcTotalHeight = (labelHeight: number) => labelHeight + labelPaddingY;
   const calcEllipseRadius = (totalHeight: number) => {
     const ry = totalHeight / 2;
     const rx = ry / (2.5 + totalHeight / 50);
@@ -112,7 +112,6 @@ export async function bowTieRect<T extends SVGGraphicsElement>(parent: D3Selecti
       10
     );
   }
-
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
 
   const totalHeight = calcTotalHeight(node?.height ? node?.height : bbox.height);

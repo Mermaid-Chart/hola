@@ -26,6 +26,7 @@
 - [RenderOptions](interfaces/RenderOptions.md)
 - [RenderResult](interfaces/RenderResult.md)
 - [RunOptions](interfaces/RunOptions.md)
+- [SequenceAST](interfaces/SequenceAST.md)
 - [SyncIconLoader](interfaces/SyncIconLoader.md)
 - [UnknownDiagramError](interfaces/UnknownDiagramError.md)
 

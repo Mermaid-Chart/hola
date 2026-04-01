@@ -13,7 +13,6 @@ const TOP_ACTOR_CLASS = 'actor-top';
 const BOTTOM_ACTOR_CLASS = 'actor-bottom';
 const ACTOR_BOX_CLASS = 'actor-box';
 const ACTOR_MAN_FIGURE_CLASS = 'actor-man';
-const config = configApi.getConfig();
 
 /** Exact set of themes that use color arrays for actor styling */
 const COLOR_THEMES = new Set(['redux-color', 'redux-dark-color']);
@@ -1288,16 +1287,12 @@ export const drawActor = async function (
 
   switch (actor.type) {
     case 'actor':
-      return await drawActorTypeActor(elem, actor, conf, isFooter, diagObj);
       return await drawActorTypeActor(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'participant':
-      return await drawActorTypeParticipant(elem, actor, conf, isFooter, diagObj);
       return await drawActorTypeParticipant(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'boundary':
-      return await drawActorTypeBoundary(elem, actor, conf, isFooter, diagObj);
       return await drawActorTypeBoundary(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'control':
-      return await drawActorTypeControl(elem, actor, conf, isFooter, diagObj);
       return await drawActorTypeControl(
         elem,
         actor,
@@ -1307,13 +1302,10 @@ export const drawActor = async function (
         resolvedActorIndexMap
       );
     case 'entity':
-      return await drawActorTypeEntity(elem, actor, conf, isFooter, diagObj);
       return await drawActorTypeEntity(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'database':
-      return await drawActorTypeDatabase(elem, actor, conf, isFooter, diagObj);
       return await drawActorTypeDatabase(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'collections':
-      return await drawActorTypeCollections(elem, actor, conf, isFooter, diagObj);
       return await drawActorTypeCollections(elem, actor, conf, isFooter, resolvedActorIndexMap);
     case 'queue':
       return await drawActorTypeQueue(elem, actor, conf, isFooter, resolvedActorIndexMap);

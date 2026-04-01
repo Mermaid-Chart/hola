@@ -94,7 +94,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:368](https://github
 
 ### getElementAtIndex()?
 
-> `optional` **getElementAtIndex**(`index`): `undefined` | [`ElementMapping`](ElementMapping.md)
+> `optional` **getElementAtIndex**(`index`): [`ElementMapping`](ElementMapping.md) | `undefined`
 
 Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:364](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L364)
 
@@ -106,13 +106,13 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:364](https://github
 
 #### Returns
 
-`undefined` | [`ElementMapping`](ElementMapping.md)
+[`ElementMapping`](ElementMapping.md) | `undefined`
 
 ---
 
 ### getElementAtPosition()?
 
-> `optional` **getElementAtPosition**(`line`, `column`): `undefined` | [`ElementMapping`](ElementMapping.md)
+> `optional` **getElementAtPosition**(`line`, `column`): [`ElementMapping`](ElementMapping.md) | `undefined`
 
 Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:361](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L361)
 
@@ -128,13 +128,13 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:361](https://github
 
 #### Returns
 
-`undefined` | [`ElementMapping`](ElementMapping.md)
+[`ElementMapping`](ElementMapping.md) | `undefined`
 
 ---
 
 ### getElementByDataId()?
 
-> `optional` **getElementByDataId**(`dataId`): `undefined` | [`ElementMapping`](ElementMapping.md)
+> `optional` **getElementByDataId**(`dataId`): [`ElementMapping`](ElementMapping.md) | `undefined`
 
 Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:362](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L362)
 
@@ -146,13 +146,13 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:362](https://github
 
 #### Returns
 
-`undefined` | [`ElementMapping`](ElementMapping.md)
+[`ElementMapping`](ElementMapping.md) | `undefined`
 
 ---
 
 ### getElementById()?
 
-> `optional` **getElementById**(`id`): `undefined` | [`ElementMapping`](ElementMapping.md)
+> `optional` **getElementById**(`id`): [`ElementMapping`](ElementMapping.md) | `undefined`
 
 Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:363](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagrams/sequence/types.ts#L363)
 
@@ -164,7 +164,7 @@ Defined in: [packages/mermaid/src/diagrams/sequence/types.ts:363](https://github
 
 #### Returns
 
-`undefined` | [`ElementMapping`](ElementMapping.md)
+[`ElementMapping`](ElementMapping.md) | `undefined`
 
 ---
 

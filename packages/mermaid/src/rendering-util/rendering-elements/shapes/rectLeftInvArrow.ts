@@ -18,7 +18,6 @@ export async function rect_left_inv_arrow<T extends SVGGraphicsElement>(
     node.width = (node?.width ?? 10) - labelPaddingX * 2;
     node.height = (node?.height ?? 10) - labelPaddingY * 2;
   }
-
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
 
   const w = (node?.width ?? bbox.width) + (node.look === 'neo' ? labelPaddingX * 2 : labelPaddingX);

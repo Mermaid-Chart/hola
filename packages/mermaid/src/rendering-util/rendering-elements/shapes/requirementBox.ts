@@ -22,7 +22,7 @@ export async function requirementBox<T extends SVGGraphicsElement>(
   const gap = 20;
   const isRequirementNode = 'verifyMethod' in node;
   const classes = getNodeClasses(node);
-  const { themeVariables ,theme } = getConfig();
+  const { themeVariables, theme } = getConfig();
   const { borderColorArray } = themeVariables;
 
   // Add outer g element

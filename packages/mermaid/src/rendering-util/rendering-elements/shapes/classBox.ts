@@ -116,7 +116,7 @@ export async function classBox<T extends SVGGraphicsElement>(parent: D3Selection
             ? -PADDING / 2
             : 0))) /
     2;
-
+  // Rect is centered so now adjust labels.
   // TODO: Fix types
   shapeSvg.selectAll('.text').each((_: any, i: number, nodes: any) => {
     const text = select<any, unknown>(nodes[i]);

@@ -523,9 +523,8 @@ export class ClassDB implements DiagramDB {
         if (!title) {
           return;
         }
-        // @ts-ignore - getBoundingClientRect is not part of the d3 type definition
-        const rect = this.getBoundingClientRect();
 
+        const rect = (event.currentTarget as Element).getBoundingClientRect();
         tooltipElem.transition().duration(200).style('opacity', '.9');
         tooltipElem
           .html(DOMPurify.sanitize(title))

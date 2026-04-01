@@ -8,7 +8,7 @@ import type { D3Selection } from '../../../types.js';
 export function stateStart<T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
   node: Node,
-  { config: { themeVariables, theme } }: ShapeRenderOptions
+  { config: { themeVariables } }: ShapeRenderOptions
 ) {
   const { lineColor, nodeShadow } = themeVariables;
 

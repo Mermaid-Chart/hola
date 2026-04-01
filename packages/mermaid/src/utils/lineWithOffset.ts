@@ -10,9 +10,9 @@ export const markerOffsets = {
   dependency: 6,
   lollipop: 13.5,
   arrow_point: 4,
-  requirement_arrow: 5.5,
   arrow_barb: 0,
   arrow_barb_neo: 5.5,
+  requirement_arrow: 5.5,
   //arrow_cross: 24,
 } as const;
 

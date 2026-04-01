@@ -3,6 +3,7 @@
  * functionality and to render the diagrams to svg code!
  */
 import type { AsyncIconLoader, IconLoader, SyncIconLoader } from './rendering-util/icons.js';
+import { registerIconPacks } from './rendering-util/icons.js';
 import { dedent } from 'ts-dedent';
 import type { MermaidConfig } from './config.type.js';
 import { detectType, detectors, registerLazyLoadedDiagrams } from './diagram-api/detectType.js';
@@ -14,7 +15,6 @@ import type { UnknownDiagramError } from './errors.js';
 import type { InternalHelpers } from './internals.js';
 import { log } from './logger.js';
 import { mermaidAPI } from './mermaidAPI.js';
-import { registerIconPacks } from './rendering-util/icons.js';
 import type { LayoutLoaderDefinition, RenderOptions } from './rendering-util/render.js';
 import { registerLayoutLoaders } from './rendering-util/render.js';
 import type { LayoutData } from './rendering-util/types.js';

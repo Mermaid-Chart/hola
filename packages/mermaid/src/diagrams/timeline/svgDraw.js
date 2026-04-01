@@ -529,7 +529,7 @@ export const drawNode = function (elem, node, fullSection, conf, diagramId, isEv
   if (isReduxTheme) {
     textElem.attr(
       'transform',
-      `translate(${node.width / 2}, ${currentDrawing === 'drawEvents' ? node.padding / 2 + 3 : node.padding})`
+      `translate(${node.width / 2}, ${isEvent ? node.padding / 2 + 3 : node.padding})`
     );
   }
 

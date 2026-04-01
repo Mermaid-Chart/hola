@@ -1,5 +1,5 @@
 import { getConfig } from '../../diagram-api/diagramAPI.js';
-import { getEffectiveHtmlLabels } from '../../config.js';
+import { evaluate, getEffectiveHtmlLabels } from '../../config.js';
 import { log } from '../../logger.js';
 import { getSubGraphTitleMargins } from '../../utils/subGraphTitleMargins.js';
 import { select } from 'd3';
@@ -436,7 +436,6 @@ const divider = (parent, node) => {
     .attr('id', node.domId)
     .attr('data-et', 'node')
     .attr('data-node', 'true')
-    .attr('data-id', node.id)
     .attr('data-look', node.look);
 
   // add the rect

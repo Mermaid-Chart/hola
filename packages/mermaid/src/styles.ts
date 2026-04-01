@@ -1,7 +1,6 @@
 import type { FlowChartStyleOptions } from './diagrams/flowchart/styles.js';
 import { log } from './logger.js';
 import type { DiagramStylesProvider } from './diagram-api/types.js';
-import * as configApi from '../../mermaid/src/config.js';
 import type { MermaidConfig } from './config.type.js';
 
 const themes: Record<string, DiagramStylesProvider> = {};
@@ -30,8 +29,6 @@ const getStyles = (
   svgId: string
 ) => {
   let diagramStyles = '';
-  const config = configApi.getConfig();
-  const { theme, look } = config;
   if (type in themes && themes[type]) {
     // Pass svgId through options so diagram-specific style functions can use it
     // (e.g., for gradient URL references like url(svgId-gradient)).
@@ -160,7 +157,7 @@ const getStyles = (
 `;
 };
 
-const genGradient = (
+const _genGradient = (
   useGradient: boolean,
   THEME_COLOR_LIMIT: number,
   svgId: string,
@@ -182,7 +179,7 @@ const genGradient = (
   return sections;
 };
 
-const genGitGraphGradient = (config: MermaidConfig, svgId: string) => {
+const _genGitGraphGradient = (config: MermaidConfig, svgId: string) => {
   const { themeVariables: options } = config;
   let sections = '';
   if (options.useGradient) {
@@ -195,7 +192,7 @@ const genGitGraphGradient = (config: MermaidConfig, svgId: string) => {
   return sections;
 };
 
-const genTimelineGradient = (
+const _genTimelineGradient = (
   useGradient: boolean,
   THEME_COLOR_LIMIT: number,
   svgId: string,

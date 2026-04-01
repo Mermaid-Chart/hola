@@ -131,11 +131,15 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: any)
       .attr('stop-opacity', 1);
   }
 
-  return layoutRenderer.render(data4Layout, svg, internalHelpers, {
-    algorithm: layoutDefinition.algorithm,
-  },
-  positions
-);
+  return layoutRenderer.render(
+    data4Layout,
+    svg,
+    internalHelpers,
+    {
+      algorithm: layoutDefinition.algorithm,
+    },
+    positions
+  );
 };
 
 /**

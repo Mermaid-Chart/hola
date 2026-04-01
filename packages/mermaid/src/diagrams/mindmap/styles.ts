@@ -1,15 +1,25 @@
 // @ts-expect-error Incorrect khroma types
 import { darken, lighten, isDark } from 'khroma';
 import type { DiagramStylesProvider } from '../../diagram-api/types.js';
-import * as configApi from '../../config.js';
 
+/**
+ * Generates CSS styles for mindmap sections based on theme colors and styling options.
+ *
+ * This function creates color-based sections that apply different styling to mindmap nodes
+ * depending on their hierarchical level. It handles both standard and 'neo' look variants,
+ * adjusting line colors for better contrast and generating appropriate stroke widths.
+ *
+ * @param options - Styling options containing theme colors, look preference, and color limits
+ * @returns CSS string containing section-specific styles for hierarchical mindmap sections
+ */
 const genSections: DiagramStylesProvider = (options) => {
-  const config = configApi.getConfig();
-  const { theme, look } = config;
+  const { look, theme } = options;
 
   let sections = '';
 
+  // Adjust line colors for better contrast based on background darkness
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
+    // Fallback to inverted color scale if line color is not defined
     options['lineColor' + i] = options['lineColor' + i] || options['cScaleInv' + i];
     if (isDark(options['lineColor' + i])) {
       options['lineColor' + i] = lighten(options['lineColor' + i], 20);
@@ -18,7 +28,9 @@ const genSections: DiagramStylesProvider = (options) => {
     }
   }
 
+  // Generate CSS for each section with appropriate stroke widths
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
+    // Calculate stroke width: neo look uses decreasing width per level, standard uses fixed calculation
     const sw = '' + (look === 'neo' ? Math.max(10 - i * 2, 2) : 17 - 3 * i);
     sections += `
     .section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${
@@ -69,6 +81,18 @@ const genSections: DiagramStylesProvider = (options) => {
   return sections;
 };
 
+/**
+ * Generates gradient-specific CSS styles for neo look mindmap nodes.
+ *
+ * This function creates CSS rules that apply gradient styling to mindmap nodes when
+ * the gradient feature is enabled. It works in conjunction with SVG gradient definitions
+ * to provide enhanced visual appearance for nodes in the neo look variant.
+ *
+ * @param THEME_COLOR_LIMIT - Maximum number of theme colors to process
+ * @param svgId - SVG element identifier used for scoped gradient references
+ * @param mainBkg - Main background color for gradient-enabled nodes
+ * @returns CSS string containing gradient-specific node styling
+ */
 const genGradient = (THEME_COLOR_LIMIT: number, svgId: string, mainBkg: string) => {
   let sections = '';
   for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
@@ -84,10 +108,25 @@ const genGradient = (THEME_COLOR_LIMIT: number, svgId: string, mainBkg: string) 
   return sections;
 };
 
-// TODO: These options seem incorrect.
+/**
+ * Generates the main CSS styles for mindmap diagrams.
+ *
+ * This is the primary style provider function that combines section-specific styles
+ * with base mindmap styling. It handles theme variations, drop shadows, gradients,
+ * and coordinates with the overall Mermaid theming system.
+ *
+ * @param options - Complete styling options including theme, colors, and SVG context
+ * @returns Complete CSS string for mindmap diagram rendering
+ */
 const getStyles: DiagramStylesProvider = (options) => {
-  const config = configApi.getConfig();
-  const { theme } = config;
+  const { theme } = options;
+  // svgId is passed inside options by the caller in packages/mermaid/src/styles.ts
+  // as `themes[type]({ ...options, svgId })`. The second parameter is never populated.
+  const svgId: string | undefined = options.svgId;
+  const scopedDropShadow = options.dropShadow
+    ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`)
+    : 'none';
+
   return `
   .edge {
     stroke-width: 3;
@@ -119,14 +158,15 @@ const getStyles: DiagramStylesProvider = (options) => {
     text-align: center;
   }
   [data-look="neo"].mindmap-node  {
-    filter: ${options.dropShadow};
+    filter: ${scopedDropShadow};
   }
-  [data-look="neo"].section-root rect, .section-root path, .section-root circle, .section-root polygon  {
+  [data-look="neo"].mindmap-node.section-root rect, [data-look="neo"].mindmap-node.section-root path, [data-look="neo"].mindmap-node.section-root circle, [data-look="neo"].mindmap-node.section-root polygon  {
     fill: ${theme?.includes('redux') ? options.mainBkg : options.git0};
   }
-  [data-look="neo"].section-root .text-inner-tspan {
+  [data-look="neo"].mindmap-node.section-root .text-inner-tspan {
     fill:  ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : 0)]};
   }
+  ${options.useGradient && svgId && options.mainBkg ? genGradient(options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
 `;
 };
 export default getStyles;
