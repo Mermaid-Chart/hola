@@ -81,6 +81,21 @@ const genSections: DiagramStylesProvider = (options) => {
   return sections;
 };
 
+const genGradient = (THEME_COLOR_LIMIT: number, svgId: string, mainBkg: string) => {
+  let sections = '';
+  for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+    sections += `
+    [data-look="neo"].mindmap-node.section-${i - 1} rect, [data-look="neo"].mindmap-node.section-${i - 1} path, [data-look="neo"].mindmap-node.section-${i - 1} circle, [data-look="neo"].mindmap-node.section-${i - 1} polygon {
+      stroke: url(${svgId}-gradient);
+      fill: ${mainBkg};
+    }
+    .section-${i - 1} line {
+      stroke-width: 0;
+    }`;
+  }
+  return sections;
+};
+
 /**
  * Generates the main CSS styles for mindmap diagrams.
  *
