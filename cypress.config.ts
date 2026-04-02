@@ -53,12 +53,12 @@ const baseConfig = defineConfig({
   video: false,
 });
 
-// Only wrap with eyesPlugin when Applitools is explicitly enabled.
-// When USE_APPLI is not set, eyesPlugin's global after:run hook would
-// interfere with Argos and can crash the pipeline even when all tests pass.
+// eyesPlugin must always wrap the config so that the browser-side
+// @applitools/eyes-cypress/commands (imported unconditionally in e2e.js)
+// can read Cypress.env('APPLITOOLS') without crashing.
+// The pipeline-crash risk is mitigated by the try/catch around argosAfterRun above,
+// which prevents Argos upload failures from propagating through Applitools' wrapper.
 // Type cast needed because the @applitools/eyes-cypress type declarations export
 // the default as a namespace re-export, which TypeScript resolves as non-callable.
 type EyesPluginFn = (config: Cypress.ConfigOptions) => Cypress.ConfigOptions;
-export default process.env.USE_APPLI
-  ? (eyesPlugin as unknown as EyesPluginFn)(baseConfig)
-  : baseConfig;
+export default (eyesPlugin as unknown as EyesPluginFn)(baseConfig);
