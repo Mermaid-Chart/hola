@@ -1,44 +1,64 @@
 import eyesPlugin from '@applitools/eyes-cypress';
-import { registerArgosTask } from '@argos-ci/cypress/task';
+import { argosAfterRun, argosAfterScreenshot } from '@argos-ci/cypress/task';
 import coverage from '@cypress/code-coverage/task.js';
+import { log } from './packages/mermaid/src/logger.js';
 import { defineConfig } from 'cypress';
 import { addMatchImageSnapshotPlugin } from 'cypress-image-snapshot/plugin.js';
 import cypressSplit from 'cypress-split';
 import 'dotenv/config';
 
-export default eyesPlugin(
-  defineConfig({
-    projectId: 'n2sma2',
-    viewportWidth: 1440,
-    viewportHeight: 1024,
-    e2e: {
-      baseUrl: `http://localhost:${process.env.MERMAID_PORT ?? 9000}`,
-      specPattern: 'cypress/integration/**/*.{js,ts}',
-      setupNodeEvents(on, config) {
-        coverage(on, config);
-        cypressSplit(on, config);
-        on('before:browser:launch', (browser, launchOptions) => {
-          if (browser.name === 'chrome' && browser.isHeadless) {
-            launchOptions.args.push('--window-size=1440,1024', '--force-device-scale-factor=1');
-          }
-          return launchOptions;
-        });
-        // copy any needed variables from process.env to config.env
-        config.env.useAppli = process.env.USE_APPLI ? true : false;
-        config.env.useArgos = process.env.RUN_VISUAL_TEST === 'true';
-
-        if (config.env.useArgos) {
-          registerArgosTask(on, config, {
-            // Enable upload to Argos only when it runs on CI.
-            uploadToArgos: !!process.env.CI,
-          });
-        } else {
-          addMatchImageSnapshotPlugin(on, config);
+const baseConfig = defineConfig({
+  projectId: 'n2sma2',
+  viewportWidth: 1440,
+  viewportHeight: 1024,
+  e2e: {
+    baseUrl: `http://localhost:${process.env.MERMAID_PORT ?? 9000}`,
+    specPattern: 'cypress/integration/**/*.{js,ts}',
+    setupNodeEvents(on, config) {
+      coverage(on, config);
+      cypressSplit(on, config);
+      on('before:browser:launch', (browser, launchOptions) => {
+        if (browser.name === 'chrome' && browser.isHeadless) {
+          launchOptions.args.push('--window-size=1440,1024', '--force-device-scale-factor=1');
         }
-        // do not forget to return the changed config object!
-        return config;
-      },
+        return launchOptions;
+      });
+      // copy any needed variables from process.env to config.env
+      config.env.useAppli = process.env.USE_APPLI ? true : false;
+      config.env.useArgos = process.env.RUN_VISUAL_TEST === 'true';
+
+      if (config.env.useArgos) {
+        const argosOptions = { uploadToArgos: !!process.env.CI };
+        // Register after:screenshot so Argos can copy screenshots to its temp dir.
+        on('after:screenshot', (details) => {
+          return argosAfterScreenshot(config, details, argosOptions);
+        });
+        // Wrap after:run in try/catch so a failed upload (e.g. network error,
+        // missing ARGOS_TOKEN, or metadata read failure) never crashes the
+        // Cypress process and swallows the actual test results.
+        on('after:run', async (results) => {
+          try {
+            await argosAfterRun(config, results, argosOptions);
+          } catch (err) {
+            log.error('⚠️  Argos upload failed (non-fatal):', err);
+          }
+        });
+      } else {
+        addMatchImageSnapshotPlugin(on, config);
+      }
+      // do not forget to return the changed config object!
+      return config;
     },
-    video: false,
-  })
-);
+  },
+  video: false,
+});
+
+// Only wrap with eyesPlugin when Applitools is explicitly enabled.
+// When USE_APPLI is not set, eyesPlugin's global after:run hook would
+// interfere with Argos and can crash the pipeline even when all tests pass.
+// Type cast needed because the @applitools/eyes-cypress type declarations export
+// the default as a namespace re-export, which TypeScript resolves as non-callable.
+type EyesPluginFn = (config: Cypress.ConfigOptions) => Cypress.ConfigOptions;
+export default process.env.USE_APPLI
+  ? (eyesPlugin as unknown as EyesPluginFn)(baseConfig)
+  : baseConfig;
