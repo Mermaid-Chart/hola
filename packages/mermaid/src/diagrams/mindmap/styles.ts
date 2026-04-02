@@ -66,15 +66,18 @@ const genSections: DiagramStylesProvider = (options) => {
       fill: #efefef;
     }
     [data-look="neo"].section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${i - 1} polygon, .section-${i - 1} path {
-      fill: ${theme === 'redux' || theme === 'redux-dark' || theme === 'neutral' ? options.mainBkg : options['cScale' + i]};
-      stroke: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScale' + i]};
+      fill: ${theme?.includes('redux') || theme === 'neutral' ? options.mainBkg : options['cScale' + i]};
+      stroke: ${theme?.includes('redux') ? options.nodeBorder : options['cScale' + i]};
       stroke-width:${options.strokeWidth};
     }
     [data-look="neo"].section-edge-${i - 1}{
       stroke: ${theme?.includes('redux') || theme === 'neo-dark' ? options.nodeBorder : options['cScale' + i]};
     }
     [data-look="neo"].section-${i - 1} text {
-     fill: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
+     fill: ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
+    }
+    [data-look="neo"].section-${i - 1} span {
+     color: ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
     }
     `;
   }
