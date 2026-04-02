@@ -1,13 +1,66 @@
-import { circle } from './circle.js';
-import type { Node, MindmapOptions } from '../../types.js';
-import type { D3Selection } from '../../../types.js';
+import rough from 'roughjs';
+import { log } from '../../../logger.js';
+import type { Bounds, D3Selection, Point } from '../../../types.js';
+import { handleUndefinedAttr } from '../../../utils.js';
+import type { MindmapOptions, Node, ShapeRenderOptions } from '../../types.js';
+import intersect from '../intersect/index.js';
+import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
+import { getNodeClasses, labelHelper, updateNodeBounds } from './util.js';
 
 export async function mindmapCircle<T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
-  node: Node
+  node: Node,
+  options?: MindmapOptions | ShapeRenderOptions
 ) {
-  const options = {
-    padding: node.padding ?? 0,
-  } as MindmapOptions;
-  return circle(parent, node, options);
+  const { labelStyles, nodeStyles } = styles2String(node);
+  node.labelStyle = labelStyles;
+  const { shapeSvg, bbox, halfPadding } = await labelHelper(parent, node, getNodeClasses(node));
+
+  // Mindmap-specific padding and radius calculation
+  const padding = options?.padding ?? halfPadding ?? 0;
+  const labelPadding = node.look === 'neo' ? 16 : padding;
+
+  if (node.width || node.height) {
+    node.width = (node.width ?? 6) - labelPadding * 2;
+    node.height = node.width;
+  }
+
+  if (node?.width) {
+    node.width = node?.width - labelPadding * 2;
+  }
+
+  // Mindmap-specific radius calculation
+  const radius = bbox.width / 2 + padding;
+  let circleElem;
+  const { cssStyles } = node;
+
+  if (node.look === 'handDrawn') {
+    // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
+    const rc = rough.svg(shapeSvg);
+    const options = userNodeOverrides(node, {});
+    const roughNode = rc.circle(0, 0, radius * 2, options);
+
+    circleElem = shapeSvg.insert(() => roughNode, ':first-child');
+    circleElem.attr('class', 'basic label-container').attr('style', handleUndefinedAttr(cssStyles));
+  } else {
+    circleElem = shapeSvg
+      .insert('circle', ':first-child')
+      .attr('class', 'basic label-container')
+      .attr('style', nodeStyles)
+      .attr('r', radius)
+      .attr('cx', 0)
+      .attr('cy', 0);
+  }
+
+  updateNodeBounds(node, circleElem);
+  node.calcIntersect = function (bounds: Bounds, point: Point) {
+    const radius = bounds.width / 2;
+    return intersect.circle(bounds, radius, point);
+  };
+  node.intersect = function (point) {
+    log.info('MindmapCircle intersect', node, radius, point);
+    return intersect.circle(node, radius, point);
+  };
+
+  return shapeSvg;
 }
