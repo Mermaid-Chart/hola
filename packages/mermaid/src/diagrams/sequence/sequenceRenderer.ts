@@ -318,7 +318,7 @@ const drawCentralConnection = function (
   const drawCircle = (cx: number) => {
     g.append('circle')
       .attr('cx', cx)
-      .attr('cy', cy ?? lineStartY)
+      .attr('cy', lineStartY)
       .attr('r', 5)
       .attr('width', 10)
       .attr('height', 10);
