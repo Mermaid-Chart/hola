@@ -778,7 +778,7 @@ const one_or_more_neo = (elem, type, id) => {
 const zero_or_more_neo = (elem, type, id) => {
   const config = configApi.getConfig();
   const { themeVariables } = config;
-  const { strokeWidth, mainBkg } = themeVariables;
+  const { strokeWidth } = themeVariables;
   const startMarker = elem
     .append('defs')
     .append('marker')
@@ -792,7 +792,7 @@ const zero_or_more_neo = (elem, type, id) => {
     .attr('orient', 'auto');
   startMarker
     .append('circle')
-    .attr('fill', mainBkg ?? 'white')
+    .attr('fill', 'white')
     .attr('cx', 45.5)
     .attr('cy', 18)
     .attr('r', 6)
@@ -815,7 +815,7 @@ const zero_or_more_neo = (elem, type, id) => {
     .attr('markerUnits', 'userSpaceOnUse');
   endMarker
     .append('circle')
-    .attr('fill', mainBkg ?? 'white')
+    .attr('fill', 'white')
     .attr('cx', 11)
     .attr('cy', 18)
     .attr('r', 6)
