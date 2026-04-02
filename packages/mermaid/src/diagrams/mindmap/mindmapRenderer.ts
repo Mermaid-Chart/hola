@@ -186,8 +186,8 @@ function positionNodes(db: MindmapDB, cy: cytoscape.Core) {
 export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
   log.debug('Rendering mindmap diagram\n' + text);
   const config = configApi.getConfig();
-  const { look, themeVariables } = config;
-  const { useGradient, gradientStart, gradientStop } = themeVariables;
+  const { look, theme, themeVariables } = config;
+  const { useGradient, gradientStart, gradientStop, filterColor } = themeVariables;
   const db = diagObj.db as MindmapDB;
   const mm = db.getMindmap();
   if (!mm) {
@@ -198,6 +198,25 @@ export const draw: DrawDefinition = async (text, id, _version, diagObj) => {
   conf.htmlLabels = false;
 
   const svg = selectSvgElement(id);
+
+  // Inject the drop-shadow SVG filter once into the root <defs> for neo+redux themes.
+  // Mindmap uses the old cytoscape renderer and bypasses render.ts, so we must add this
+  // filter manually here — same pattern as gitGraphRenderer.ts.
+  // The filter id is scoped to the diagram id to avoid collisions on pages with multiple diagrams.
+  if (look === 'neo' && theme?.includes('redux')) {
+    svg
+      .append('defs')
+      .append('filter')
+      .attr('id', `${id}-drop-shadow`)
+      .attr('height', '130%')
+      .attr('width', '130%')
+      .append('feDropShadow')
+      .attr('dx', '4')
+      .attr('dy', '4')
+      .attr('stdDeviation', 0)
+      .attr('flood-opacity', '0.06')
+      .attr('flood-color', filterColor);
+  }
 
   // Draw the graph and start with drawing the nodes without proper position
   // this gives us the size of the nodes and we can set the positions later
