@@ -76,6 +76,9 @@ const genSections: DiagramStylesProvider = (options) => {
     [data-look="neo"].section-${i - 1} text {
      fill: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
     }
+    [data-look="neo"].section-${i - 1} span {
+     color: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
+    }
     `;
   }
   return sections;
