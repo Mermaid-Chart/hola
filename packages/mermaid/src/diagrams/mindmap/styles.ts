@@ -76,6 +76,9 @@ const genSections: DiagramStylesProvider = (options) => {
     [data-look="neo"].section-${i - 1} text {
      fill: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
     }
+    [data-look="neo"].section-${i - 1} span {
+     color: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
+    }
     `;
   }
   return sections;
@@ -114,6 +117,9 @@ const getStyles: DiagramStylesProvider = (options) => {
   const scopedDropShadow = options.dropShadow
     ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`)
     : 'none';
+  const neoRootMindmapLabel = theme?.includes('redux')
+    ? options.nodeBorder
+    : options['cScaleLabel' + (theme === 'neutral' ? 1 : 0)];
 
   return `
   .edge {
@@ -122,12 +128,6 @@ const getStyles: DiagramStylesProvider = (options) => {
   ${genSections(options)}
   .section-root rect, .section-root path, .section-root circle, .section-root polygon  {
     fill: ${options.git0};
-  }
-  .section-root text {
-    fill: ${options.gitBranchLabel0};
-  }
-  .section-root span {
-    color: ${theme?.includes('redux') ? options.nodeBorder : options.gitBranchLabel0};
   }
   .icon-container {
     height:100%;
@@ -152,7 +152,13 @@ const getStyles: DiagramStylesProvider = (options) => {
     fill: ${theme?.includes('redux') ? options.mainBkg : options.git0};
   }
   [data-look="neo"].mindmap-node.section-root .text-inner-tspan {
-    fill:  ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : 0)]};
+    fill: ${neoRootMindmapLabel};
+  }
+  [data-look="neo"].mindmap-node.section-root.section--1 span {
+    color: ${neoRootMindmapLabel};
+  }
+  [data-look="neo"].mindmap-node.section-root.section--1 text {
+    fill: ${neoRootMindmapLabel};
   }
   ${options.useGradient && svgId && options.mainBkg ? genGradient(options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
 `;
