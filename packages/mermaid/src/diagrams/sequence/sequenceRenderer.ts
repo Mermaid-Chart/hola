@@ -297,6 +297,7 @@ const drawCentralConnection = function (
   const fromActor = actors.get(msg.from);
   const toActor = actors.get(msg.to);
   const isAutoNumberOn = msgModel.sequenceVisible;
+  const isSelfConnection = startx === stopx;
   let fromCenter = fromActor.x + fromActor.width / 2;
   let toCenter = toActor.x + toActor.width / 2;
 
@@ -315,10 +316,10 @@ const drawCentralConnection = function (
     return isReverse ? -baseOffset : baseOffset;
   };
 
-  const drawCircle = (cx: number) => {
+  const drawCircle = (cx: number, cy?: number) => {
     g.append('circle')
       .attr('cx', cx)
-      .attr('cy', lineStartY)
+      .attr('cy', cy ?? lineStartY)
       .attr('r', 5)
       .attr('width', 10)
       .attr('height', 10);
@@ -327,6 +328,47 @@ const drawCentralConnection = function (
   const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
     diagObj.db.LINETYPE;
 
+  // Handle self-connection arrows
+  if (isSelfConnection) {
+    if (conf.rightAngles) {
+      // Right angle self-connection: horizontal line goes right, then down, then back left
+      const verticalEndY = lineStartY + 25;
+
+      switch (msg.centralConnection) {
+        case CENTRAL_CONNECTION:
+          drawCircle(startx, verticalEndY);
+          break;
+        case CENTRAL_CONNECTION_REVERSE:
+          drawCircle(startx, lineStartY);
+          break;
+        case CENTRAL_CONNECTION_DUAL:
+          drawCircle(startx, lineStartY);
+          drawCircle(startx, verticalEndY);
+          break;
+      }
+    } else {
+      // Curved self-connection
+      const curveStartX =
+        startx + (isAutoNumberOn && (isReverse || isBidirectionalArrowType(msg, diagObj)) ? 10 : 0);
+      const curveEndY = lineStartY + 20;
+
+      switch (msg.centralConnection) {
+        case CENTRAL_CONNECTION:
+          drawCircle(startx, curveEndY);
+          break;
+        case CENTRAL_CONNECTION_REVERSE:
+          drawCircle(curveStartX, lineStartY);
+          break;
+        case CENTRAL_CONNECTION_DUAL:
+          drawCircle(curveStartX, lineStartY);
+          drawCircle(startx, curveEndY);
+          break;
+      }
+    }
+    return;
+  }
+
+  // Handle regular (non-self) connection arrows
   // Calculate circle position adjustments when autonumber is enabled
   if (isAutoNumberOn) {
     switch (msg.centralConnection) {
