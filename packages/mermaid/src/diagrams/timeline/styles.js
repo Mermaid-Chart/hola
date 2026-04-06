@@ -140,7 +140,7 @@ const getStyles = (options) => {
       .section-${i - 1}[data-look="neo"] rect,
       .section-${i - 1}[data-look="neo"] path,
       .section-${i - 1}[data-look="neo"] circle {
-        fill: ${options.mainBkg};
+        fill: ${options['cScale' + i]};
         stroke: url(#${rawSvgId}-gradient);
         stroke-width: 2;
       }
