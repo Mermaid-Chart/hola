@@ -17,7 +17,7 @@ export async function mindmapCircle<T extends SVGGraphicsElement>(
   const { shapeSvg, bbox, halfPadding } = await labelHelper(parent, node, getNodeClasses(node));
 
   // Mindmap-specific padding and radius calculation
-  const padding = options?.padding ?? halfPadding ?? 0;
+  const padding = options?.padding ?? (halfPadding ?? 0) * 2;
   const labelPadding = node.look === 'neo' ? 16 : padding;
 
   if (node.width || node.height) {
