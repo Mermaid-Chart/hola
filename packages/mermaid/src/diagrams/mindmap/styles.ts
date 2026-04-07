@@ -30,8 +30,8 @@ const genSections: DiagramStylesProvider = (options) => {
 
   // Generate CSS for each section with appropriate stroke widths
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-    // Calculate stroke width: neo look uses decreasing width per level, standard uses fixed calculation
-    const sw = '' + (look === 'neo' ? Math.max(10 - i * 2, 2) : 17 - 3 * i);
+    // Calculate stroke width: neo look drops 1px per level (distinct at every depth), minimum 4
+    const sw = '' + (look === 'neo' ? Math.max(9 - i, 4) : 17 - 3 * i);
     sections += `
     .section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${
       i - 1
