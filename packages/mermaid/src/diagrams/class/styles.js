@@ -204,12 +204,6 @@ g.classGroup line {
   stroke: ${options.clusterBorder};
   stroke-width: ${options.strokeWidth}px;
 }
-
-.edgeLabel[data-look="neo"] {
-  background-color: ${options.edgeLabelBackground};
-  p {
-    background-color: ${options.edgeLabelBackground};
-  }
   ${getIconStyles()}
 `;
 
