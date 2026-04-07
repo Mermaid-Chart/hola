@@ -116,7 +116,7 @@ export async function classBox<T extends SVGGraphicsElement>(parent: D3Selection
             ? -PADDING / 2
             : 0))) /
     2;
-  // Rect is centered so now adjust labels.
+
   // TODO: Fix types
   shapeSvg.selectAll('.text').each((_: any, i: number, nodes: any) => {
     const text = select<any, unknown>(nodes[i]);
@@ -143,27 +143,16 @@ export async function classBox<T extends SVGGraphicsElement>(parent: D3Selection
           ? -PADDING / 2
           : 0);
     if (text.attr('class').includes('methods-group')) {
-      const membersGroupHeightForMethods = Math.max(membersGroupHeight, GAP / 2);
       if (nodeHeightGreater) {
         newTranslateY =
           Math.max(
             methodsAreaPlacement,
-            annotationGroupHeight +
-              labelGroupHeight +
-              membersGroupHeightForMethods +
-              y +
-              GAP * 2 +
-              PADDING
+            annotationGroupHeight + labelGroupHeight + membersGroupHeight + y + GAP * 2 + PADDING
           ) +
           GAP * 2;
       } else {
         newTranslateY =
-          annotationGroupHeight +
-          labelGroupHeight +
-          membersGroupHeightForMethods +
-          y +
-          GAP * 4 +
-          PADDING;
+          annotationGroupHeight + labelGroupHeight + membersGroupHeight + y + GAP * 4 + PADDING;
       }
     }
     if (
