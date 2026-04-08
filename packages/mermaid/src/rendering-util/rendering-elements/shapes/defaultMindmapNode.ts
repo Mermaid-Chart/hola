@@ -17,7 +17,7 @@ export async function defaultMindmapNode<T extends SVGGraphicsElement>(
     getNodeClasses(node)
   );
 
-  const w = bbox.width + 8 * halfPadding;
+  const w = bbox.width + 4 * halfPadding;
   const h = bbox.height + 2 * halfPadding;
   const rd = 5;
 
