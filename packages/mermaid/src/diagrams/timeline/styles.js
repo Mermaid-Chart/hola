@@ -130,6 +130,7 @@ const getStyles = (options) => {
   const { theme } = getConfig();
   const isReduxTheme = theme?.includes('redux');
   const isNeutralTheme = theme === 'neutral';
+  const isNeoTheme = theme === 'neo';
   // options.svgId is the CSS selector (e.g. '#mermaid-0'), strip the leading '#' for use in url(#...)
   const rawSvgId = options.svgId?.replace(/^#/, '') ?? '';
   let gradientSections = '';
@@ -140,7 +141,7 @@ const getStyles = (options) => {
       .section-${i - 1}[data-look="neo"] rect,
       .section-${i - 1}[data-look="neo"] path,
       .section-${i - 1}[data-look="neo"] circle {
-        fill: ${options['cScale' + i]};
+        fill: ${isNeoTheme ? options.mainBkg : options['cScale' + i]};
         stroke: url(#${rawSvgId}-gradient);
         stroke-width: 2;
       }
