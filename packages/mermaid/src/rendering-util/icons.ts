@@ -26,6 +26,22 @@ export const unknownIcon: IconifyIcon = {
 const iconsStore = new Map<string, IconifyJSON>();
 const loaderStore = new Map<string, AsyncIconLoader['loader']>();
 
+/**
+ * Normalize CSS class-based icon names to Iconify's `prefix:name` format.
+ */
+const normalizeCssIconName = (iconName: string): string => {
+  // FontAwesome variant prefixes: fa, fab, fak, fal, far, fas
+  const faMatch = /^(fa[bklrs]?)\s+fa-(.+)$/.exec(iconName);
+  if (faMatch) {
+    return `${faMatch[1]}:${faMatch[2]}`;
+  }
+  const genericMatch = /^([a-z][\da-z]*)\s+\1-(.+)$/.exec(iconName);
+  if (genericMatch) {
+    return `${genericMatch[1]}:${genericMatch[2]}`;
+  }
+  return iconName;
+};
+
 export const registerIconPacks = (iconLoaders: IconLoader[]) => {
   for (const iconLoader of iconLoaders) {
     if (!iconLoader.name) {
@@ -46,7 +62,7 @@ export const registerIconPacks = (iconLoaders: IconLoader[]) => {
 };
 
 const getRegisteredIconData = async (iconName: string, fallbackPrefix?: string) => {
-  const data = stringToIcon(iconName, true, fallbackPrefix !== undefined);
+  const data = stringToIcon(normalizeCssIconName(iconName), true, fallbackPrefix !== undefined);
   if (!data) {
     throw new Error(`Invalid icon name: ${iconName}`);
   }

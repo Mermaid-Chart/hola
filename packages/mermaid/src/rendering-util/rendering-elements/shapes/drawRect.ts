@@ -7,6 +7,7 @@ import rough from 'roughjs';
 import type { D3Selection } from '../../../types.js';
 import { handleUndefinedAttr } from '../../../utils.js';
 import type { Bounds, Point } from '../../../types.js';
+import { getIconSVG } from '../../icons.js';
 
 export async function drawRect<T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
@@ -24,9 +25,14 @@ export async function drawRect<T extends SVGGraphicsElement>(
     node.height = (node?.height ?? 10) - options.labelPaddingY * 2;
   }
 
-  const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
+  const iconSize = 20;
+  const iconGap = 8;
+  const iconWidth = node.icon ? iconSize + iconGap : 0;
 
-  const totalWidth = (node?.width ? node?.width : bbox.width) + options.labelPaddingX * 2;
+  const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
+
+  const totalWidth =
+    (node?.width ? node?.width : bbox.width) + options.labelPaddingX * 2 + iconWidth;
   const totalHeight = (node?.height ? node?.height : bbox.height) + options.labelPaddingY * 2;
 
   const x = -totalWidth / 2;
@@ -72,6 +78,27 @@ export async function drawRect<T extends SVGGraphicsElement>(
   }
 
   updateNodeBounds(node, rect);
+
+  // Shift label right to make room for icon on the left, and render icon
+  if (node.icon) {
+    const currentTransform = label.attr('transform') ?? 'translate(0,0)';
+    label.attr(
+      'transform',
+      currentTransform.replace(/translate\(([^,]+),([^)]+)\)/, (_m, x, y) => {
+        return `translate(${parseFloat(x) + iconWidth / 2}, ${y})`;
+      })
+    );
+
+    const iconElem = shapeSvg.append('g');
+    iconElem.html(
+      `<g>${await getIconSVG(node.icon, { height: iconSize, fallbackPrefix: '' })}</g>`
+    );
+    const iconBBox = iconElem.node()!.getBBox();
+    const iconTargetCenterX = -(bbox.width + iconGap) / 2;
+    const tx = iconTargetCenterX - iconBBox.x - iconBBox.width / 2;
+    const ty = -iconBBox.y - iconBBox.height / 2;
+    iconElem.attr('transform', `translate(${tx}, ${ty})`);
+  }
 
   node.calcIntersect = function (bounds: Bounds, point: Point) {
     return intersect.rect(bounds, point);
