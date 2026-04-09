@@ -7,6 +7,7 @@ import intersect from '../intersect/index.js';
 import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
 import { getNodeClasses, labelHelper, updateNodeBounds } from './util.js';
 import { getIconSVG } from '../../icons.js';
+import { getConfig } from '../../../config.js';
 
 export async function mindmapCircle<T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
@@ -77,6 +78,8 @@ export async function mindmapCircle<T extends SVGGraphicsElement>(
     iconElem.html(
       `<g>${await getIconSVG(node.icon, { height: iconSize, fallbackPrefix: '' })}</g>`
     );
+    const { themeVariables } = getConfig();
+    iconElem.attr('style', `color: ${themeVariables?.nodeBorder ?? 'black'};`);
     const iconBBox = iconElem.node()!.getBBox();
     // Place icon above the (shifted) label center, horizontally centered
     const iconTargetCenterY = -(bbox.height / 2 + iconGap + iconSize / 2) + iconShift;

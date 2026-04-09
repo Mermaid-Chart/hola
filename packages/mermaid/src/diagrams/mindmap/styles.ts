@@ -104,6 +104,10 @@ const genGradient = (THEME_COLOR_LIMIT: number, svgId: string, mainBkg: string) 
       stroke: url(${svgId}-gradient);
       fill: ${mainBkg};
     }
+    [data-look="neo"].mindmap-node.section-${i - 1} .mindmap-icon path,
+    [data-look="neo"].mindmap-node.section-${i - 1} .mindmap-icon svg path {
+      fill: currentColor !important;
+    }
     .section-${i - 1} line {
       stroke-width: 0;
     }`;
@@ -163,6 +167,10 @@ const getStyles: DiagramStylesProvider = (options) => {
   [data-look="neo"].mindmap-node.section-root rect, [data-look="neo"].mindmap-node.section-root path, [data-look="neo"].mindmap-node.section-root circle, [data-look="neo"].mindmap-node.section-root polygon  {
     fill: ${theme?.includes('redux') ? options.mainBkg : options.git0};
   }
+  [data-look="neo"].mindmap-node.section-root .mindmap-icon path,
+  [data-look="neo"].mindmap-node.section-root .mindmap-icon svg path {
+    fill: currentColor !important;
+  }
   [data-look="neo"].mindmap-node.section-root .text-inner-tspan {
     fill: ${neoRootMindmapLabel};
   }
@@ -173,6 +181,11 @@ const getStyles: DiagramStylesProvider = (options) => {
     fill: ${neoRootMindmapLabel};
   }
   ${options.useGradient && svgId && options.mainBkg ? genGradient(options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
+  /* Section rules use .section-N path { fill }; Iconify nests <svg><path>. !important beats that cascade. */
+  .node.mindmap-node .mindmap-icon path,
+  .node.mindmap-node .mindmap-icon svg path {
+    fill: currentColor !important;
+  }
 `;
 };
 export default getStyles;

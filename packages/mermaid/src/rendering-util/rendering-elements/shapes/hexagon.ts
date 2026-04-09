@@ -6,6 +6,7 @@ import rough from 'roughjs';
 import { insertPolygonShape } from './insertPolygonShape.js';
 import type { D3Selection } from '../../../types.js';
 import { getIconSVG } from '../../icons.js';
+import { getConfig } from '../../../config.js';
 
 export const createHexagonPathD = (
   x: number,
@@ -101,10 +102,12 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
       })
     );
 
-    const iconElem = shapeSvg.append('g');
+    const iconElem = shapeSvg.append('g').attr('class', 'mindmap-icon');
     iconElem.html(
       `<g>${await getIconSVG(node.icon, { height: iconSize, fallbackPrefix: '' })}</g>`
     );
+    const { themeVariables } = getConfig();
+    iconElem.attr('style', `color: ${themeVariables?.nodeBorder ?? 'black'};`);
     const iconBBox = iconElem.node()!.getBBox();
     const iconTargetCenterX = -(bbox.width + iconGap) / 2;
     const tx = iconTargetCenterX - iconBBox.x - iconBBox.width / 2;
