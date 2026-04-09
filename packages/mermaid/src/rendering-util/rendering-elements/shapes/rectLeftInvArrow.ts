@@ -62,9 +62,12 @@ export async function rect_left_inv_arrow<T extends SVGGraphicsElement>(
 
   // polygon.attr('transform', `translate(${-notch / 2},0)`);
 
+  // Use `bbox.x - (bbox.left ?? 0)` to normalize between SVG (getBBox, bbox.left=undefined→0)
+  // and HTML labels (getBoundingClientRect, bbox.left===bbox.x → difference=0).
+  // This prevents the viewport-absolute bbox.x from misplacing the HTML label.
   label.attr(
     'transform',
-    `translate(${bbox.x - bbox.width / 2 + notch / 2}, ${-(bbox.height / 2) - (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-(bbox.x - (bbox.left ?? 0)) - bbox.width / 2 + notch / 2}, ${-(bbox.height / 2) - (bbox.y - (bbox.top ?? 0))})`
   );
   updateNodeBounds(node, polygon);
 
