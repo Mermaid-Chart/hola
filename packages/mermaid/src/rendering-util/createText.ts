@@ -60,7 +60,7 @@ async function addHtmlSpan(
   // KS: Why is this here?
   // div.style('white-space', 'nowrap');
   div.style('white-space', 'wrap');
-  div.style('overflow-wrap', 'break-word');
+  div.style('overflow-wrap', 'anywhere');
   div.style('line-height', '1.5');
   if (width !== Number.POSITIVE_INFINITY) {
     div.style('max-width', width + 'px');
