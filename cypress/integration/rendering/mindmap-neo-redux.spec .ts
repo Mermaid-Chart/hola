@@ -64,7 +64,10 @@ lightThemes.forEach((theme) => {
 
     it('Mindmap with Markdown formatting', () => {
       imgSnapshotTest(
-        `mindmap\nroot[\`**Bold** and *Italic* text\`]\n  child1[\`Line1\\nLine2 with a break\`]\n  child2[\`An emoji 😎 inside\`]`,
+        `mindmap
+    id1["**Start** with
+    a second line 😎"]
+      id2["The dog in **the** hog... a *very long text* about it Word!"]`,
         { theme, look: 'neo', darkMode: true },
         undefined,
         shouldHaveRoot

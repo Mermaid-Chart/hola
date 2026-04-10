@@ -226,9 +226,9 @@ root
     it('Formatted label with linebreak and a wrapping label and emojis', () => {
       imgSnapshotTest(
         `mindmap
-    id1[\`**Start** with
-    a second line 😎\`]
-      id2[\`The dog in **the** hog... a *very long text* about it Word!\`]`
+    id1["**Start** with
+    a second line 😎"]
+      id2["The dog in **the** hog... a *very long text* about it Word!"]`
       );
     });
   });

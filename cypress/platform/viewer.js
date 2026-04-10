@@ -155,7 +155,8 @@ const contentLoaded = async function () {
     mermaid.registerIconPacks([
       {
         name: 'fa',
-        loader: () => staticBellIconPack,
+        loader: () =>
+          fetch('https://unpkg.com/@iconify-json/fa/icons.json').then((res) => res.json()),
       },
       {
         name: 'fluent-emoji',
