@@ -71,12 +71,6 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
       shapeSvg.attr('data-color-id', `color-${colorIndex % borderColorArray.length}`);
     }
 
-    // drawRect doesn't center non-htmlLabels correctly as of now, so translate label
-    if (!evaluate(config.htmlLabels)) {
-      const textElement = shapeSvg.select('text');
-      const bbox = (textElement.node() as SVGTextElement)?.getBBox();
-      textElement.attr('transform', `translate(${-bbox.width / 2}, 0)`);
-    }
     return shapeSvg;
   }
 
