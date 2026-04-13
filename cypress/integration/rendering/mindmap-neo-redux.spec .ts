@@ -49,7 +49,7 @@ lightThemes.forEach((theme) => {
     });
 
     it('Mindmap with icons', () => {
-      const icon = ' ::icon(fa fa-book)';
+      const icon = ' ::icon(fa fa-bell)';
       imgSnapshotTest(
         `mindmap
         root((I am a cloud))
@@ -122,7 +122,7 @@ darkThemes.forEach((theme) => {
     });
 
     it('Mindmap with icons', () => {
-      const icon = ' ::icon(fa fa-book)';
+      const icon = ' ::icon(fa fa-bell)';
       imgSnapshotTest(
         `mindmap
         root((I am a cloud))

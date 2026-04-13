@@ -21,7 +21,7 @@ describe('Mindmap', () => {
           root((mindmap))
             Origins
               Long history
-              ::icon(fa fa-book)
+              ::icon(fa fa-bell)
               Popularization
                 British popular psychology author Tony Buzan
             Research
