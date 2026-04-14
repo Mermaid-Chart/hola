@@ -680,7 +680,7 @@ export class ClassDB implements DiagramDB {
     for (const note of this.notes.values()) {
       const noteNode: Node = {
         id: note.id,
-        label: note.text,
+        label: note.text.replace(/\\n/g, '\n'),
         isGroup: false,
         shape: 'note',
         padding: config.class!.padding ?? 6,
