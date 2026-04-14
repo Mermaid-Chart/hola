@@ -48,6 +48,9 @@ const genSections: DiagramStylesProvider = (options) => {
       font-size: 40px;
       color: ${options['cScaleLabel' + i]};
     }
+    .section-${i - 1} .mindmap-icon {
+      color: ${options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
+    }
     .section-edge-${i - 1}{
       stroke: ${options['cScale' + i]};
     }

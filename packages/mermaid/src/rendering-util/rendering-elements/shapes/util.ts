@@ -45,6 +45,7 @@ export const labelHelper = async <T extends SVGGraphicsElement>(
 
   const addBackground = !!node.icon || !!node.img;
   const isMarkdown = node.labelType === 'markdown';
+  const isMindmapNode = (node.cssClasses ?? '').includes('mindmap-node');
   const text = await createText(
     labelEl,
     sanitizeText(decodeEntities(label), getConfig()),
@@ -55,6 +56,7 @@ export const labelHelper = async <T extends SVGGraphicsElement>(
       style: node.labelStyle,
       addSvgBackground: addBackground,
       markdown: isMarkdown,
+      overflowWrap: isMindmapNode ? 'anywhere' : 'break-word',
     },
     getConfig()
   );

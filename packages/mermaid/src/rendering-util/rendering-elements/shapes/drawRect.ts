@@ -8,7 +8,6 @@ import type { D3Selection } from '../../../types.js';
 import { handleUndefinedAttr } from '../../../utils.js';
 import type { Bounds, Point } from '../../../types.js';
 import { getIconSVG } from '../../icons.js';
-import { getConfig } from '../../../config.js';
 
 export async function drawRect<T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
@@ -94,8 +93,6 @@ export async function drawRect<T extends SVGGraphicsElement>(
     iconElem.html(
       `<g>${await getIconSVG(node.icon, { height: iconSize, fallbackPrefix: '' })}</g>`
     );
-    const { themeVariables } = getConfig();
-    iconElem.attr('style', `color: ${themeVariables?.nodeBorder ?? 'black'};`);
     const iconBBox = iconElem.node()!.getBBox();
     const iconTargetCenterX = -(bbox.width + iconGap) / 2;
     const tx = iconTargetCenterX - iconBBox.x - iconBBox.width / 2;

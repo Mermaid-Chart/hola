@@ -36,7 +36,8 @@ async function addHtmlSpan(
   classes: string,
   addBackground = false,
   // TODO: Make config mandatory
-  config: MermaidConfig = getConfig()
+  config: MermaidConfig = getConfig(),
+  overflowWrap: 'break-word' | 'anywhere' = 'break-word'
 ) {
   const fo = element.append('foreignObject');
   const width = _width < 0 ? 0 : _width;
@@ -60,7 +61,7 @@ async function addHtmlSpan(
   // KS: Why is this here?
   // div.style('white-space', 'nowrap');
   div.style('white-space', 'wrap');
-  div.style('overflow-wrap', 'anywhere');
+  div.style('overflow-wrap', overflowWrap);
   div.style('line-height', '1.5');
   if (width !== Number.POSITIVE_INFINITY) {
     div.style('max-width', width + 'px');
@@ -309,6 +310,7 @@ export const createText = async (
      */
     width = 200,
     addSvgBackground = false,
+    overflowWrap = 'break-word' as 'break-word' | 'anywhere',
   } = {},
   config?: MermaidConfig
 ) => {
@@ -337,7 +339,15 @@ export const createText = async (
       label: hasKatex(text) ? inputForKatex : decodedReplacedText,
       labelStyle: style.replace('fill:', 'color:'),
     };
-    const vertexNode = await addHtmlSpan(el, node, width, classes, addSvgBackground, config);
+    const vertexNode = await addHtmlSpan(
+      el,
+      node,
+      width,
+      classes,
+      addSvgBackground,
+      config,
+      overflowWrap
+    );
     return vertexNode;
   } else {
     //sometimes the user might add br tags with 1 or more spaces in between, so we need to replace them with <br/>
