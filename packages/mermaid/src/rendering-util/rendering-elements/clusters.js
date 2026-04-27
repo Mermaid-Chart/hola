@@ -436,6 +436,7 @@ const divider = (parent, node) => {
     .attr('id', node.domId)
     .attr('data-et', 'node')
     .attr('data-node', 'true')
+    .attr('data-id', node.id)
     .attr('data-look', node.look);
 
   // add the rect
