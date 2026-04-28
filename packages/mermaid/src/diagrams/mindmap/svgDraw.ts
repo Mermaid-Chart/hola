@@ -6,7 +6,7 @@ import type { MermaidConfig } from '../../config.type.js';
 import * as configApi from '../../config.js';
 import type { MindmapDB } from './mindmapDb.js';
 
-const MAX_SECTIONS = 12;
+export const MAX_SECTIONS = 12;
 
 type ShapeFunction = (
   db: MindmapDB,
@@ -203,23 +203,6 @@ export const drawNode = async function (
 
   if (look === 'neo') {
     nodeElem.attr('data-look', `neo`);
-    if (theme?.includes('redux')) {
-      nodeElem
-        .append('defs')
-        .append('filter')
-        .attr('id', 'drop-shadow')
-        .attr('height', '130%')
-        .attr('width', '130%')
-        .append('feDropShadow')
-        .attr('dx', '4')
-        .attr('dy', '4')
-        .attr('stdDeviation', 0)
-        .attr('flood-opacity', '0.06')
-        .attr(
-          'flood-color',
-          `${theme === 'redux' || theme === 'redux-color' ? '#000000' : '#FFFFFF'}`
-        );
-    }
   }
 
   nodeElem.attr('class', (node.class ? node.class + ' ' : '') + 'mindmap-node ' + sectionClass);

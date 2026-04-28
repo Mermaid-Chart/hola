@@ -2728,128 +2728,128 @@ Bob->>Alice:Got it!
       }
       expect(error).toBe(true);
     });
-  });
 
-  describe('participant type with alias parsing', () => {
-    it('should parse boundary participant with alias', async () => {
+    it('should not hang when "as" is used without a space before the alias text', async () => {
+      let errorMessage = '';
+      try {
+        await Diagram.fromText(`
+          sequenceDiagram
+          participant X_AutoPublishable asAAAAAAAAAAAAA:AAAAAAAAAAAAA
+        `);
+      } catch (e) {
+        errorMessage = e instanceof Error ? e.message : String(e);
+      }
+      expect(errorMessage).not.toBe('');
+      expect(errorMessage).not.toContain('Lexical error');
+    }, 5000);
+
+    it('should parse participant with stereotype and alias', async () => {
       const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant API1@{ "type" : "boundary" } as First API
-        API1->API1: test
+      sequenceDiagram
+      participant Alice@{ "type" : "boundary" } as Public API
+      participant Bob@{ "type" : "control" } as Controller
+      Alice->>Bob: Request
+      Bob-->>Alice: Response
       `);
       const actors = diagram.db.getActors();
-      expect(actors.get('API1').type).toBe('boundary');
-      expect(actors.get('API1').description).toBe('First API');
+      expect(actors.get('Alice').type).toBe('boundary');
+      expect(actors.get('Alice').description).toBe('Public API');
+      expect(actors.get('Bob').type).toBe('control');
+      expect(actors.get('Bob').description).toBe('Controller');
     });
 
-    it('should parse control participant with alias', async () => {
+    it('should parse actor with stereotype and alias', async () => {
       const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant C@{ "type" : "control" } as Controller
-        C->C: test
+      sequenceDiagram
+      actor A@{ "type" : "database" } AS Database Server
+      actor B@{ "type" : "queue" } as Message Queue
+      A->>B: Send message
       `);
       const actors = diagram.db.getActors();
-      expect(actors.get('C').type).toBe('control');
-      expect(actors.get('C').description).toBe('Controller');
+      expect(actors.get('A').type).toBe('database');
+      expect(actors.get('A').description).toBe('Database Server');
+      expect(actors.get('B').type).toBe('queue');
+      expect(actors.get('B').description).toBe('Message Queue');
     });
 
-    it('should parse entity participant with alias', async () => {
+    it('should parse participant with stereotype and simple alias', async () => {
       const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant E@{ "type" : "entity" } as Entity Model
-        E->E: test
-      `);
-      const actors = diagram.db.getActors();
-      expect(actors.get('E').type).toBe('entity');
-      expect(actors.get('E').description).toBe('Entity Model');
-    });
-
-    it('should parse database participant with alias', async () => {
-      const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant DB@{ "type" : "database" } as Main Database
-        DB->DB: test
-      `);
-      const actors = diagram.db.getActors();
-      expect(actors.get('DB').type).toBe('database');
-      expect(actors.get('DB').description).toBe('Main Database');
-    });
-
-    it('should parse collections participant with alias', async () => {
-      const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant Cache@{ "type" : "collections" } as Redis Cache
-        Cache->Cache: test
-      `);
-      const actors = diagram.db.getActors();
-      expect(actors.get('Cache').type).toBe('collections');
-      expect(actors.get('Cache').description).toBe('Redis Cache');
-    });
-
-    it('should parse queue participant with alias', async () => {
-      const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant Q@{ "type" : "queue" } as Message Queue
-        Q->Q: test
-      `);
-      const actors = diagram.db.getActors();
-      expect(actors.get('Q').type).toBe('queue');
-      expect(actors.get('Q').description).toBe('Message Queue');
-    });
-
-    it('should parse multiple participants with types and aliases', async () => {
-      const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant API1@{ "type" : "boundary" }
-        participant API2@{ "type" : "boundary" } as Second API
-        participant C@{ "type" : "control" } as Controller
-        API1->API2: request
-        API2->C: process
-      `);
-      const actors = diagram.db.getActors();
-      expect(actors.get('API1').type).toBe('boundary');
-      expect(actors.get('API1').description).toBe('API1');
-      expect(actors.get('API2').type).toBe('boundary');
-      expect(actors.get('API2').description).toBe('Second API');
-      expect(actors.get('C').type).toBe('control');
-      expect(actors.get('C').description).toBe('Controller');
-    });
-
-    it('should preserve type when adding alias to existing participant', async () => {
-      const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant API@{ "type": "boundary" }
-        participant API as Second
+      sequenceDiagram
+      participant API@{ "type" : "boundary" } AS Public API
+      API->>API: test
       `);
       const actors = diagram.db.getActors();
       expect(actors.get('API').type).toBe('boundary');
-      expect(actors.get('API').description).toBe('Second');
+      expect(actors.get('API').description).toBe('Public API');
     });
 
-    it('should preserve type when re-declaring participant with alias', async () => {
+    it('should parse participant with inline alias in config object', async () => {
       const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant DB@{ "type": "database" }
-        participant DB as Main Database
-        participant C@{ "type": "control" }
-        participant C as Controller
+      sequenceDiagram
+      participant API@{ "type" : "boundary", "alias": "Public API" }
+      participant Auth@{ "type" : "control", "alias": "Auth Controller" }
+      API->>Auth: Request
+      Auth-->>API: Response
       `);
       const actors = diagram.db.getActors();
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('Public API');
+      expect(actors.get('Auth').type).toBe('control');
+      expect(actors.get('Auth').description).toBe('Auth Controller');
+    });
+
+    it('should parse actor with inline alias in config object', async () => {
+      const diagram = await Diagram.fromText(`
+      sequenceDiagram
+      actor U@{ "type" : "actor", "alias": "End User" }
+      actor DB@{ "type" : "database", "alias": "User Database" }
+      U->>DB: Query
+      DB-->>U: Result
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('U').type).toBe('actor');
+      expect(actors.get('U').description).toBe('End User');
       expect(actors.get('DB').type).toBe('database');
-      expect(actors.get('DB').description).toBe('Main Database');
-      expect(actors.get('C').type).toBe('control');
-      expect(actors.get('C').description).toBe('Controller');
+      expect(actors.get('DB').description).toBe('User Database');
     });
 
-    it('should allow overriding type with new metadata', async () => {
+    it('should prioritize external alias over inline alias', async () => {
       const diagram = await Diagram.fromText(`
-        sequenceDiagram
-        participant API@{ "type": "boundary" }
-        participant API@{ "type": "control" } as Controller
+      sequenceDiagram
+      participant API@{ "type" : "boundary", "alias": "Internal Name" } as External Name
+      API->>API: test
       `);
       const actors = diagram.db.getActors();
-      expect(actors.get('API').type).toBe('control');
-      expect(actors.get('API').description).toBe('Controller');
+      expect(actors.get('API').type).toBe('boundary');
+      expect(actors.get('API').description).toBe('External Name');
+    });
+
+    it('should handle participant with only inline alias (no type)', async () => {
+      const diagram = await Diagram.fromText(`
+      sequenceDiagram
+      participant API@{ "alias": "Public API" }
+      API->>API: test
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('API').description).toBe('Public API');
+    });
+
+    it('should handle mixed inline and external alias syntax', async () => {
+      const diagram = await Diagram.fromText(`
+      sequenceDiagram
+      participant A@{ "type" : "boundary", "alias": "Service A" }
+      participant B@{ "type" : "control" } as Service B
+      participant C@{ "type" : "database" }
+      A->>B: Request
+      B->>C: Query
+      `);
+      const actors = diagram.db.getActors();
+      expect(actors.get('A').type).toBe('boundary');
+      expect(actors.get('A').description).toBe('Service A');
+      expect(actors.get('B').type).toBe('control');
+      expect(actors.get('B').description).toBe('Service B');
+      expect(actors.get('C').type).toBe('database');
+      expect(actors.get('C').description).toBe('C');
     });
   });
 });

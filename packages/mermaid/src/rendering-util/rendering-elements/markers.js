@@ -524,7 +524,7 @@ const barb = (elem, type, id) => {
     .append('defs')
     .append('marker')
     .attr('id', id + '_' + type + '-barbEnd')
-    .attr('refX', 14)
+    .attr('refX', 20)
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 14)
@@ -536,7 +536,7 @@ const barb = (elem, type, id) => {
 const barbNeo = (elem, type, id) => {
   const config = configApi.getConfig();
   const { themeVariables } = config;
-  const { archEdgeArrowColor } = themeVariables;
+  const { transitionColor } = themeVariables;
   elem
     .append('defs')
     .append('marker')
@@ -558,13 +558,13 @@ const barbNeo = (elem, type, id) => {
     .attr('refY', 7)
     .attr('markerWidth', 20)
     .attr('markerHeight', 14)
-    .attr('markerUnits', 'strokeWidth')
     .attr('markerUnits', 'userSpaceOnUse')
     .attr('orient', 'auto')
     .append('path')
     .attr('d', 'M 19,7 L11,14 L13,7 L11,0 Z')
-    .attr('fill', `${archEdgeArrowColor}`);
+    .attr('fill', `${transitionColor}`);
 };
+
 // erDiagram specific markers
 const only_one = (elem, type, id) => {
   elem
@@ -775,34 +775,6 @@ const one_or_more_neo = (elem, type, id) => {
     .attr('stroke-width', `${strokeWidth}`);
 };
 
-const zero_or_more = (elem, type, id) => {
-  const startMarker = elem
-    .append('defs')
-    .append('marker')
-    .attr('id', id + '_' + type + '-zeroOrMoreStart')
-    .attr('class', 'marker zeroOrMore ' + type)
-    .attr('refX', 18)
-    .attr('refY', 18)
-    .attr('markerWidth', 57)
-    .attr('markerHeight', 36)
-    .attr('orient', 'auto');
-  startMarker.append('circle').attr('fill', 'white').attr('cx', 48).attr('cy', 18).attr('r', 6);
-  startMarker.append('path').attr('d', 'M0,18 Q18,0 36,18 Q18,36 0,18');
-
-  const endMarker = elem
-    .append('defs')
-    .append('marker')
-    .attr('id', id + '_' + type + '-zeroOrMoreEnd')
-    .attr('class', 'marker zeroOrMore ' + type)
-    .attr('refX', 39)
-    .attr('refY', 18)
-    .attr('markerWidth', 57)
-    .attr('markerHeight', 36)
-    .attr('orient', 'auto');
-  endMarker.append('circle').attr('fill', 'white').attr('cx', 9).attr('cy', 18).attr('r', 6);
-  endMarker.append('path').attr('d', 'M21,18 Q39,0 57,18 Q39,36 21,18');
-};
-
 const zero_or_more_neo = (elem, type, id) => {
   const config = configApi.getConfig();
   const { themeVariables } = config;
@@ -852,6 +824,34 @@ const zero_or_more_neo = (elem, type, id) => {
     .append('path')
     .attr('d', 'M21,18 Q39,0 57,18 Q39,36 21,18')
     .attr('stroke-width', `${strokeWidth}`);
+};
+
+const zero_or_more = (elem, type, id) => {
+  const startMarker = elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-zeroOrMoreStart')
+    .attr('class', 'marker zeroOrMore ' + type)
+    .attr('refX', 18)
+    .attr('refY', 18)
+    .attr('markerWidth', 57)
+    .attr('markerHeight', 36)
+    .attr('orient', 'auto');
+  startMarker.append('circle').attr('fill', 'white').attr('cx', 48).attr('cy', 18).attr('r', 6);
+  startMarker.append('path').attr('d', 'M0,18 Q18,0 36,18 Q18,36 0,18');
+
+  const endMarker = elem
+    .append('defs')
+    .append('marker')
+    .attr('id', id + '_' + type + '-zeroOrMoreEnd')
+    .attr('class', 'marker zeroOrMore ' + type)
+    .attr('refX', 39)
+    .attr('refY', 18)
+    .attr('markerWidth', 57)
+    .attr('markerHeight', 36)
+    .attr('orient', 'auto');
+  endMarker.append('circle').attr('fill', 'white').attr('cx', 9).attr('cy', 18).attr('r', 6);
+  endMarker.append('path').attr('d', 'M21,18 Q39,0 57,18 Q39,36 21,18');
 };
 
 const requirement_arrow = (elem, type, id) => {

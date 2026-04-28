@@ -53,6 +53,7 @@ export const createInnerCylinderPathD = (
 
 const MIN_HEIGHT = 8;
 const MIN_WIDTH = 8;
+
 export async function cylinder<T extends SVGGraphicsElement>(parent: D3Selection<T>, node: Node) {
   const { labelStyles, nodeStyles } = styles2String(node);
   node.labelStyle = labelStyles;

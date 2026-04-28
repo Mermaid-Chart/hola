@@ -776,6 +776,7 @@ describe('Sequence Diagram Special Cases', () => {
         );
       });
     });
+
     describe('Sequence Diagram Rendering with Autonumber and All Arrow Types', () => {
       describe('Autonumber with All Arrow Types', () => {
         it('should render all arrow types with autonumbering', () => {
@@ -1231,18 +1232,18 @@ sequenceDiagram
         it('should render self-reference with reverse arrows - without autonumber', () => {
           imgSnapshotTest(
             `%%{init: {'theme':'base'}}%%
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant Charlie
-    Alice/|-Alice: Solid top reverse self-reference
-    Bob\\|-Bob: Solid bottom reverse self-reference
-    Charlie//-Charlie: Stick top reverse self-reference
-    Alice\\\\-Alice: Stick bottom reverse self-reference
-    Bob/|--Bob: Dotted solid top reverse self-reference
-    Charlie\\|--Charlie: Dotted solid bottom reverse self-reference
-    Alice//--Alice: Dotted stick top reverse self-reference
-    Bob\\\\--Bob: Dotted stick bottom reverse self-reference`,
+  sequenceDiagram
+      participant Alice
+      participant Bob
+      participant Charlie
+      Alice/|-Alice: Solid top reverse self-reference
+      Bob\\|-Bob: Solid bottom reverse self-reference
+      Charlie//-Charlie: Stick top reverse self-reference
+      Alice\\\\-Alice: Stick bottom reverse self-reference
+      Bob/|--Bob: Dotted solid top reverse self-reference
+      Charlie\\|--Charlie: Dotted solid bottom reverse self-reference
+      Alice//--Alice: Dotted stick top reverse self-reference
+      Bob\\\\--Bob: Dotted stick bottom reverse self-reference`,
             { sequence: { diagramMarginX: 50, diagramMarginY: 10 } }
           );
         });

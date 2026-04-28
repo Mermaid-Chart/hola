@@ -1,15 +1,25 @@
 // @ts-expect-error Incorrect khroma types
 import { darken, lighten, isDark } from 'khroma';
 import type { DiagramStylesProvider } from '../../diagram-api/types.js';
-import * as configApi from '../../config.js';
 
+/**
+ * Generates CSS styles for mindmap sections based on theme colors and styling options.
+ *
+ * This function creates color-based sections that apply different styling to mindmap nodes
+ * depending on their hierarchical level. It handles both standard and 'neo' look variants,
+ * adjusting line colors for better contrast and generating appropriate stroke widths.
+ *
+ * @param options - Styling options containing theme colors, look preference, and color limits
+ * @returns CSS string containing section-specific styles for hierarchical mindmap sections
+ */
 const genSections: DiagramStylesProvider = (options) => {
-  const config = configApi.getConfig();
-  const { theme, look } = config;
+  const { look, theme } = options;
 
   let sections = '';
 
+  // Adjust line colors for better contrast based on background darkness
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
+    // Fallback to inverted color scale if line color is not defined
     options['lineColor' + i] = options['lineColor' + i] || options['cScaleInv' + i];
     if (isDark(options['lineColor' + i])) {
       options['lineColor' + i] = lighten(options['lineColor' + i], 20);
@@ -18,8 +28,10 @@ const genSections: DiagramStylesProvider = (options) => {
     }
   }
 
+  // Generate CSS for each section with appropriate stroke widths
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-    const sw = '' + (look === 'neo' ? Math.max(10 - i * 2, 2) : 17 - 3 * i);
+    // Calculate stroke width: neo look drops 1px per level (distinct at every depth), minimum 4
+    const sw = '' + (look === 'neo' ? Math.max(9 - i, 4) : 17 - 3 * i);
     sections += `
     .section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${
       i - 1
@@ -29,9 +41,15 @@ const genSections: DiagramStylesProvider = (options) => {
     .section-${i - 1} text {
      fill: ${options['cScaleLabel' + i]};
     }
+     .section-${i - 1} span {
+     color: ${options['cScaleLabel' + i]};
+    }
     .node-icon-${i - 1} {
       font-size: 40px;
       color: ${options['cScaleLabel' + i]};
+    }
+    .section-${i - 1} .mindmap-icon {
+      color: ${options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
     }
     .section-edge-${i - 1}{
       stroke: ${options['cScale' + i]};
@@ -61,15 +79,67 @@ const genSections: DiagramStylesProvider = (options) => {
     [data-look="neo"].section-${i - 1} text {
      fill: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
     }
+    [data-look="neo"].section-${i - 1} span {
+     color: ${theme === 'redux' || theme === 'redux-dark' ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : i)]};
+    }
+    ${
+      theme === 'redux-color' || theme === 'redux-dark-color'
+        ? `
+    [data-look="neo"].node.mindmap-node.section-${i - 1} rect,
+    [data-look="neo"].node.mindmap-node.section-${i - 1} path,
+    [data-look="neo"].node.mindmap-node.section-${i - 1} circle,
+    [data-look="neo"].node.mindmap-node.section-${i - 1} polygon {
+      stroke: ${options['cScale' + i]};
+      stroke-width: ${options.strokeWidth};
+    }`
+        : ''
+    }
     `;
   }
   return sections;
 };
 
-// TODO: These options seem incorrect.
+const genGradient = (THEME_COLOR_LIMIT: number, svgId: string, mainBkg: string) => {
+  let sections = '';
+  for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+    sections += `
+    [data-look="neo"].mindmap-node.section-${i - 1} rect, [data-look="neo"].mindmap-node.section-${i - 1} path, [data-look="neo"].mindmap-node.section-${i - 1} circle, [data-look="neo"].mindmap-node.section-${i - 1} polygon {
+      stroke: url(${svgId}-gradient);
+      fill: ${mainBkg};
+    }
+    [data-look="neo"].mindmap-node.section-${i - 1} .mindmap-icon path,
+    [data-look="neo"].mindmap-node.section-${i - 1} .mindmap-icon svg path {
+      fill: currentColor !important;
+    }
+    .section-${i - 1} line {
+      stroke-width: 0;
+    }`;
+  }
+  return sections;
+};
+
+/**
+ * Generates the main CSS styles for mindmap diagrams.
+ *
+ * This is the primary style provider function that combines section-specific styles
+ * with base mindmap styling. It handles theme variations, drop shadows, gradients,
+ * and coordinates with the overall Mermaid theming system.
+ *
+ * @param options - Complete styling options including theme, colors, and SVG context
+ * @returns Complete CSS string for mindmap diagram rendering
+ */
 const getStyles: DiagramStylesProvider = (options) => {
-  const config = configApi.getConfig();
-  const { theme } = config;
+  const { theme } = options;
+  // svgId is passed inside options by the caller in packages/mermaid/src/styles.ts
+  // as `themes[type]({ ...options, svgId })`. The second parameter is never populated.
+  const svgId: string | undefined = options.svgId;
+  const scopedDropShadow = options.dropShadow
+    ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`)
+    : 'none';
+  const neoRootMindmapLabel = theme?.includes('redux')
+    ? options.nodeBorder
+    : options['cScaleLabel' + (theme === 'neutral' ? 1 : 0)];
+
   return `
   .edge {
     stroke-width: 3;
@@ -77,15 +147,6 @@ const getStyles: DiagramStylesProvider = (options) => {
   ${genSections(options)}
   .section-root rect, .section-root path, .section-root circle, .section-root polygon  {
     fill: ${options.git0};
-  }
-  .section-root text {
-    fill: ${options.gitBranchLabel0};
-  }
-  .section-root span {
-    color: ${options.gitBranchLabel0};
-  }
-  .section-2 span {
-    color: ${options.gitBranchLabel0};
   }
   .icon-container {
     height:100%;
@@ -104,13 +165,29 @@ const getStyles: DiagramStylesProvider = (options) => {
     text-align: center;
   }
   [data-look="neo"].mindmap-node  {
-    filter: ${options.dropShadow};
+    filter: ${scopedDropShadow};
   }
-  [data-look="neo"].section-root rect, .section-root path, .section-root circle, .section-root polygon  {
+  [data-look="neo"].mindmap-node.section-root rect, [data-look="neo"].mindmap-node.section-root path, [data-look="neo"].mindmap-node.section-root circle, [data-look="neo"].mindmap-node.section-root polygon  {
     fill: ${theme?.includes('redux') ? options.mainBkg : options.git0};
   }
-  [data-look="neo"].section-root .text-inner-tspan {
-    fill:  ${theme?.includes('redux') ? options.nodeBorder : options['cScaleLabel' + (theme === 'neutral' ? 1 : 0)]};
+  [data-look="neo"].mindmap-node.section-root .mindmap-icon path,
+  [data-look="neo"].mindmap-node.section-root .mindmap-icon svg path {
+    fill: currentColor !important;
+  }
+  [data-look="neo"].mindmap-node.section-root .text-inner-tspan {
+    fill: ${neoRootMindmapLabel};
+  }
+  [data-look="neo"].mindmap-node.section-root.section--1 span {
+    color: ${neoRootMindmapLabel};
+  }
+  [data-look="neo"].mindmap-node.section-root.section--1 text {
+    fill: ${neoRootMindmapLabel};
+  }
+  ${options.useGradient && svgId && options.mainBkg ? genGradient(options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
+  /* Section rules use .section-N path { fill }; Iconify nests <svg><path>. !important beats that cascade. */
+  .node.mindmap-node .mindmap-icon path,
+  .node.mindmap-node .mindmap-icon svg path {
+    fill: currentColor !important;
   }
 `;
 };

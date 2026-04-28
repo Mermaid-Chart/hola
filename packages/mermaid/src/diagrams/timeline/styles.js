@@ -1,28 +1,32 @@
 import { darken, lighten, isDark } from 'khroma';
-import * as configApi from '../../config.js';
+import { getConfig } from './../../config.js';
 
 const genReduxSections = (options) => {
-  const config = configApi.getConfig();
-  const { theme, themeVariables } = config;
-  const { borderColorArray } = themeVariables;
-  const isDark = theme?.includes('dark');
-  const isColor = theme?.includes('color');
+  const { theme } = getConfig();
+  //Required to read the active theme at render time,
+  // since options alone does not expose the theme name needed to switch between redux and classic section generators.
+  const isDarkTheme = theme?.includes('dark');
+  const isColorTheme = theme?.includes('color');
+  const rawSvgId = options.svgId?.replace(/^#/, '') ?? '';
+  const scopedDropShadow = rawSvgId
+    ? `url(#${rawSvgId}-drop-shadow)`
+    : (options.dropShadow ?? 'none');
 
   let sections = '';
 
   for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
     const sw = `${17 - 3 * i}`;
-    const color = isColor ? borderColorArray[i] : options.mainBkg;
-    const stroke = isColor ? borderColorArray[i] : options.nodeBorder;
+    const color = isColorTheme ? options.borderColorArray[i] : options.mainBkg;
+    const stroke = isColorTheme ? options.borderColorArray[i] : options.nodeBorder;
 
     sections += `
     .section-${i - 1} rect,
     .section-${i - 1} path,
     .section-${i - 1} circle {
-      fill: ${isDark && isColor ? options.mainBkg : color};
+      fill: ${isDarkTheme && isColorTheme ? options.mainBkg : color};
       stroke: ${stroke};
       stroke-width: ${options.strokeWidth};
-      filter: ${options.dropShadow};
+      filter: ${scopedDropShadow};
     }
 
     .section-${i - 1} text {
@@ -56,11 +60,11 @@ const genReduxSections = (options) => {
     .disabled,
     .disabled circle,
     .disabled text {
-      fill: lightgray;
+      fill: ${options.tertiaryColor ?? 'lightgray'};
     }
 
     .disabled text {
-      fill: #efefef;
+      fill: ${options.clusterBorder ?? '#efefef'};
     }
     `;
   }
@@ -111,10 +115,10 @@ const genSections = (options) => {
     }
 
     .disabled, .disabled circle, .disabled text {
-      fill: lightgray;
+      fill: ${options.tertiaryColor ?? 'lightgray'};
     }
     .disabled text {
-      fill: #efefef;
+      fill: ${options.clusterBorder ?? '#efefef'};
     }
     `;
   }
@@ -122,13 +126,38 @@ const genSections = (options) => {
 };
 
 const getStyles = (options) => {
-  const config = configApi.getConfig();
-  const { theme } = config;
+  // Required to read the active theme at render time, since options alone does not expose the theme name needed to switch between redux and classic section generators.
+  const { theme } = getConfig();
+  const isReduxTheme = theme?.includes('redux');
+  const isNeutralTheme = theme === 'neutral';
+  const isNeoTheme = theme === 'neo';
+  // options.svgId is the CSS selector (e.g. '#mermaid-0'), strip the leading '#' for use in url(#...)
+  const rawSvgId = options.svgId?.replace(/^#/, '') ?? '';
+  let gradientSections = '';
+  // Don't apply gradient styling for neutral theme - it should maintain its grayscale color scheme
+  if (options.useGradient && rawSvgId && options.THEME_COLOR_LIMIT && !isNeutralTheme) {
+    for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
+      gradientSections += `
+      .section-${i - 1}[data-look="neo"] rect,
+      .section-${i - 1}[data-look="neo"] path,
+      .section-${i - 1}[data-look="neo"] circle {
+        fill: ${isNeoTheme ? options.mainBkg : options['cScale' + i]};
+        stroke: url(#${rawSvgId}-gradient);
+        stroke-width: 2;
+      }
+      .section-${i - 1}[data-look="neo"] line {
+        stroke: url(#${rawSvgId}-gradient);
+        stroke-width: 2;
+      }`;
+    }
+  }
+
   return `
   .edge {
     stroke-width: 3;
   }
-  ${theme.includes('redux') ? genReduxSections(options) : genSections(options)}
+  ${isReduxTheme ? genReduxSections(options) : genSections(options)}
+  ${gradientSections}
   .section-root rect, .section-root path, .section-root circle  {
     fill: ${options.git0};
   }

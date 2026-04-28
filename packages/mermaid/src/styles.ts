@@ -1,8 +1,6 @@
 import type { FlowChartStyleOptions } from './diagrams/flowchart/styles.js';
 import { log } from './logger.js';
 import type { DiagramStylesProvider } from './diagram-api/types.js';
-import * as configApi from '../../mermaid/src/config.js';
-import type { MermaidConfig } from './config.type.js';
 
 const themes: Record<string, DiagramStylesProvider> = {};
 
@@ -16,19 +14,24 @@ const getStyles = (
     errorBkgColor: string;
     errorTextColor: string;
     lineColor: string;
-    useGradient: boolean;
-    dropShadow: string;
-    primaryBorderColor: string;
-    compositeTitleBackground: string;
-    THEME_COLOR_LIMIT: number;
+    useGradient?: boolean;
+    dropShadow?: string;
+    primaryBorderColor?: string;
+    compositeTitleBackground?: string;
+    THEME_COLOR_LIMIT?: number;
+    nodeBorder?: string;
+    mainBkg?: string;
+    strokeWidth?: number;
+    theme?: string;
+    look?: string;
   } & FlowChartStyleOptions,
   svgId: string
 ) => {
   let diagramStyles = '';
-  const config = configApi.getConfig();
-  const { theme, look } = config;
   if (type in themes && themes[type]) {
-    diagramStyles = themes[type](options);
+    // Pass svgId through options so diagram-specific style functions can use it
+    // (e.g., for gradient URL references like url(svgId-gradient)).
+    diagramStyles = themes[type]({ ...options, svgId });
   } else {
     log.warn(`No theme found for ${type}`);
   }
@@ -70,7 +73,7 @@ const getStyles = (
   }
 
   & .edge-thickness-normal {
-    stroke-width: ${options.strokeWidth}px;
+    stroke-width: ${(options.strokeWidth ?? 1) as number}px;
   }
   & .edge-thickness-thick {
     stroke-width: 3.5px
@@ -112,17 +115,17 @@ const getStyles = (
 
   [data-look="neo"].node rect, [data-look="neo"].cluster rect, [data-look="neo"].node polygon {
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
 
   [data-look="neo"].node path {
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    stroke-width: ${options.strokeWidth};
+    stroke-width: ${(options.strokeWidth ?? 1) as number}px;
   }
 
   [data-look="neo"].node .outer-path {
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
   [data-look="neo"].node .neo-line path {
@@ -132,95 +135,25 @@ const getStyles = (
 
   [data-look="neo"].node circle{
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
   [data-look="neo"].node circle .state-start{
     fill: #000000;
   }
 
-  [data-look="neo"].statediagram-cluster rect {
-    fill: ${options.compositeTitleBackground};
-    stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    stroke-width: ${options.strokeWidth};
-  }
-
   [data-look="neo"].icon-shape .icon {
     fill: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
 
     [data-look="neo"].icon-shape .icon-neo path {
     stroke: ${options.useGradient ? 'url(' + svgId + '-gradient)' : options.nodeBorder};
-    filter: ${options.dropShadow};
+    filter: ${options.dropShadow ? options.dropShadow.replace('url(#drop-shadow)', `url(${svgId}-drop-shadow)`) : 'none'};
   }
-  ${type === 'mindmap' ? genGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
-  ${type === 'timeline' && theme?.includes('neo') && look === 'neo' ? genTimelineGradient(options.useGradient, options.THEME_COLOR_LIMIT, svgId, options.mainBkg) : ''}
-  ${type === 'gitGraph' && theme?.includes('neo') && look === 'neo' ? genGitGraphGradient(config, svgId) : ''}
 
   ${userStyles}
 `;
-};
-
-const genGradient = (
-  useGradient: boolean,
-  THEME_COLOR_LIMIT: number,
-  svgId: string,
-  mainBkg: string
-) => {
-  let sections = '';
-  if (useGradient) {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
-      sections += `
-      [data-look="neo"].section-${i - 1} rect, .section-${i - 1} path, .section-${i - 1} circle, .section-${i - 1} polygon, .section-${i - 1} path {
-        stroke: ${'url(' + svgId + '-gradient)'};
-        fill: ${mainBkg}
-        }
-      .section-${i - 1} line {
-      stroke-width: 0;
-    }`;
-    }
-  }
-  return sections;
-};
-
-const genGitGraphGradient = (config: MermaidConfig, svgId: string) => {
-  const { themeVariables: options } = config;
-  let sections = '';
-  if (options.useGradient) {
-    for (let i = 0; i < options.THEME_COLOR_LIMIT; i++) {
-      sections += `
-      .label${i}  { fill: ${options.mainBkg}; stroke: ${'url(' + svgId + '-gradient)'}; stroke-width: ${options.strokeWidth};}
-             `;
-    }
-  }
-  return sections;
-};
-
-const genTimelineGradient = (
-  useGradient: boolean,
-  THEME_COLOR_LIMIT: number,
-  svgId: string,
-  mainBkg: string
-) => {
-  let sections = '';
-  if (useGradient) {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
-      sections += `
-     .section-${i - 1} rect,
-    .section-${i - 1} path,
-    .section-${i - 1} circle {
-      fill: ${mainBkg};
-      stroke: ${'url(' + svgId + '-gradient)'};
-       stroke-width: 2;
-    }
-    .section-${i - 1} line {
-     stroke: ${'url(' + svgId + '-gradient)'};
-      stroke-width: 2;
-    }`;
-    }
-  }
-  return sections;
 };
 
 export const addStylesForDiagram = (type: string, diagramTheme?: DiagramStylesProvider): void => {

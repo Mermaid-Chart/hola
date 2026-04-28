@@ -39,7 +39,7 @@ describe('Mindmap Tidy Tree', () => {
       root((mindmap))
         Origins
           Long history
-          ::icon(fa fa-book)
+          ::icon(fa fa-bell)
           Popularisation
             British popular psychology author Tony Buzan
         Research

@@ -1,12 +1,14 @@
 import { createText } from '../../createText.js';
 import type { Node } from '../../types.js';
 import { getConfig } from '../../../diagram-api/diagramAPI.js';
+import { evaluate, getEffectiveHtmlLabels } from '../../../config.js';
+import { computeLabelTransform } from '../../labelTransform.js';
 import { select } from 'd3';
-import defaultConfig from '../../../defaultConfig.js';
-import { evaluate, sanitizeText } from '../../../diagrams/common/common.js';
 import { log } from '../../../logger.js';
-import { decodeEntities, handleUndefinedAttr, parseFontSize } from '../../../utils.js';
+import { sanitizeText } from '../../../diagrams/common/common.js';
+import { decodeEntities, handleUndefinedAttr } from '../../../utils.js';
 import type { D3Selection, Point } from '../../../types.js';
+import { configureLabelImages } from './labelImageUtils.js';
 
 export const labelHelper = async <T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
@@ -41,64 +43,35 @@ export const labelHelper = async <T extends SVGGraphicsElement>(
     label = typeof node.label === 'string' ? node.label : node.label[0];
   }
 
-  const text = await createText(labelEl, sanitizeText(decodeEntities(label), getConfig()), {
-    useHtmlLabels,
-    width: (node.width ?? 0) < 0 ? 0 : node.width || getConfig().flowchart?.wrappingWidth,
-    // @ts-expect-error -- This is currently not used. Should this be `classes` instead?
-    cssClasses: 'markdown-node-label',
-    style: node.labelStyle,
-    addSvgBackground: !!node.icon || !!node.img,
-  });
+  const addBackground = !!node.icon || !!node.img;
+  const isMarkdown = node.labelType === 'markdown';
+  const isMindmapNode = (node.cssClasses ?? '').includes('mindmap-node');
+  const text = await createText(
+    labelEl,
+    sanitizeText(decodeEntities(label), getConfig()),
+    {
+      useHtmlLabels,
+      width: node.width || getConfig().flowchart?.wrappingWidth,
+      classes: isMarkdown ? 'markdown-node-label' : '',
+      style: node.labelStyle,
+      addSvgBackground: addBackground,
+      markdown: isMarkdown,
+      overflowWrap: isMindmapNode ? 'anywhere' : 'break-word',
+    },
+    getConfig()
+  );
+
   // Get the size of the label
   let bbox = text.getBBox();
   const halfPadding = (node?.padding ?? 0) / 2;
 
   if (useHtmlLabels) {
-    const div = text.children[0];
+    const div = text.children[0] as HTMLDivElement;
     const dv = select(text);
 
     // if there are images, need to wait for them to load before getting the bounding box
-    const images = div.getElementsByTagName('img');
-    if (images) {
-      const noImgText = label.replace(/<img[^>]*>/g, '').trim() === '';
+    await configureLabelImages(div, label);
 
-      await Promise.all(
-        [...images].map(
-          (img) =>
-            new Promise((res) => {
-              /**
-               *
-               */
-              function setupImage() {
-                img.style.display = 'flex';
-                img.style.flexDirection = 'column';
-
-                if (noImgText) {
-                  // default size if no text
-                  const bodyFontSize = getConfig().fontSize
-                    ? getConfig().fontSize
-                    : window.getComputedStyle(document.body).fontSize;
-                  const enlargingFactor = 5;
-                  const [parsedBodyFontSize = defaultConfig.fontSize] = parseFontSize(bodyFontSize);
-                  const width = parsedBodyFontSize * enlargingFactor + 'px';
-                  img.style.minWidth = width;
-                  img.style.maxWidth = width;
-                } else {
-                  img.style.width = '100%';
-                }
-                res(img);
-              }
-              setTimeout(() => {
-                if (img.complete) {
-                  setupImage();
-                }
-              });
-              img.addEventListener('error', setupImage);
-              img.addEventListener('load', setupImage);
-            })
-        )
-      );
-    }
     bbox = div.getBoundingClientRect();
     dv.attr('width', bbox.width);
     if (node.height && node.height < bbox.height) {
@@ -107,15 +80,10 @@ export const labelHelper = async <T extends SVGGraphicsElement>(
     dv.attr('height', bbox.height);
   }
 
-  // Center the label
-  if (useHtmlLabels) {
-    labelEl.attr('transform', 'translate(' + -bbox.width / 2 + ', ' + -bbox.height / 2 + ')');
-  } else {
-    labelEl.attr('transform', 'translate(' + 0 + ', ' + -bbox.height / 2 + ')');
-  }
-  if (node.centerLabel) {
-    labelEl.attr('transform', 'translate(' + -bbox.width / 2 + ', ' + -bbox.height / 2 + ')');
-  }
+  // Center the label — computeLabelTransform handles both HTML and SVG cases correctly:
+  // HTML: uses only width/height (viewport x/y from getBoundingClientRect are irrelevant)
+  // SVG: accounts for bbox.x/y offsets from getBBox() to properly center the text
+  labelEl.attr('transform', computeLabelTransform(bbox, useHtmlLabels));
   labelEl.insert('rect', ':first-child');
   return { shapeSvg, bbox, halfPadding, label: labelEl };
 };
@@ -133,7 +101,7 @@ export const insertLabel = async <T extends SVGGraphicsElement>(
     addSvgBackground?: boolean | undefined;
   }
 ) => {
-  const useHtmlLabels = options.useHtmlLabels || evaluate(getConfig()?.flowchart?.htmlLabels);
+  const useHtmlLabels = options.useHtmlLabels ?? getEffectiveHtmlLabels(getConfig());
 
   // Create the label and insert it after the rect
   const labelEl = parent
@@ -151,7 +119,7 @@ export const insertLabel = async <T extends SVGGraphicsElement>(
   let bbox = text.getBBox();
   const halfPadding = options.padding / 2;
 
-  if (evaluate(getConfig()?.flowchart?.htmlLabels)) {
+  if (getEffectiveHtmlLabels(getConfig())) {
     const div = text.children[0];
     const dv = select(text);
 

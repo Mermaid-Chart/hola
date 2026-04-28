@@ -22,7 +22,7 @@ export async function requirementBox<T extends SVGGraphicsElement>(
   const gap = 20;
   const isRequirementNode = 'verifyMethod' in node;
   const classes = getNodeClasses(node);
-  const { theme, themeVariables } = getConfig();
+  const { themeVariables, theme } = getConfig();
   const { borderColorArray } = themeVariables;
 
   // Add outer g element
@@ -121,10 +121,8 @@ export async function requirementBox<T extends SVGGraphicsElement>(
   rect.attr('class', 'basic label-container outer-path').attr('style', nodeStyles);
 
   if (theme?.includes('color')) {
-    const nodes = document.querySelectorAll('g.node.default');
-    // eslint-disable-next-line unicorn/prefer-spread
-    const nodeIndex = Array.from(nodes).findIndex((n) => n.id === node.id);
-    shapeSvg.attr('data-color-id', `color-${nodeIndex % borderColorArray.length}`);
+    const colorIndex = node.colorIndex ?? 0;
+    shapeSvg.attr('data-color-id', `color-${colorIndex % borderColorArray.length}`);
   }
 
   // Re-translate labels now that rect is centered
@@ -168,7 +166,7 @@ export async function requirementBox<T extends SVGGraphicsElement>(
     ];
     const roughLine = rc.polygon(polygonPoints, options);
     const dividerLine = shapeSvg.insert(() => roughLine);
-    dividerLine.attr('style', nodeStyles);
+    dividerLine.attr('class', 'divider');
   }
 
   updateNodeBounds(node, rect);
@@ -213,12 +211,11 @@ async function addText<T extends SVGGraphicsElement>(
   if (!useHtmlLabels) {
     const textChild = text.children[0];
     for (const child of textChild.children) {
-      child.textContent = child.textContent.replaceAll('&gt;', '>').replaceAll('&lt;', '<');
       if (style) {
         child.setAttribute('style', style);
       }
     }
-    // Get the bounding box after the text update
+    // Get the bounding box after the style update
     bbox = text.getBBox();
     // Add extra height so it is similar to the html labels
     bbox.height += 6;

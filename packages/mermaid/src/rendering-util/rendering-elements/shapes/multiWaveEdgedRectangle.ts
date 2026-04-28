@@ -28,20 +28,7 @@ export async function multiWaveEdgedRectangle<T extends SVGGraphicsElement>(
   if (node.width || node.height) {
     adjustFinalHeight = false;
     node.width = (node?.width ?? 0) - labelPaddingX * 2;
-    if (node.width < 50) {
-      node.width = 50;
-    }
-
     node.height = (node?.height ?? 0) - labelPaddingY * 3;
-    if (node.height < 50) {
-      node.height = 50;
-    }
-
-    // Adjustments for wave amplitude
-    const waveAmplitude = 30;
-    const waveMultiplier = 0.3319;
-
-    node.height = Math.round(node.height - labelPaddingY - waveAmplitude * waveMultiplier);
   }
 
   const w = Math.max(bbox.width, node?.width ?? 0) + labelPaddingX * 2;

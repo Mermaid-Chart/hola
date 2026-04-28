@@ -1,19 +1,25 @@
-const getStyles = (options) =>
-  `.actor {
+import { getConfig } from '../../diagram-api/diagramAPI.js';
+
+const getStyles = (options) => {
+  const dropShadow = options.dropShadow ?? 'none';
+  const { look } = getConfig();
+
+  return `.actor {
     stroke: ${options.actorBorder};
     fill: ${options.actorBkg};
-    stroke-width: ${options.strokeWidth};
+    stroke-width: ${options.strokeWidth ?? 1};
   }
 
   rect.actor.outer-path[data-look="neo"] {
-      filter: ${options.dropShadow};
+      filter: ${dropShadow};
   }
 
   rect.note[data-look="neo"] {
       stroke:${options.noteBorderColor};
       fill:${options.noteBkgColor};
-      filter: ${options.dropShadow};
+      filter: ${dropShadow};
       stroke-width: ${options.strokeWidth};
+
   }
 
   text.actor > tspan {
@@ -24,7 +30,7 @@ const getStyles = (options) =>
   .actor-line {
     stroke: ${options.actorLineColor};
   }
-  
+
   .innerArc {
     stroke-width: 1.5;
     stroke-dasharray: none;
@@ -42,7 +48,7 @@ const getStyles = (options) =>
     stroke: ${options.signalColor};
   }
 
-  #arrowhead path {
+  [id$="-arrowhead"] path {
     fill: ${options.signalColor};
     stroke: ${options.signalColor};
   }
@@ -51,11 +57,11 @@ const getStyles = (options) =>
     fill: ${options.sequenceNumberColor};
   }
 
-  #sequencenumber {
+  [id$="-sequencenumber"] {
     fill: ${options.signalColor};
   }
 
-  #crosshead path {
+  [id$="-crosshead"] path {
     fill: ${options.signalColor};
     stroke: ${options.signalColor};
   }
@@ -68,7 +74,7 @@ const getStyles = (options) =>
   .labelBox {
     stroke: ${options.labelBoxBorderColor};
     fill: ${options.labelBoxBkgColor};
-    filter: ${options.dropShadow};
+    filter: ${look === 'neo' ? dropShadow : 'none'};
   }
 
   .labelText, .labelText > tspan {
@@ -131,10 +137,12 @@ const getStyles = (options) =>
   }
 
   g rect.rect {
-    filter: ${options.dropShadow};
+    filter: ${dropShadow};
     stroke: ${options.nodeBorder};
     stroke-width: ${options.strokeWidth};
+
   }
 `;
+};
 
 export default getStyles;

@@ -82,10 +82,10 @@ export async function taggedWaveEdgedRectangle<T extends SVGGraphicsElement>(
     { x: x + w - extraW, y: (y + h) * 0.9 },
     ...generateFullSineWavePoints(
       x + w,
-      (y + h) * 1.3,
+      (y + h) * 1.25,
       x + w - tagWidth,
-      (y + h) * 1.5,
-      -h * 0.03,
+      (y + h) * 1.3,
+      -h * 0.02,
       0.5
     ),
   ];

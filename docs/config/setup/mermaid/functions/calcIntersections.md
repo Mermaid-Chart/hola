@@ -22,7 +22,7 @@ Defined in: [packages/mermaid/src/rendering-util/layout-algorithms/fixed/index.j
 
 ### endNodeId
 
-`undefined` | `string`
+`string` | `undefined`
 
 ### startNodeSize
 

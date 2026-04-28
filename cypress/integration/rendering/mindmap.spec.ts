@@ -226,9 +226,9 @@ root
     it('Formatted label with linebreak and a wrapping label and emojis', () => {
       imgSnapshotTest(
         `mindmap
-    id1[\`**Start** with
-    a second line 😎\`]
-      id2[\`The dog in **the** hog... a *very long text* about it Word!\`]`
+    id1["**Start** with
+    a second line 😎"]
+      id2["The dog in **the** hog... a *very long text* about it Word!"]`
       );
     });
   });
@@ -246,6 +246,57 @@ root
         { flowchart: { defaultRenderer: 'elk' } }
       );
     });
+  });
+  describe('Level 2 nodes exceeding 11', () => {
+    it('should render all Level 2 nodes correctly when there are more than 11', () => {
+      imgSnapshotTest(
+        `mindmap
+root
+  Node1
+  Node2
+  Node3
+  Node4
+  Node5
+  Node6
+  Node7
+  Node8
+  Node9
+  Node10
+  Node11
+  Node12
+  Node13
+  Node14
+  Node15`,
+        {},
+        undefined,
+        shouldHaveRoot
+      );
+    });
+  });
+  it('all shapes with mdi:fire icon', () => {
+    imgSnapshotTest(
+      `mindmap
+  root((MindMap))
+  ::icon(mdi:fire)
+    square[I am a square]
+    ::icon(mdi:fire)
+    rounded(I am a rounded square)
+    ::icon(mdi:fire)
+    circle((I am a circle))
+    ::icon(mdi:fire)
+    bang))I am a bang((
+    ::icon(mdi:fire)
+    cloud)I am a cloud(
+    ::icon(mdi:fire)
+    hex{{I am a hexagon}}
+    ::icon(mdi:fire)
+    I am the default shape
+    ::icon(mdi:fire)
+    `,
+      {},
+      undefined,
+      shouldHaveRoot
+    );
   });
   /* The end */
 });

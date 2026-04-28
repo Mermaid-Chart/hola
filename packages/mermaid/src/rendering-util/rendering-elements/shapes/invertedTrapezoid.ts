@@ -6,21 +6,6 @@ import rough from 'roughjs';
 import { insertPolygonShape } from './insertPolygonShape.js';
 import type { D3Selection } from '../../../types.js';
 
-// export const createInvertedTrapezoidPathD = (
-//   x: number,
-//   y: number,
-//   width: number,
-//   height: number
-// ): string => {
-//   return [
-//     `M${x + height / 6},${y}`,
-//     `L${x + width - height / 6},${y}`,
-//     `L${x + width + (2 * height) / 6},${y - height}`,
-//     `L${x - (2 * height) / 6},${y - height}`,
-//     'Z',
-//   ].join(' ');
-// };
-
 export async function inv_trapezoid<T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
   node: Node

@@ -54,6 +54,7 @@ class Theme {
     this.gradientStart = '#0042eb';
     this.gradientStop = '#eb0042';
     this.dropShadow = 'url(#drop-shadow)';
+    this.nodeShadow = true;
 
     /* Architecture Diagram variables */
     this.archEdgeColor = 'calculated';
@@ -86,6 +87,8 @@ class Theme {
     ];
 
     this.bkgColorArray = [];
+
+    this.filterColor = '#FFFFFF';
   }
   updateColors() {
     // The || is to make sure that if the variable has been defined by a user override that value is to be used
@@ -285,6 +288,8 @@ class Theme {
     this.pieTitleTextColor = this.pieTitleTextColor || this.taskTextDarkColor;
     this.pieSectionTextSize = this.pieSectionTextSize || '17px';
     this.pieSectionTextColor = this.pieSectionTextColor || this.textColor;
+    this.vennTitleTextColor = this.vennTitleTextColor ?? this.titleColor;
+    this.vennSetTextColor = this.vennSetTextColor ?? this.textColor;
     this.pieLegendTextSize = this.pieLegendTextSize || '17px';
     this.pieLegendTextColor = this.pieLegendTextColor || this.taskTextDarkColor;
     this.pieStrokeColor = this.pieStrokeColor || 'black';
@@ -292,6 +297,10 @@ class Theme {
     this.pieOuterStrokeWidth = this.pieOuterStrokeWidth || '2px';
     this.pieOuterStrokeColor = this.pieOuterStrokeColor || 'black';
     this.pieOpacity = this.pieOpacity || '0.7';
+
+    /* venn */
+    this.vennTitleTextColor = this.vennTitleTextColor ?? this.titleColor;
+    this.vennSetTextColor = this.vennSetTextColor ?? this.textColor;
 
     /* quadrant-graph */
     this.quadrant1Fill = this.quadrant1Fill || this.primaryColor;

@@ -14,7 +14,6 @@ export async function classBox<T extends SVGGraphicsElement>(parent: D3Selection
   const config = getConfig();
   const { themeVariables } = config;
   const { useGradient } = themeVariables;
-
   const PADDING = config.class!.padding ?? 12;
   const GAP = PADDING;
   const useHtmlLabels = node.useHtmlLabels ?? evaluate(config.htmlLabels) ?? true;

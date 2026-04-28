@@ -23,7 +23,6 @@ export async function dividedRectangle<T extends SVGGraphicsElement>(
     node.width = Math.max((node?.width ?? 0) - paddingX * 2, 10);
     node.height = Math.max((node?.height ?? 0) - paddingY * 2, 10);
   }
-
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
 
   const totalWidth = (node?.width ? node?.width : bbox.width) + paddingX * 2;

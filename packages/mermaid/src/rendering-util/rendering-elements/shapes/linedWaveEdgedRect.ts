@@ -26,14 +26,12 @@ export async function linedWaveEdgedRect<T extends SVGGraphicsElement>(
     if (node.width < 10) {
       node.width = 10;
     }
-    const originalHeight = node.height;
-
-    node.height = ((originalHeight ?? 0) * 3) / 4 - labelPaddingY * 2;
-    //node.height = (node?.height ?? 0) - labelPaddingY * 2;
+    node.height = (node?.height ?? 0) - labelPaddingY * 2;
     if (node.height < 10) {
       node.height = 10;
     }
   }
+
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
   const w = (node?.width ? node?.width : bbox.width) + (labelPaddingX ?? 0) * 2;
   const h = (node?.height ? node?.height : bbox.height) + (labelPaddingY ?? 0) * 2;

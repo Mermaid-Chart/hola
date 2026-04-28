@@ -6,6 +6,7 @@ import type { Node } from '../../types.js';
 import intersect from '../intersect/index.js';
 import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
 import { getNodeClasses, labelHelper, updateNodeBounds } from './util.js';
+import { getIconSVG } from '../../icons.js';
 
 export async function cloud<T extends SVGGraphicsElement>(parent: D3Selection<T>, node: Node) {
   const { labelStyles, nodeStyles } = styles2String(node);
@@ -17,7 +18,11 @@ export async function cloud<T extends SVGGraphicsElement>(parent: D3Selection<T>
     getNodeClasses(node)
   );
 
-  const w = bbox.width + 2 * halfPadding;
+  const iconSize = 20;
+  const iconGap = 8;
+  const iconWidth = node.icon ? iconSize + iconGap : 0;
+
+  const w = bbox.width + 2 * halfPadding + iconWidth;
   const h = bbox.height + 2 * halfPadding;
 
   // Cloud radii
@@ -61,10 +66,24 @@ export async function cloud<T extends SVGGraphicsElement>(parent: D3Selection<T>
       .attr('d', path);
   }
 
-  label.attr('transform', `translate(${-bbox.width / 2}, ${-bbox.height / 2})`);
+  // Shift label right to make room for icon on the left
+  label.attr('transform', `translate(${-bbox.width / 2 + iconWidth / 2}, ${-bbox.height / 2})`);
 
   // Center the shape
   cloudElem.attr('transform', `translate(${-w / 2}, ${-h / 2})`);
+
+  // Render icon using Iconify (same system as flowchart shapes)
+  if (node.icon) {
+    const iconElem = shapeSvg.append('g').attr('class', 'mindmap-icon');
+    iconElem.html(
+      `<g>${await getIconSVG(node.icon, { height: iconSize, fallbackPrefix: '' })}</g>`
+    );
+    const iconBBox = iconElem.node()!.getBBox();
+    const iconTargetCenterX = -(bbox.width + iconGap) / 2;
+    const tx = iconTargetCenterX - iconBBox.x - iconBBox.width / 2;
+    const ty = -iconBBox.y - iconBBox.height / 2;
+    iconElem.attr('transform', `translate(${tx}, ${ty})`);
+  }
 
   updateNodeBounds(node, cloudElem);
 

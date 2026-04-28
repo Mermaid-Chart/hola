@@ -134,6 +134,13 @@ export interface MermaidConfig {
     considerModelOrder?: 'NONE' | 'NODES_AND_EDGES' | 'PREFER_EDGES' | 'PREFER_NODES';
   };
   darkMode?: boolean;
+  /**
+   * Flag for setting whether or not a html tag should be used for rendering labels on nodes and edges.
+   * **Note:** Diagram-specific `htmlLabels` settings (e.g., `flowchart.htmlLabels`) are deprecated.
+   * Use this root-level `htmlLabels` setting instead. The root-level `htmlLabels` takes precedence
+   * over any diagram-specific settings.
+   *
+   */
   htmlLabels?: boolean;
   /**
    * Specifies the font to be used in the rendered diagrams.
@@ -216,13 +223,17 @@ export interface MermaidConfig {
   requirement?: RequirementDiagramConfig;
   architecture?: ArchitectureDiagramConfig;
   mindmap?: MindmapDiagramConfig;
+  ishikawa?: IshikawaDiagramConfig;
   kanban?: KanbanDiagramConfig;
   gitGraph?: GitGraphDiagramConfig;
   c4?: C4DiagramConfig;
   sankey?: SankeyDiagramConfig;
   packet?: PacketDiagramConfig;
   block?: BlockDiagramConfig;
+  treeView?: TreeViewDiagramConfig;
   radar?: RadarDiagramConfig;
+  venn?: VennDiagramConfig;
+  'wardley-beta'?: WardleyDiagramConfig;
   dompurifyConfig?: DOMPurifyConfiguration;
   wrap?: boolean;
   fontSize?: number;
@@ -261,10 +272,15 @@ export interface FlowchartDiagramConfig extends BaseDiagramConfig {
    */
   diagramPadding?: number;
   /**
-   * Flag for setting whether or not a html tag should be used for rendering labels on the edges.
+   * @deprecated
+   * **DEPRECATED: Use global `htmlLabels` instead.**
+   *
+   * Flag for setting whether or not a html tag should be used for rendering labels on nodes and edges.
+   * This property is deprecated.
+   * Please use the global `htmlLabels` configuration instead.
    *
    */
-  htmlLabels?: boolean;
+  htmlLabels?: boolean | null;
   /**
    * Defines the spacing between nodes on the same level
    *
@@ -1000,6 +1016,10 @@ export interface XYChartConfig extends BaseDiagramConfig {
    */
   showDataLabel?: boolean;
   /**
+   * If showing data label then show it outside the bar
+   */
+  showDataLabelOutsideBar?: boolean;
+  /**
    * Should show the chart title
    */
   showTitle?: boolean;
@@ -1093,6 +1113,13 @@ export interface ArchitectureDiagramConfig extends BaseDiagramConfig {
   padding?: number;
   iconSize?: number;
   fontSize?: number;
+  /**
+   * Whether to randomize initial node positions before running the layout algorithm.
+   * When false (default), the layout is deterministic and produces identical results on every render.
+   * When true, nodes start at random positions, which may produce varied but potentially better-spaced layouts.
+   *
+   */
+  randomize?: boolean;
 }
 /**
  * The object containing configurations specific for mindmap diagrams
@@ -1107,6 +1134,21 @@ export interface MindmapDiagramConfig extends BaseDiagramConfig {
    * Layout algorithm to use for positioning mindmap nodes
    */
   layoutAlgorithm?: string;
+}
+/**
+ * The object containing configurations specific for ishikawa diagrams
+ *
+ * This interface was referenced by `MermaidConfig`'s JSON-Schema
+ * via the `definition` "IshikawaDiagramConfig".
+ */
+export interface IshikawaDiagramConfig extends BaseDiagramConfig {
+  /**
+   * The amount of padding around the diagram as a whole so that embedded
+   * diagrams have margins, expressed in pixels.
+   *
+   */
+  diagramPadding?: number;
+  useMaxWidth?: boolean;
 }
 /**
  * The object containing configurations specific for kanban diagrams
@@ -1608,6 +1650,30 @@ export interface BlockDiagramConfig extends BaseDiagramConfig {
   padding?: number;
 }
 /**
+ * The object containing configurations specific for treeView diagrams.
+ *
+ * This interface was referenced by `MermaidConfig`'s JSON-Schema
+ * via the `definition` "TreeViewDiagramConfig".
+ */
+export interface TreeViewDiagramConfig extends BaseDiagramConfig {
+  /**
+   * Horizontal distance between rows differing by one level
+   */
+  rowIndent?: number;
+  /**
+   * Horizontal padding of label
+   */
+  paddingX?: number;
+  /**
+   * Vertical padding of label
+   */
+  paddingY?: number;
+  /**
+   * Thickness of the line
+   */
+  lineThickness?: number;
+}
+/**
  * The object containing configurations specific for radar diagrams.
  *
  * This interface was referenced by `MermaidConfig`'s JSON-Schema
@@ -1650,6 +1716,64 @@ export interface RadarDiagramConfig extends BaseDiagramConfig {
    * The tension factor for the Catmull-Rom spline conversion to cubic Bézier curves.
    */
   curveTension?: number;
+}
+/**
+ * The object containing configurations specific for Venn diagrams.
+ *
+ * This interface was referenced by `MermaidConfig`'s JSON-Schema
+ * via the `definition` "VennDiagramConfig".
+ */
+export interface VennDiagramConfig extends BaseDiagramConfig {
+  /**
+   * The width of the Venn diagram.
+   */
+  width?: number;
+  /**
+   * The height of the Venn diagram.
+   */
+  height?: number;
+  padding?: number;
+  useDebugLayout?: boolean;
+}
+/**
+ * The object containing configurations specific for Wardley Maps diagrams.
+ *
+ * This interface was referenced by `MermaidConfig`'s JSON-Schema
+ * via the `definition` "WardleyDiagramConfig".
+ */
+export interface WardleyDiagramConfig extends BaseDiagramConfig {
+  /**
+   * The width of the Wardley diagram canvas.
+   */
+  width?: number;
+  /**
+   * The height of the Wardley diagram canvas.
+   */
+  height?: number;
+  /**
+   * The padding around the Wardley diagram.
+   */
+  padding?: number;
+  /**
+   * The radius of component nodes.
+   */
+  nodeRadius?: number;
+  /**
+   * The offset distance for node labels.
+   */
+  nodeLabelOffset?: number;
+  /**
+   * The font size for axis labels.
+   */
+  axisFontSize?: number;
+  /**
+   * The font size for component labels.
+   */
+  labelFontSize?: number;
+  /**
+   * Whether to display a background grid.
+   */
+  showGrid?: boolean;
 }
 /**
  * This interface was referenced by `MermaidConfig`'s JSON-Schema

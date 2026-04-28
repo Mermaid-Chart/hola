@@ -13,6 +13,9 @@ import { calculateTextWidth } from '../../../utils.js';
 import type { MermaidConfig } from '../../../config.type.js';
 import type { D3Selection } from '../../../types.js';
 
+const COLOR_THEMES = new Set(['redux-color', 'redux-dark-color']);
+const REDUX_THEMES = new Set(['redux', 'redux-dark', 'redux-color', 'redux-dark-color']);
+
 export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>, node: Node) {
   // Treat node as entityNode for certain entityNode checks
   const entityNode = node as unknown as EntityNode;
@@ -30,6 +33,7 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
     const backgroundNode = {
       ...node,
       id: node.id + '-background',
+      domId: (node.domId || node.id) + '-background',
       look: 'default',
       cssStyles: ['stroke: none', `fill: ${background}`],
     };
@@ -62,18 +66,11 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
       node.height = (config.er!.minEntityHeight ?? 0) + PADDING / 2;
     }
     const shapeSvg = await drawRect(parent, node, options);
-    if (theme?.includes('color')) {
-      const nodes = document.querySelectorAll('g.node.default');
-      // eslint-disable-next-line unicorn/prefer-spread
-      const nodeIndex = Array.from(nodes).findIndex((n) => n.id === node.id);
-      shapeSvg.attr('data-color-id', `color-${nodeIndex % borderColorArray.length}`);
+    if (theme != null && COLOR_THEMES.has(theme)) {
+      const colorIndex = entityNode.colorIndex ?? 0;
+      shapeSvg.attr('data-color-id', `color-${colorIndex % borderColorArray.length}`);
     }
-    // drawRect doesn't center non-htmlLabels correctly as of now, so translate label
-    if (!evaluate(config.htmlLabels)) {
-      const textElement = shapeSvg.select('text');
-      const bbox = (textElement.node() as SVGTextElement)?.getBBox();
-      textElement.attr('transform', `translate(${-bbox.width / 2}, 0)`);
-    }
+
     return shapeSvg;
   }
 
@@ -235,11 +232,9 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
     .select('.name')
     .attr('transform', 'translate(' + -nameBBox.width / 2 + ', ' + (y + TEXT_PADDING / 2) + ')');
 
-  if (theme?.includes('color')) {
-    const nodes = document.querySelectorAll('g.node.default');
-    // eslint-disable-next-line unicorn/prefer-spread
-    const nodeIndex = Array.from(nodes).findIndex((n) => n.id === node.id);
-    shapeSvg.attr('data-color-id', `color-${nodeIndex % borderColorArray.length}`);
+  if (theme != null && COLOR_THEMES.has(theme)) {
+    const colorIndex = entityNode.colorIndex ?? 0;
+    shapeSvg.attr('data-color-id', `color-${colorIndex % borderColorArray.length}`);
   }
   // Draw shape
   const roughRect = rc.rectangle(x, y, w, h, options);
@@ -317,7 +312,7 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
   updateNodeBounds(node, rect);
 
   if (nodeStyles && node.look !== 'handDrawn') {
-    if (theme?.includes('redux')) {
+    if (theme != null && REDUX_THEMES.has(theme)) {
       shapeSvg.selectAll('path').attr('style', nodeStyles);
     } else {
       const allStyle = nodeStyles.split(';');
@@ -414,18 +409,18 @@ async function addText<T extends SVGGraphicsElement>(
   );
   // Undo work around now that text passed through correctly
   if (labelText.includes('&lt;') || labelText.includes('&gt;')) {
-    let child = text.children[0];
-    child.textContent = child.textContent.replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+    let child: Element | ChildNode = text.children[0];
+    child.textContent = child.textContent!.replaceAll('&lt;', '<').replaceAll('&gt;', '>');
     while (child.childNodes[0]) {
       child = child.childNodes[0];
       // Replace its text content
-      child.textContent = child.textContent.replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+      child.textContent = child.textContent!.replaceAll('&lt;', '<').replaceAll('&gt;', '>');
     }
   }
 
   let bbox = text.getBBox();
   if (evaluate(config.htmlLabels)) {
-    const div = text.children[0];
+    const div = text.children[0] as HTMLDivElement;
     div.style.textAlign = 'start';
     const dv = select(text);
     bbox = div.getBoundingClientRect();
