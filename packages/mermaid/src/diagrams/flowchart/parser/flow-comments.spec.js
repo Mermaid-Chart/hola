@@ -28,6 +28,18 @@ describe('[Comments] when parsing', () => {
     expect(edges[0].text).toBe('');
   });
 
+  it('should keep a chained edge intact across a mid-chain comment (comments preserved)', function () {
+    // Regression: the swimlane / inline-position pipeline parses with comments
+    // preserved (a COMMENT token, not stripped). A %% comment sitting between
+    // two links of a multi-line chain must not terminate the chain.
+    // Note: parsed WITHOUT cleanupComments to exercise the COMMENT-token path.
+    const res = flow.parser.parse('graph TD\n  A --> B\n  --> C\n  %% try make it longer\n  --> D');
+
+    const edges = flow.parser.yy.getEdges();
+    expect(edges.length).toBe(3);
+    expect(edges.map((e) => `${e.start}->${e.end}`)).toEqual(['A->B', 'B->C', 'C->D']);
+  });
+
   it('should handle comments at the start', function () {
     const res = flow.parser.parse(cleanupComments('%% Comment\ngraph TD;\n A-->B;'));
 
