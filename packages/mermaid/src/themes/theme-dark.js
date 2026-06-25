@@ -142,6 +142,7 @@ class Theme {
     this.noteTextColor = this.secondaryTextColor;
     this.activationBorderColor = this.border1;
     this.activationBkgColor = this.secondBkg;
+    this.rectBkgColor = this.rectBkgColor || this.tertiaryColor;
 
     /* Gantt chart variables */
 
@@ -258,6 +259,25 @@ class Theme {
     this.vennTitleTextColor = this.vennTitleTextColor ?? this.titleColor;
     this.vennSetTextColor = this.vennSetTextColor ?? this.textColor;
 
+    /* cynefin */
+    this.cynefin = {
+      domainFontSize: this.cynefin?.domainFontSize || 16,
+      itemFontSize: this.cynefin?.itemFontSize || 12,
+      boundaryColor: this.cynefin?.boundaryColor || this.lineColor,
+      boundaryWidth: this.cynefin?.boundaryWidth || 2,
+      cliffColor: this.cynefin?.cliffColor || '#FF6B6B',
+      cliffWidth: this.cynefin?.cliffWidth || 4,
+      arrowColor: this.cynefin?.arrowColor || this.lineColor,
+      arrowWidth: this.cynefin?.arrowWidth || 2,
+      complexBg: this.cynefin?.complexBg || '#1B5E20',
+      complicatedBg: this.cynefin?.complicatedBg || '#0D47A1',
+      chaoticBg: this.cynefin?.chaoticBg || '#BF360C',
+      clearBg: this.cynefin?.clearBg || '#F57F17',
+      confusionBg: this.cynefin?.confusionBg || '#4A148C',
+      textColor: this.cynefin?.textColor || this.textColor,
+      labelColor: this.cynefin?.labelColor || this.primaryTextColor,
+    };
+
     /* quadrant-graph */
     this.quadrant1Fill = this.quadrant1Fill || this.primaryColor;
     this.quadrant2Fill = this.quadrant2Fill || adjust(this.primaryColor, { r: 5, g: 5, b: 5 });
@@ -324,6 +344,23 @@ class Theme {
       legendFontSize: this.radar?.legendFontSize || 12,
     };
 
+    /* wardley */
+    this.wardleyEvolutionColor = this.wardleyEvolutionColor || '#ff6b6b';
+    this.wardley = {
+      backgroundColor: this.wardley?.backgroundColor || this.background,
+      axisColor: this.wardley?.axisColor || this.lineColor,
+      axisTextColor: this.wardley?.axisTextColor || this.primaryTextColor,
+      gridColor: this.wardley?.gridColor || this.gridColor,
+      componentFill: this.wardley?.componentFill || this.mainBkg,
+      componentStroke: this.wardley?.componentStroke || this.lineColor,
+      componentLabelColor: this.wardley?.componentLabelColor || this.primaryTextColor,
+      linkStroke: this.wardley?.linkStroke || this.lineColor,
+      evolutionStroke: this.wardley?.evolutionStroke || this.wardleyEvolutionColor,
+      annotationStroke: this.wardley?.annotationStroke || this.lineColor,
+      annotationTextColor: this.wardley?.annotationTextColor || this.primaryTextColor,
+      annotationFill: this.wardley?.annotationFill || this.mainBkg,
+    };
+
     /* class */
     this.classText = this.primaryTextColor;
 
@@ -371,6 +408,25 @@ class Theme {
     this.commitLabelColor = this.commitLabelColor || this.secondaryTextColor;
     this.commitLabelBackground = this.commitLabelBackground || this.secondaryColor;
     this.commitLabelFontSize = this.commitLabelFontSize || '10px';
+
+    /* -------------------------------------------------- */
+    /* Event Modeling diagrams                             */
+
+    this.emUiFill = this.emUiFill || '#2d2d2d';
+    this.emUiStroke = this.emUiStroke || '#555';
+    this.emProcessorFill = this.emProcessorFill || lighten('#5a3d5c', 10);
+    this.emProcessorStroke = this.emProcessorStroke || '#8a6d8c';
+    this.emReadModelFill = this.emReadModelFill || lighten('#3d5a2d', 10);
+    this.emReadModelStroke = this.emReadModelStroke || '#6d8c5c';
+    this.emCommandFill = this.emCommandFill || lighten('#2d3d5a', 10);
+    this.emCommandStroke = this.emCommandStroke || '#5c6d8c';
+    this.emEventFill = this.emEventFill || lighten('#5a452d', 10);
+    this.emEventStroke = this.emEventStroke || '#8c755c';
+    this.emSwimlaneBackgroundOdd = this.emSwimlaneBackgroundOdd || lighten(this.background, 5);
+    this.emSwimlaneBackgroundStroke =
+      this.emSwimlaneBackgroundStroke || lighten(this.background, 12);
+    this.emArrowhead = this.emArrowhead || this.lineColor;
+    this.emRelationStroke = this.emRelationStroke || this.lineColor;
 
     /* -------------------------------------------------- */
     /* EntityRelationship diagrams                        */
