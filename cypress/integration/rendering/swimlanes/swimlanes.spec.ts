@@ -144,6 +144,12 @@ describe('Swimlanes diagram', () => {
       `,
       'swimlanes-custom-theme',
       {
+        // Pin the classic look: this test verifies that custom theme variables
+        // (mainBkg/nodeBorder/lineColor) map directly to a node's fill/stroke and
+        // the edge stroke. Under the default `neo` look, base-theme `useGradient`
+        // intentionally renders node borders as a gradient (`url(#…-gradient)`)
+        // rather than the solid nodeBorder, which is a separate, by-design path.
+        look: 'classic',
         theme: 'base',
         themeVariables: {
           mainBkg: '#ffe1ef',
