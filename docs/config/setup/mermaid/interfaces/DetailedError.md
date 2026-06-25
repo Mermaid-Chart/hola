@@ -34,7 +34,7 @@ Defined in: [packages/mermaid/src/utils.ts:785](https://github.com/mermaid-js/me
 
 > `optional` **loc**: `any`
 
-Defined in: [packages/mermaid/src/utils.ts:791](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L791)
+Defined in: [packages/mermaid/src/utils.ts:790](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L790)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [packages/mermaid/src/utils.ts:788](https://github.com/mermaid-js/me
 
 > `optional` **parser**: `string`
 
-Defined in: [packages/mermaid/src/utils.ts:790](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L790)
+Defined in: [packages/mermaid/src/utils.ts:789](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L789)
 
 ---
 

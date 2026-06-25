@@ -4,13 +4,13 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/RenderResult.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/RenderResult.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
 # Interface: RenderResult
 
-Defined in: [packages/mermaid/src/types.ts:129](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L129)
+Defined in: [packages/mermaid/src/types.ts:138](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L138)
 
 ## Properties
 
@@ -18,7 +18,7 @@ Defined in: [packages/mermaid/src/types.ts:129](https://github.com/mermaid-js/me
 
 > `optional` **bindFunctions**: (`element`) => `void`
 
-Defined in: [packages/mermaid/src/types.ts:147](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L147)
+Defined in: [packages/mermaid/src/types.ts:156](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L156)
 
 Bind function to be called after the svg has been inserted into the DOM.
 This is necessary for adding event listeners to the elements in the svg.
@@ -45,7 +45,7 @@ bindFunctions?.(div); // To call bindFunctions only if it's present.
 
 > **diagramType**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:137](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L137)
+Defined in: [packages/mermaid/src/types.ts:146](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L146)
 
 The diagram type, e.g. 'flowchart', 'sequence', etc.
 
@@ -55,6 +55,6 @@ The diagram type, e.g. 'flowchart', 'sequence', etc.
 
 > **svg**: `string`
 
-Defined in: [packages/mermaid/src/types.ts:133](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L133)
+Defined in: [packages/mermaid/src/types.ts:142](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L142)
 
 The svg code for the rendered graph.
