@@ -47,6 +47,10 @@ const registerDefaultLayoutLoaders = () => {
       name: 'fixed',
       loader: async () => await import('./layout-algorithms/fixed/index.js'),
     },
+    {
+      name: 'swimlane',
+      loader: async () => await import('./layout-algorithms/swimlanes/index.js'),
+    },
     ...(injected.includeLargeFeatures
       ? [
           {
@@ -60,7 +64,7 @@ const registerDefaultLayoutLoaders = () => {
 
 registerDefaultLayoutLoaders();
 
-export const render = async (data4Layout: LayoutData, svg: SVG, positions?: any) => {
+export const render = async (data4Layout: LayoutData, svg: SVG, positions?: Positions) => {
   if (!(data4Layout.layoutAlgorithm in layoutAlgorithms)) {
     throw new Error(`Unknown layout algorithm: ${data4Layout.layoutAlgorithm}`);
   }

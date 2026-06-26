@@ -499,7 +499,7 @@ async function boundMessage(_diagram, msgModel): Promise<number> {
  * @param lineStartY - The Y coordinate at which the message line starts
  * @param diagObj - The diagram object.
  */
-const drawMessage = async function (
+export const drawMessage = async function (
   diagram,
   msgModel,
   lineStartY: number,
@@ -510,9 +510,9 @@ const drawMessage = async function (
   const { startx, stopx, starty, message, type, sequenceIndex, sequenceVisible } = msgModel;
   const textDims = utils.calculateTextDimensions(message, messageFont(conf));
   const textObj = svgDrawCommon.getTextObj();
-  textObj.x = startx;
+  textObj.x = Math.min(startx, stopx);
   textObj.y = starty + 10;
-  textObj.width = stopx - startx;
+  textObj.width = Math.abs(stopx - startx);
   textObj.class = 'messageText';
   textObj.dy = '1em';
   textObj.text = message;
@@ -751,6 +751,15 @@ const drawMessage = async function (
       autonumberX = isLeftToRight ? msgModel.fromBounds + 1 : msgModel.toBounds - 1;
     }
 
+    let fontSize = '12px';
+    const sequenceIndexLength = sequenceIndex.toString().length;
+
+    if (sequenceIndexLength > 5) {
+      fontSize = '7px';
+    } else if (sequenceIndexLength > 3) {
+      fontSize = '9px';
+    }
+
     diagram
       .append('line')
       .attr('x1', autonumberX)
@@ -765,7 +774,7 @@ const drawMessage = async function (
       .attr('x', autonumberX)
       .attr('y', lineStartY + 4)
       .attr('font-family', 'sans-serif')
-      .attr('font-size', '12px')
+      .attr('font-size', fontSize)
       .attr('text-anchor', 'middle')
       .attr('class', 'sequenceNumber')
       .text(sequenceIndex);
@@ -1073,7 +1082,7 @@ function adjustCreatedDestroyedData(
  * @param diagObj - A standard diagram containing the db and the text and type etc of the diagram
  */
 export const draw = async function (_text: string, id: string, _version: string, diagObj: Diagram) {
-  const { securityLevel, sequence, look } = getConfig();
+  const { securityLevel, sequence, look, themeVariables } = getConfig();
   conf = sequence;
   // Handle root and Document for when rendering in sandbox mode
   let sandboxElement;
@@ -1212,9 +1221,20 @@ export const draw = async function (_text: string, id: string, _version: string,
         bounds.models.addLoop(loopModel);
         break;
       case diagObj.db.LINETYPE.RECT_START:
-        adjustLoopHeightForWrap(loopWidths, msg, conf.boxMargin, conf.boxMargin, (message) =>
-          bounds.newLoop(undefined, message.message)
-        );
+        adjustLoopHeightForWrap(loopWidths, msg, conf.boxMargin, conf.boxMargin, (message) => {
+          let fill = message.message;
+          if (!fill) {
+            // Apply a theme-aware default fill.
+            // Because the rect is rendered behind actors and text, it does not obscure them.
+            // Use theme background when no explicit color is given; the rect renders
+            // behind all content so any semi-transparent theme color is safe.
+            fill =
+              themeVariables?.rectBkgColor ||
+              themeVariables?.actorBkg ||
+              'rgba(128, 128, 128, 0.5)';
+          }
+          bounds.newLoop(undefined, fill);
+        });
         break;
       case diagObj.db.LINETYPE.RECT_END:
         loopModel = bounds.endLoop();
@@ -1397,7 +1417,8 @@ export const draw = async function (_text: string, id: string, _version: string,
         diagObj.db.LINETYPE.BIDIRECTIONAL_DOTTED,
       ].includes(msg.type)
     ) {
-      sequenceIndex = sequenceIndex + sequenceIndexStep;
+      // hitting a floating point number error, so round to 2 decimal places
+      sequenceIndex = Math.round((sequenceIndex + sequenceIndexStep) * 100) / 100;
     }
     index++;
   }

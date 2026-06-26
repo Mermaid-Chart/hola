@@ -114,6 +114,7 @@ that id.
 <click>[^\s\n]*          return 'CLICK';
 
 "flowchart-elk"          {if(yy.lex.firstGraph()){this.begin("dir");}  return 'GRAPH';}
+"swimlane-beta"          {if(yy.lex.firstGraph()){this.begin("dir");}  return 'GRAPH';}
 "graph"                  {if(yy.lex.firstGraph()){this.begin("dir");}  return 'GRAPH';}
 "flowchart"              {if(yy.lex.firstGraph()){this.begin("dir");}  return 'GRAPH';}
 "subgraph"               return 'subgraph';
@@ -205,6 +206,22 @@ that id.
 "*"                   return 'MULT';
 "#"                   return 'BRKT';
 "&"                   return 'AMP';
+(\r?\n)[ \t]*"%%"(?!\{)[^\n]*(?=\r?\n[ \t]*[xo<]?[-=.~])  {
+    // A comment that sits between a node and a *continuing* link (a chained
+    // flow split across lines, e.g. `A --> B` / `%% note` / `--> C`) must not
+    // terminate the vertex chain. Consuming the preceding line break here means
+    // the chain-continuation decision lands on the token *after* the comment,
+    // where the grammar can tell a link (continue) from anything else (end).
+    // The lookahead keeps this scoped to the in-chain case only — standalone
+    // comments keep their normal `NEWLINE`+`COMMENT` token stream. Re-point the
+    // location at the comment's own line so editor-sync line numbers stay right.
+    yytext = yytext.replace(/^\r?\n/, '');
+    if (yylloc) {
+      yylloc.first_line = yylloc.last_line;
+      yylloc.first_column = 0;
+    }
+    return 'COMMENT';
+}
 [ \t]*"%%"(?!\{)[^\n]*         return 'COMMENT';
 ([A-Za-z0-9!"\#$%&'*+\.`?\\_\/]|\-(?=[^\>\-\.])|=(?!=))+  {
     return 'NODE_STRING';
@@ -414,6 +431,12 @@ vertexStatement: vertexStatement link node shapeData
         { yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
     |  vertexStatement link node spaceList
         { yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
+    | vertexStatement COMMENT link node shapeData
+        { if(yy.addComment){yy.addComment($COMMENT,@2);} yy.addVertex($node[$node.length-1],undefined,undefined,undefined, undefined,undefined, undefined,$shapeData); yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
+    | vertexStatement COMMENT link node
+        { if(yy.addComment){yy.addComment($COMMENT,@2);} yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
+    | vertexStatement COMMENT link node spaceList
+        { if(yy.addComment){yy.addComment($COMMENT,@2);} yy.addLink($vertexStatement.stmt,$node,$link); if(yy.addEdgeMapping){yy.addEdgeMapping($vertexStatement.stmt,$node,$link,@$);} $$ = { stmt: $node, nodes: $node.concat($vertexStatement.nodes) } }
     |node spaceList { $$ = {stmt: $node, nodes:$node }}
     |node shapeData {
         yy.addVertex($node[$node.length-1],undefined,undefined,undefined, undefined,undefined, undefined,$shapeData);
