@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/CommonLayoutPaintContext.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/CommonLayoutPaintContext.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 

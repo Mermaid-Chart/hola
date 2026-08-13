@@ -49,6 +49,9 @@
 
 ## Functions
 
+- [calcIntersect](functions/calcIntersect.md)
+- [calcIntersections](functions/calcIntersections.md)
+- [calcNodeIntersections](functions/calcNodeIntersections.md)
 - [clearLayoutRenderState](functions/clearLayoutRenderState.md)
 - [createCommonLayoutRenderer](functions/createCommonLayoutRenderer.md)
 - [defaultMeasureLayout](functions/defaultMeasureLayout.md)
