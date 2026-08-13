@@ -331,7 +331,7 @@ jobs:
   argos-batch:
     if: >-
       ${{
-        github.repository == 'mermaid-js/mermaid' &&
+        github.repository == 'Mermaid-Chart/alana-mermaid' &&
         (github.event_name == 'workflow_dispatch' ||
           (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'renovate/'))) &&
         needs.detect-scope.outputs.spec_pattern != 'SKIP' &&
