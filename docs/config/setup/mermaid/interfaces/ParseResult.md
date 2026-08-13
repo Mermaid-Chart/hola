@@ -10,7 +10,7 @@
 
 # Interface: ParseResult
 
-Defined in: [packages/mermaid/src/types.ts:100](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L100)
+Defined in: [packages/mermaid/src/types.ts:104](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L104)
 
 ## Properties
 
@@ -28,7 +28,7 @@ The mermaid code after extracting the config.
 
 > **config**: [`MermaidConfig`](MermaidConfig.md)
 
-Defined in: [packages/mermaid/src/types.ts:109](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L109)
+Defined in: [packages/mermaid/src/types.ts:112](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L112)
 
 The config passed as YAML frontmatter or directives
 
@@ -38,7 +38,7 @@ The config passed as YAML frontmatter or directives
 
 > `optional` **diagram**: `Diagram`
 
-Defined in: [packages/mermaid/src/types.ts:111](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L111)
+Defined in: [packages/mermaid/src/types.ts:108](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L108)
 
 ---
 
