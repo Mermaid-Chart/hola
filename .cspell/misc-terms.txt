@@ -3,6 +3,7 @@ BRANDES
 browserlist
 Buzan
 circo
+GHSA
 handDrawn
 KOEPF
 MMLU

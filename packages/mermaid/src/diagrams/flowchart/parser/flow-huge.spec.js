@@ -1,8 +1,8 @@
 import { FlowDB } from '../flowDb.js';
 import flow from './flowParser.ts';
-import { setConfig } from '../../../config.js';
+import { updateSiteConfig } from '../../../config.js';
 
-setConfig({
+updateSiteConfig({
   securityLevel: 'strict',
   maxEdges: 50000, // Increase edge limit for performance testing
 });
