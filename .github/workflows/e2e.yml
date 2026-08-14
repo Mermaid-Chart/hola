@@ -272,6 +272,14 @@ jobs:
           SPLIT_INDEX: ${{ strategy.job-index }}
           SPLIT_FILE: 'cypress/timings.json'
           VITEST_COVERAGE: true
+          # `build:coverage` above leaves an istanbul-instrumented bundle in
+          # packages/*/dist (~3.5x the normal size). Starting the Vite dev server
+          # over that briefly needs more than V8's default old-space limit, which
+          # is derived from system memory: GitHub-hosted runners give private
+          # repos ~7 GiB (~2 GB heap) where public repos get 16 GiB (~4 GB), so
+          # upstream never hits this. Without the bump the server dies with
+          # "JavaScript heap out of memory" (exit 134) before Cypress starts.
+          NODE_OPTIONS: --max-old-space-size=4096
 
       # Stash each shard's lcov; the host-based `codecov-upload` job uploads them.
       - name: Upload e2e coverage artifact
