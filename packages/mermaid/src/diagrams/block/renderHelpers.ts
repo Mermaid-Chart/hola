@@ -118,8 +118,14 @@ function getNodeFromBlock(block: Block, db: BlockDB, positioned = false) {
     domId: dbDiagramId ? `${dbDiagramId}-${vertex.id}` : vertex.id,
     isGroup: false as const,
     directions: vertex.directions,
-    width: bounds.width || undefined,
-    height: bounds.height || undefined,
+    // `circle` treats an incoming width as an explicit size request and uses it as
+    // the diameter (see shapes/circle.ts, which the fixed layout relies on). A block
+    // cell size is not such a request: handing one over makes the circle inflate to
+    // fill its cell, which then widens the column and the whole diagram. Let circles
+    // size to their label instead — what the legacy block renderer did before block
+    // moved onto the unified shape pipeline, and what upstream does.
+    width: shape === 'circle' ? undefined : bounds.width || undefined,
+    height: shape === 'circle' ? undefined : bounds.height || undefined,
     x: bounds.x,
     y: bounds.y,
     positioned,
