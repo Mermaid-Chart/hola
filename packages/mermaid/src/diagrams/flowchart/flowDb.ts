@@ -345,9 +345,6 @@ export class FlowDB implements DiagramDB {
       if (doc.w) {
         vertex.assetWidth = Number(doc.w);
       }
-      if (doc.w) {
-        vertex.assetWidth = Number(doc.w);
-      }
       if (doc.h) {
         vertex.assetHeight = Number(doc.h);
       }
