@@ -1,7 +1,5 @@
 import eyesPlugin from '@applitools/eyes-cypress';
-import { argosAfterRun, argosAfterScreenshot } from '@argos-ci/cypress/task';
 import coverage from '@cypress/code-coverage/task.js';
-import { log } from './packages/mermaid/src/logger.js';
 import { defineConfig } from 'cypress';
 import { addMatchImageSnapshotPlugin } from 'cypress-image-snapshot/plugin.js';
 import cypressSplit from 'cypress-split';
@@ -37,23 +35,12 @@ const baseConfig = defineConfig({
       config.env.useArgos = process.env.RUN_VISUAL_TEST === 'true';
       config.env.swimlaneFixtures = listSwimlaneFixtureNames(config.projectRoot);
 
-      if (config.env.useArgos) {
-        const argosOptions = { uploadToArgos: !!process.env.CI };
-        // Register after:screenshot so Argos can copy screenshots to its temp dir.
-        on('after:screenshot', (details) => {
-          return argosAfterScreenshot(config, details, argosOptions);
-        });
-        // Wrap after:run in try/catch so a failed upload (e.g. network error,
-        // missing ARGOS_TOKEN, or metadata read failure) never crashes the
-        // Cypress process and swallows the actual test results.
-        on('after:run', async (results) => {
-          try {
-            await argosAfterRun(config, results, argosOptions);
-          } catch (err) {
-            log.error('⚠️  Argos upload failed (non-fatal):', err);
-          }
-        });
-      } else {
+      // Argos capture uses cy.argosScreenshot from @argos-ci/cypress/support (e2e.js).
+      // Do not register registerArgosTask / argosAfterRun — their after:run hook
+      // uploads one Argos build per shard, with names rooted at each shard's spec
+      // common-ancestor. Raw PNGs are stashed as artifacts and the argos-batch CI
+      // job canonicalizes and uploads them as a single build instead.
+      if (!config.env.useArgos) {
         addMatchImageSnapshotPlugin(on, config);
       }
       on('task', {
@@ -71,8 +58,6 @@ const baseConfig = defineConfig({
 // eyesPlugin must always wrap the config so that the browser-side
 // @applitools/eyes-cypress/commands (imported unconditionally in e2e.js)
 // can read Cypress.env('APPLITOOLS') without crashing.
-// The pipeline-crash risk is mitigated by the try/catch around argosAfterRun above,
-// which prevents Argos upload failures from propagating through Applitools' wrapper.
 // Type cast needed because the @applitools/eyes-cypress type declarations export
 // the default as a namespace re-export, which TypeScript resolves as non-callable.
 type EyesPluginFn = (config: Cypress.ConfigOptions) => Cypress.ConfigOptions;
