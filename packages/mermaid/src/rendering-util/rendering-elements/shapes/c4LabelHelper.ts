@@ -50,12 +50,16 @@ export const c4LabelHelper = async <T extends SVGGraphicsElement>(
     (node.width
       ? Math.max(node.width - 2 * (node.padding ?? 0), MIN_WRAP_WIDTH)
       : (getConfig().flowchart?.wrappingWidth ?? 200));
-  // Wrapping is otherwise opt-in via the root `wrap` config, matching the legacy C4
-  // renderer; the (currently ignored) c4.wrap option is tracked in #7949. A shape that
-  // pinned its width is the exception: its box will not grow to fit, so the label has to
-  // wrap or it spills out of the sides.
-  const width =
-    config.wrap || node.wrappingWidth !== undefined ? wrapWidth : Number.POSITIVE_INFINITY;
+  // `c4.wrap` (schema default true) is the C4 diagram's own auto-wrap flag, and is what the
+  // legacy renderer gated on. Reading the root-level `wrap` instead left every element
+  // unwrapped, since that key has no schema default. Gating here rather than in the calling
+  // shape keeps every stereotyped element on one rule: person, which sizes itself from the
+  // label, wraps to the same width as the rect shapes that pin it.
+  //
+  // A shape that pinned its width also wraps regardless: its box will not grow to fit, so an
+  // unwrapped label spills out of the sides rather than merely looking wide.
+  const shouldWrap = (config.c4?.wrap ?? true) || node.wrappingWidth !== undefined;
+  const width = shouldWrap ? wrapWidth : Number.POSITIVE_INFINITY;
 
   const rendered = await Promise.all(
     sections.map(async (section) => {
