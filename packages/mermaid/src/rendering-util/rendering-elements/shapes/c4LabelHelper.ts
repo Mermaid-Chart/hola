@@ -43,12 +43,19 @@ export const c4LabelHelper = async <T extends SVGGraphicsElement>(
     ...(node.description ?? []).map((line) => ({ text: line, cssClass: 'c4-descr' })),
   ].filter((section) => section.text);
 
-  const wrapWidth = node.width
-    ? Math.max(node.width - 2 * (node.padding ?? 0), MIN_WRAP_WIDTH)
-    : (getConfig().flowchart?.wrappingWidth ?? 200);
-  // Wrapping is opt-in via the root `wrap` config, matching the legacy C4
-  // renderer; the (currently ignored) c4.wrap option is tracked in #7949.
-  const width = config.wrap ? wrapWidth : Number.POSITIVE_INFINITY;
+  // `wrappingWidth` is the label box a shape has already sized itself to; `node.width` is
+  // the outer box, from which the padding still has to come off.
+  const wrapWidth =
+    node.wrappingWidth ??
+    (node.width
+      ? Math.max(node.width - 2 * (node.padding ?? 0), MIN_WRAP_WIDTH)
+      : (getConfig().flowchart?.wrappingWidth ?? 200));
+  // Wrapping is otherwise opt-in via the root `wrap` config, matching the legacy C4
+  // renderer; the (currently ignored) c4.wrap option is tracked in #7949. A shape that
+  // pinned its width is the exception: its box will not grow to fit, so the label has to
+  // wrap or it spills out of the sides.
+  const width =
+    config.wrap || node.wrappingWidth !== undefined ? wrapWidth : Number.POSITIVE_INFINITY;
 
   const rendered = await Promise.all(
     sections.map(async (section) => {
