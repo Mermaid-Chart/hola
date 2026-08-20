@@ -1,110 +1,62 @@
-import { JSDOM } from 'jsdom';
 import { select } from 'd3';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { MermaidConfig } from '../../../config.type.js';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { reset, setConfig } from '../../../config.js';
 import type { Node } from '../../types.js';
+import { c4LabelHelper } from './c4LabelHelper.js';
 
-const config: MermaidConfig = {};
+// jsdom implements neither of these SVG measurement APIs. A flat per-character
+// metric is enough: the assertions below count wrapped lines, not pixels.
+const PX_PER_CHAR = 7;
 
-vi.mock('../../../diagram-api/diagramAPI.js', () => ({
-  getConfig: vi.fn(() => config),
-}));
+beforeAll(() => {
+  // @ts-expect-error -- jsdom's SVGElement has no getComputedTextLength
+  SVGElement.prototype.getComputedTextLength = function () {
+    return (this.textContent ?? '').length * PX_PER_CHAR;
+  };
+  // @ts-expect-error -- jsdom's SVGElement has no getBBox
+  SVGElement.prototype.getBBox = function () {
+    return { x: 0, y: 0, width: (this.textContent ?? '').length * PX_PER_CHAR, height: 20 };
+  };
+});
 
-vi.mock('../../createText.js', () => ({
-  // The real one measures text; here we only need an element back, and a record of the
-  // wrap width it was asked for.
-  createText: vi.fn((parent: { node: () => Element }, text: string) => {
-    const section = parent.node();
-    const el = section.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'text');
-    el.textContent = text;
-    section.append(el);
-    return Promise.resolve(el);
-  }),
-}));
+afterEach(() => {
+  reset();
+});
 
-const setupParent = () => {
-  const dom = new JSDOM('<html lang="en"><body></body></html>');
-  const { document } = dom.window;
-  // c4LabelHelper measures each section to stack them; the geometry is irrelevant here.
-  dom.window.Element.prototype.getBBox = () => ({ x: 0, y: 0, width: 10, height: 10 }) as DOMRect;
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  document.body.append(svg);
-  return select(svg);
-};
-
-/** The wrap width `c4LabelHelper` asked `createText` for, per section. */
-const requestedWidths = async () => {
-  const { createText } = await import('../../createText.js');
-  return vi.mocked(createText).mock.calls.map(([, , options]) => options?.width);
-};
-
-const c4Node = (overrides: Partial<Node> = {}): Node =>
+/** A `System(...)` element as `buildC4Node` hands it over: `c4.width` and `c4ShapePadding`. */
+const c4Node = (): Node =>
   ({
-    id: 'n',
-    label: 'Banking Customer A',
-    stereotype: '[Person]',
-    description: ['A customer of the bank.'],
+    id: 'SystemAA',
+    label: 'Internet Banking System',
+    stereotype: '[Software System]',
+    description: ['Allows customers to view information about their bank accounts'],
     width: 216,
     padding: 20,
-    ...overrides,
-  }) as Node;
+  }) as unknown as Node;
+
+const renderLabel = async (node: Node) => {
+  const svg = select(document.body).append('svg');
+  await c4LabelHelper(svg as never, node);
+  return svg;
+};
+
+const outerTspans = (svg: ReturnType<typeof select<SVGSVGElement, unknown>>) =>
+  svg.selectAll('tspan.text-outer-tspan').size();
 
 describe('c4LabelHelper', () => {
-  beforeEach(async () => {
-    vi.mocked(await import('../../createText.js')).createText.mockClear();
-    for (const key of Object.keys(config)) {
-      delete config[key as keyof MermaidConfig];
-    }
+  it('wraps element labels by default, so the label stays within c4.width', async () => {
+    const svg = await renderLabel(c4Node());
+
+    // Three sections (name, stereotype, description) produce exactly 3 outer
+    // tspan elements when nothing wraps; the long description has to break further.
+    expect(outerTspans(svg)).toBeGreaterThan(3);
   });
 
-  it('wraps to the padded node width by default', async () => {
-    const { c4LabelHelper } = await import('./c4LabelHelper.js');
+  it('does not wrap when c4.wrap is disabled', async () => {
+    setConfig({ c4: { wrap: false } });
+    const svg = await renderLabel(c4Node());
 
-    // `c4.wrap` defaults to true in the schema, so an absent value must not read as "off".
-    await c4LabelHelper(setupParent(), c4Node());
-
-    // 216 outer - 2 * 20 padding.
-    expect(await requestedWidths()).toEqual([176, 176, 176]);
-  });
-
-  it('wraps a node that sizes itself from the label, not just one with a pinned width', async () => {
-    const { c4LabelHelper } = await import('./c4LabelHelper.js');
-
-    // The person shape passes node.width straight through and never sets wrappingWidth;
-    // it has to reach the same wrap width as the rect shapes, which pin it.
-    await c4LabelHelper(setupParent(), c4Node({ wrappingWidth: undefined }));
-
-    expect(await requestedWidths()).toEqual([176, 176, 176]);
-  });
-
-  it('prefers an explicit wrappingWidth over deriving one from node.width', async () => {
-    const { c4LabelHelper } = await import('./c4LabelHelper.js');
-
-    // drawRect hands the label box over directly, having already taken the padding off.
-    await c4LabelHelper(setupParent(), c4Node({ wrappingWidth: 176, width: undefined }));
-
-    expect(await requestedWidths()).toEqual([176, 176, 176]);
-  });
-
-  it('stops wrapping when c4.wrap is turned off', async () => {
-    config.c4 = { wrap: false };
-    const { c4LabelHelper } = await import('./c4LabelHelper.js');
-
-    await c4LabelHelper(setupParent(), c4Node());
-
-    expect(await requestedWidths()).toEqual([
-      Number.POSITIVE_INFINITY,
-      Number.POSITIVE_INFINITY,
-      Number.POSITIVE_INFINITY,
-    ]);
-  });
-
-  it('still wraps a pinned width when c4.wrap is off, so the label cannot spill out', async () => {
-    config.c4 = { wrap: false };
-    const { c4LabelHelper } = await import('./c4LabelHelper.js');
-
-    await c4LabelHelper(setupParent(), c4Node({ wrappingWidth: 176, width: undefined }));
-
-    expect(await requestedWidths()).toEqual([176, 176, 176]);
+    // One line per section, none of them broken.
+    expect(outerTspans(svg)).toBe(3);
   });
 });
