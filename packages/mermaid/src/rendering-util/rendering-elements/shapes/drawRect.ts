@@ -16,14 +16,6 @@ export async function drawRect<T extends SVGGraphicsElement>(
 ) {
   const { labelStyles, nodeStyles } = styles2String(node);
   node.labelStyle = labelStyles;
-  // If incoming height & width are present, subtract the padding from them
-  // as labelHelper does not take padding into account
-  // also check if the width or height is less than minimum default values (50),
-  // if so set it to min value
-  if (node.width || node.height) {
-    node.width = (node?.width ?? 10) - options.labelPaddingX * 2;
-    node.height = (node?.height ?? 10) - options.labelPaddingY * 2;
-  }
 
   const iconSize = 20;
   const iconGap = 8;
@@ -31,9 +23,11 @@ export async function drawRect<T extends SVGGraphicsElement>(
 
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
 
-  const totalWidth =
-    (node?.width ? node?.width : bbox.width) + options.labelPaddingX * 2 + iconWidth;
-  const totalHeight = (node?.height ? node?.height : bbox.height) + options.labelPaddingY * 2;
+  // An incoming width/height is a minimum, not an exact size: `node.width` already
+  // drives the label's wrapping width, so the label is what a caller-requested size
+  // shrinks. Never clamp below the label, or it overflows the shape.
+  const totalWidth = Math.max(bbox.width + options.labelPaddingX * 2 + iconWidth, node?.width || 0);
+  const totalHeight = Math.max(bbox.height + options.labelPaddingY * 2, node?.height || 0);
 
   const x = -totalWidth / 2;
   const y = -totalHeight / 2;
