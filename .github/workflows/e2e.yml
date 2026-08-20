@@ -203,7 +203,7 @@ jobs:
   e2e:
     # Skip the entire e2e job when only docs/ignorable files changed.
     if: needs.detect-scope.outputs.spec_pattern != 'SKIP'
-    runs-on: ubuntu-latest
+    runs-on: 2-core-advanced # Our private runner with 8GiB of RAM to avoid OOM errors
     container:
       image: cypress/browsers:node-20.16.0-chrome-127.0.6533.88-1-ff-128.0.3-edge-127.0.2651.74-1
       options: --user 1001
