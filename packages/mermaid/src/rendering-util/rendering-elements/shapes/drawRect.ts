@@ -16,13 +16,25 @@ export async function drawRect<T extends SVGGraphicsElement>(
 ) {
   const { labelStyles, nodeStyles } = styles2String(node);
   node.labelStyle = labelStyles;
-  // If incoming height & width are present, subtract the padding from them
-  // as labelHelper does not take padding into account
-  // also check if the width or height is less than minimum default values (50),
-  // if so set it to min value
-  if (node.width || node.height) {
-    node.width = (node?.width ?? 10) - options.labelPaddingX * 2;
-    node.height = (node?.height ?? 10) - options.labelPaddingY * 2;
+  // An explicitly sized dimension is the outer size, so subtract the padding to get the
+  // label box the label helper should fit into. Each dimension is handled on its own: a
+  // caller may fix only one of them (C4 pins the width to `c4.width` and lets the label
+  // drive the height), and the unset one must stay unset so the label measurement wins.
+  //
+  // The width is handed over as `wrappingWidth` rather than by rewriting `node.width`,
+  // because the label helpers disagree about what `node.width` means: the default one
+  // treats it as the label box, while `c4LabelHelper` treats it as the outer box and
+  // subtracts the padding itself. Passing the wrap width explicitly settles that, and
+  // tells the helper to wrap even when the global `wrap` config is off - the box is a
+  // fixed size, so an unwrapped label would overflow it.
+  let labelWidth: number | undefined;
+  if (node.width) {
+    labelWidth = Math.max(node.width - options.labelPaddingX * 2, 1);
+    node.wrappingWidth = labelWidth;
+    node.width = undefined;
+  }
+  if (node.height) {
+    node.height = node.height - options.labelPaddingY * 2;
   }
 
   const iconSize = 20;
@@ -31,8 +43,7 @@ export async function drawRect<T extends SVGGraphicsElement>(
 
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
 
-  const totalWidth =
-    (node?.width ? node?.width : bbox.width) + options.labelPaddingX * 2 + iconWidth;
+  const totalWidth = (labelWidth ?? bbox.width) + options.labelPaddingX * 2 + iconWidth;
   const totalHeight = (node?.height ? node?.height : bbox.height) + options.labelPaddingY * 2;
 
   const x = -totalWidth / 2;
@@ -77,7 +88,15 @@ export async function drawRect<T extends SVGGraphicsElement>(
       .attr('stroke', 'url(#gradient)');
   }
 
-  updateNodeBounds(node, rect);
+  // For a plain (non-roughjs) axis-aligned rect the rendered geometry is exactly
+  // the size we just drew, so hand it to updateNodeBounds to avoid a getBBox reflow.
+  // Hand-drawn rects are roughjs paths that overflow their nominal box, so they
+  // still need a real measurement.
+  updateNodeBounds(
+    node,
+    rect,
+    node.look === 'handDrawn' ? undefined : { width: totalWidth, height: totalHeight }
+  );
 
   // Shift label right to make room for icon on the left, and render icon
   if (node.icon) {

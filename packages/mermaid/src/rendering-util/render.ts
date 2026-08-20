@@ -1,7 +1,7 @@
 import type { Positions, SVG } from '../diagram-api/types.js';
-import { log } from '../logger.js';
-import { internalHelpers } from '../internals.js';
 import type { InternalHelpers } from '../internals.js';
+import { internalHelpers } from '../internals.js';
+import { log } from '../logger.js';
 import type { LayoutData } from './types.js';
 
 // console.log('MUST be removed, this only for keeping dev server working');

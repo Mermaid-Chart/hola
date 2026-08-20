@@ -10,7 +10,7 @@
 
 # Interface: ParseOptions
 
-Defined in: [packages/mermaid/src/types.ts:92](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L92)
+Defined in: [packages/mermaid/src/types.ts:98](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L98)
 
 ## Properties
 
@@ -18,7 +18,7 @@ Defined in: [packages/mermaid/src/types.ts:92](https://github.com/mermaid-js/mer
 
 > `optional` **suppressErrors**: `boolean`
 
-Defined in: [packages/mermaid/src/types.ts:97](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L97)
+Defined in: [packages/mermaid/src/types.ts:103](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L103)
 
 If `true`, parse will return `false` instead of throwing error when the diagram is invalid.
 The `parseError` function will not be called.

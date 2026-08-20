@@ -36,10 +36,8 @@ const baseConfig = defineConfig({
       config.env.swimlaneFixtures = listSwimlaneFixtureNames(config.projectRoot);
 
       // Argos capture uses cy.argosScreenshot from @argos-ci/cypress/support (e2e.js).
-      // Do not register registerArgosTask / argosAfterRun — their after:run hook
-      // uploads one Argos build per shard, with names rooted at each shard's spec
-      // common-ancestor. Raw PNGs are stashed as artifacts and the argos-batch CI
-      // job canonicalizes and uploads them as a single build instead.
+      // Do not register registerArgosTask — its after:run hook uploads to Argos.
+      // Raw PNGs batch-upload in the argos-batch CI job instead.
       if (!config.env.useArgos) {
         addMatchImageSnapshotPlugin(on, config);
       }
