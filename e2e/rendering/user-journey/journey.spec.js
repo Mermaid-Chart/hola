@@ -203,7 +203,10 @@ section Checkout from website
         lineCount: lines.length,
       };
     });
-    expect(lineCount).toBe(9);
+    // Line count is font-dependent: 9 at upstream's 16px trebuchet, 6 at alana's
+    // 14px arial (theme-base). See #67.
+    expect(lineCount).toBeGreaterThan(3);
+    expect(maxLineWidth).toBeLessThanOrEqual(320);
     expect(Math.abs(diagramStartX - maxLineWidth - 150)).toBeLessThanOrEqual(2);
   });
 
