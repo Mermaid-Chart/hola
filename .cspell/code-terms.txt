@@ -165,6 +165,7 @@ ts-nocheck
 tsdoc
 typeof
 typestr
+uninstrumented
 unrouted
 unshift
 urlsafe

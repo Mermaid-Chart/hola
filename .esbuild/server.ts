@@ -164,7 +164,7 @@ interface DevExplorerCapturedNodeSize {
 
 const devExplorerRootAbs = resolve(
   process.cwd(),
-  process.env.MERMAID_DEV_EXPLORER_ROOT ?? 'cypress/platform/dev-diagrams'
+  process.env.MERMAID_DEV_EXPLORER_ROOT ?? 'e2e/platform/dev-diagrams'
 );
 
 // Starter content written when a new diagram is created from the Dev Explorer.
@@ -512,7 +512,7 @@ async function createServer() {
     })
   );
   // Also expose dev-explorer public assets (libavoid.wasm, etc.) at root
-  // so demo pages under /cypress/platform/ and /demos/ can resolve a
+  // so demo pages under /e2e/platform/ and /demos/ can resolve a
   // bare "libavoid.wasm" without going through the /dev/ namespace.
   // index:false so this doesn't shadow the cypress/demos default index.
   app.use(express.static(devExplorerPublicDir, { index: false }));
@@ -521,7 +521,7 @@ async function createServer() {
     app.use(express.static(`./packages/${packageName}/dist`));
   }
   app.use(express.static('demos'));
-  app.use(express.static('cypress/platform'));
+  app.use(express.static('e2e/platform'));
 
   app.listen(devPort, () => {
     console.log(
