@@ -158,6 +158,9 @@ test.describe('Swimlanes diagram', () => {
           mainBkg: '#ffe1ef',
           nodeBorder: '#225577',
           lineColor: '#118844',
+          // theme-base enables useGradient, which paints node strokes with a gradient
+          // reference instead of nodeBorder.
+          useGradient: false,
         },
       }
     );
