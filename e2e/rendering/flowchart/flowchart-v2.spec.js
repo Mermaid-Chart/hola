@@ -15,7 +15,11 @@ test.describe('Flowchart v2', () => {
       C -->|Two| E[iPhone]
       C -->|Three| F[fa:fa-car Car]
       `,
-      { flowchart: { useMaxWidth: true } }
+      // Pin the look: alana defaults to `neo` (schema config.schema.yaml) where upstream
+      // defaults to `classic`, and squareRect pads rects by 16*2 under neo vs padding*2
+      // (=15*2) under classic. That makes alana's flowcharts ~23% narrower and would
+      // break upstream's width bound. Pinning keeps upstream's assertion untouched.
+      { flowchart: { useMaxWidth: true }, look: 'classic' }
     );
     const svg = page.locator('svg');
     await expect(svg).toHaveAttribute('width', '100%');
@@ -36,7 +40,11 @@ test.describe('Flowchart v2', () => {
       C -->|Two| E[iPhone]
       C -->|Three| F[fa:fa-car Car]
       `,
-      { flowchart: { useMaxWidth: false } }
+      // Pin the look: alana defaults to `neo` (schema config.schema.yaml) where upstream
+      // defaults to `classic`, and squareRect pads rects by 16*2 under neo vs padding*2
+      // (=15*2) under classic. That makes alana's flowcharts ~23% narrower and would
+      // break upstream's width bound. Pinning keeps upstream's assertion untouched.
+      { flowchart: { useMaxWidth: false }, look: 'classic' }
     );
     const svg = page.locator('svg');
     const width = parseFloat((await svg.getAttribute('width')) ?? '0');
