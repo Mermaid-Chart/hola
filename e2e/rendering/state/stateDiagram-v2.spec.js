@@ -34,7 +34,10 @@ test.describe('State diagram', () => {
     [*] --> State1
     State1 --> [*]
       `,
-      { state: { useMaxWidth: true } }
+      // Pin look/theme: alana's defaults differ from upstream's and render wider,
+      // which would break upstream's 65-85 width bound. Keeps the assertion itself
+      // identical to upstream.
+      { state: { useMaxWidth: true }, look: 'classic', theme: 'default' }
     );
     const svg = page.locator('svg');
     await expect(svg).toHaveAttribute('width', '100%');
@@ -54,7 +57,10 @@ test.describe('State diagram', () => {
     [*] --> State1
     State1 --> [*]
       `,
-      { state: { useMaxWidth: false } }
+      // Pin look/theme: alana's defaults differ from upstream's and render wider,
+      // which would break upstream's 65-85 width bound. Keeps the assertion itself
+      // identical to upstream.
+      { state: { useMaxWidth: false }, look: 'classic', theme: 'default' }
     );
     const svg = page.locator('svg');
     const width = parseFloat((await svg.getAttribute('width')) ?? '0');
