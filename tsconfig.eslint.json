@@ -13,6 +13,7 @@
     "./playwright.config.ts",
     "./tests",
     "./scripts",
+    "./.github/fork-sync",
     "./e2e",
     "./__mocks__",
     "./demos/dev",

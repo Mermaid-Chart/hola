@@ -1,0 +1,80 @@
+name: Resolve fork sync merge
+description: >-
+  Applies judgement to an in-progress upstream merge — resolves conflicts,
+  regenerates generated files, and gets the tree verifiably green. Writes its
+  account to $sync_dir and never touches the remote.
+
+inputs:
+  sync_dir:
+    description: Scratch directory outside the repo, holding the run's inputs and outputs
+    required: true
+  anthropic_api_key:
+    description: Anthropic API key. Either this or claude_code_oauth_token must be set.
+    required: false
+    default: ''
+  claude_code_oauth_token:
+    description: Claude Code OAuth token, as an alternative to an API key.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Render the run facts
+      shell: bash
+      env:
+        SYNC_DIR: ${{ inputs.sync_dir }}
+      run: |
+        set -euo pipefail
+        # prompt.md is passed through unchanged so the prompt prefix stays
+        # cacheable. Only these per-run facts vary, and they are appended at the
+        # end rather than interpolated into the body.
+        {
+          printf '\n## Run facts\n\n'
+          printf -- '- Upstream: `%s` on `os_repo/%s`\n' "$UPSTREAM_SHA" "$UPSTREAM_BRANCH"
+          printf -- '- Pre-merge branch tip: `%s` (also available as `ORIG_HEAD`)\n' "$(git rev-parse HEAD)"
+          printf -- '- Scratch directory: `%s` — write your outputs there\n' "$SYNC_DIR"
+          if [ -s "${SYNC_DIR}/conflicts.txt" ]; then
+            printf -- '- Conflicted files (%s):\n' "$(wc -l <"${SYNC_DIR}/conflicts.txt" | tr -d ' ')"
+            sed 's/^/    - /' "${SYNC_DIR}/conflicts.txt"
+          else
+            printf -- '- Conflicted files: none. The merge was clean, so whatever failed came\n'
+            printf -- '  from a conflict-free auto-merge — read step 2 of the task carefully.\n'
+          fi
+          if [ -s "${SYNC_DIR}/verify.fast.json" ]; then
+            printf -- '- Fast gate result:\n\n'
+            printf '```json\n'
+            cat "${SYNC_DIR}/verify.fast.json"
+            printf '```\n'
+          fi
+          if [ -s "${SYNC_DIR}/incoming.txt" ]; then
+            printf -- '- Incoming upstream commits: see `%s/incoming.txt`\n' "$SYNC_DIR"
+          fi
+        } >"${SYNC_DIR}/run-facts.md"
+        cat .github/fork-sync/prompt.md "${SYNC_DIR}/run-facts.md" \
+          >"${SYNC_DIR}/prompt.rendered.md"
+
+    - name: Claude Code
+      uses: anthropics/claude-code-action@c81e3bc69d1b18badbb63ba39581218f02421678 # v1.0.201
+      with:
+        prompt: ${{ inputs.sync_dir }}/prompt.rendered.md
+        anthropic_api_key: ${{ inputs.anthropic_api_key }}
+        claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
+        # No github_token on purpose. Nothing in this task needs the GitHub API,
+        # and the workflow owns every push and pull-request mutation.
+        settings: .github/fork-sync/claude-settings.json
+        claude_args: |
+          --model claude-opus-5
+          --max-turns 120
+          --add-dir ${{ inputs.sync_dir }}
+          --append-system-prompt-file .github/fork-sync/AGENT_BRIEF.md
+          --disallowedTools WebSearch,WebFetch
+
+    - name: Check the resolver left an account of itself
+      shell: bash
+      env:
+        SYNC_DIR: ${{ inputs.sync_dir }}
+      run: |
+        if [ ! -s "${SYNC_DIR}/resolution.md" ]; then
+          echo "::warning title=No resolution report::The resolver wrote no resolution.md, so the pull request body will be thinner than usual."
+        fi
