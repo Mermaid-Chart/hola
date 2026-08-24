@@ -24,7 +24,12 @@ import * as configApi from './config.js';
 import { getEffectiveHtmlLabels } from './config.js';
 import type { MermaidConfig } from './config.type.js';
 import { addDiagrams } from './diagram-api/diagram-orchestration.js';
-import type { DiagramMetadata, DiagramStyleClassDef, Positions } from './diagram-api/types.js';
+import type {
+  DiagramCode,
+  DiagramMetadata,
+  DiagramStyleClassDef,
+  Positions,
+} from './diagram-api/types.js';
 import { Diagram } from './Diagram.js';
 import { evaluate } from './diagrams/common/common.js';
 import errorRenderer from './diagrams/error/errorRenderer.js';
@@ -96,6 +101,8 @@ async function parse(
   try {
     const { code, config, title } = processAndSetConfigs(text);
     log.debug('code', code);
+    // Pass the whole DiagramCode object so diagrams that report source
+    // positions see the same text (and frontmatter offset) that render() uses.
     const diagram = await Diagram.fromText(code, { title });
     return { diagram, code: code.cleaned, config, title, success: true };
   } catch (error) {
@@ -476,6 +483,12 @@ const render = async function (
   }
 
   const processed = processAndSetConfigs(inputText);
+  // Keep the DiagramCode object, not just the cleaned string: diagrams that
+  // report source positions need `withComments` and `frontmatterLineOffset`,
+  // and dropping them here silently disabled that on the render path while
+  // `parse()` still had them.
+  let code: DiagramCode = processed.code;
+  let text = code.cleaned;
 
   const config = configApi.getConfig();
   log.debug(config);
@@ -483,9 +496,13 @@ const render = async function (
     log.warn('Cannot render diagram in parseOnly mode');
     return { svg: '<!-- security level is parseOnly -->', diagramType: 'unknown' };
   }
-  // Check the maximum allowed text size
-  if (inputText.length > (config?.maxTextSize ?? MAX_TEXTLENGTH)) {
-    inputText = MAX_TEXTLENGTH_EXCEEDED_MSG;
+
+  // Check the maximum allowed text size. `Diagram.fromText` separately caps the
+  // comment-preserving variant, which only diagrams that report source
+  // positions ever parse.
+  if (text.length > (config?.maxTextSize ?? MAX_TEXTLENGTH)) {
+    text = MAX_TEXTLENGTH_EXCEEDED_MSG;
+    code = { raw: text, cleaned: text };
   }
 
   const idSelector = `#${id}` as const;
@@ -559,10 +576,8 @@ const render = async function (
 
   try {
     diag = injected.profiling
-      ? await profiler.span('parse', () =>
-          Diagram.fromText(processed.code, { title: processed.title })
-        )
-      : await Diagram.fromText(processed.code, { title: processed.title });
+      ? await profiler.span('parse', () => Diagram.fromText(code, { title: processed.title }))
+      : await Diagram.fromText(code, { title: processed.title });
   } catch (error) {
     if (config.suppressErrorRendering) {
       removeTempElements();
@@ -582,7 +597,7 @@ const render = async function (
   // Insert an element into svg. This is where we put the styles
   const svg = element.firstChild!;
   const firstChild = svg.firstChild;
-  const diagramClassDefs = diag.renderer.getClasses?.(processed.code.cleaned, diag);
+  const diagramClassDefs = diag.renderer.getClasses?.(text, diag);
 
   const rules = createUserStyles(config, diagramType, diagramClassDefs, idSelector);
 
@@ -595,16 +610,16 @@ const render = async function (
   try {
     if (injected.profiling) {
       await profiler.span('draw', () =>
-        diag.renderer.draw(processed.code.cleaned, id, injected.version, diag, positions)
+        diag.renderer.draw(text, id, injected.version, diag, positions)
       );
     } else {
-      await diag.renderer.draw(processed.code.cleaned, id, injected.version, diag, positions);
+      await diag.renderer.draw(text, id, injected.version, diag, positions);
     }
   } catch (e) {
     if (config.suppressErrorRendering) {
       removeTempElements();
     } else {
-      errorRenderer.draw(processed.code.cleaned, id, injected.version);
+      errorRenderer.draw(text, id, injected.version);
     }
     throw e;
   }
@@ -699,6 +714,7 @@ function initialize(userOptions: MermaidConfig = {}) {
 
 const getDiagramFromText = (text: string, metadata: Pick<DiagramMetadata, 'title'> = {}) => {
   const { code } = preprocessDiagram(text);
+  // `code` is now a DiagramCode object; Diagram.fromText accepts either shape.
   return Diagram.fromText(code, metadata);
 };
 

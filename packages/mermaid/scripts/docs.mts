@@ -44,6 +44,7 @@ import { dump, load, JSON_SCHEMA } from 'js-yaml';
 import type { Code, ListItem, PhrasingContent, Root, Text, YAML } from 'mdast';
 import { register } from 'node:module';
 import { posix, dirname, relative, join } from 'path';
+import mermaidPackageJson from '../package.json' with { type: 'json' };
 import prettier from 'prettier';
 import { remark } from 'remark';
 import remarkFrontmatter from 'remark-frontmatter';
@@ -53,14 +54,12 @@ import mm from 'micromatch';
 // @ts-ignore No typescript declaration file
 import flatmap from 'unist-util-flatmap';
 import { visit } from 'unist-util-visit';
-import { fileURLToPath } from 'url';
 
 // short-circuit `.schema.yaml` imports, so that we can safely import `shapes.js`
 register('./loadHook.mjs', import.meta.url);
 const { shapesDefs } = await import('../src/rendering-util/rendering-elements/shapes.js');
-const packageJsonPath = join(fileURLToPath(import.meta.url), '../../package.json');
-export const MERMAID_RELEASE_VERSION = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
-  .version as string;
+
+export const MERMAID_RELEASE_VERSION = mermaidPackageJson.version;
 const MERMAID_MAJOR_VERSION = MERMAID_RELEASE_VERSION.split('.')[0];
 const CDN_URL = 'https://cdn.jsdelivr.net/npm'; // 'https://unpkg.com';
 
