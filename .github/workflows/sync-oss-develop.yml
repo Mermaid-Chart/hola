@@ -123,8 +123,11 @@ jobs:
           # The last-synced SHA is carried in the ref NAME, not the object it points
           # at — see "Advance the state ref" for why it cannot point at the upstream
           # commit. Newest wins if a failed run ever left two behind.
+          # `|| true` is load-bearing: on the very first run there is no state ref,
+          # grep exits 1, and under `set -euo pipefail` that kills the whole probe
+          # (run 32760387002). "No previous sync" is a normal state, not an error.
           LAST_SHA="$(awk '{print $2}' <<<"$REFS" | grep "^${STATE_REF}/" \
-            | sed "s|^${STATE_REF}/||" | tail -1)"
+            | sed "s|^${STATE_REF}/||" | tail -1 || true)"
           BRANCH_SHA="$(awk -v r="refs/heads/${SYNC_BRANCH}" '$2==r{print $1}' <<<"$REFS")"
 
           {
