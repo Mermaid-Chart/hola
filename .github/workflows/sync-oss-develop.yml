@@ -175,6 +175,7 @@ jobs:
       status: ${{ steps.classify.outputs.status }}
       pr_number: ${{ steps.pr.outputs.number }}
       handoff: ${{ steps.finalise.outputs.handoff }}
+      wf_files: ${{ steps.wfcheck.outputs.files }}
     env:
       UPSTREAM_BRANCH: ${{ inputs.upstream_ref || 'develop' }}
       UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
@@ -590,7 +591,14 @@ jobs:
           fi
           git config "http.https://github.com/${GITHUB_REPOSITORY}.extraheader" \
             "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          # No `.git` suffix. Git matches http.<url>.* by whole path components, so
+          # a header keyed on ".../alana-mermaid" does NOT apply to a request for
+          # ".../alana-mermaid.git" — the push then falls through to asking for a
+          # username and dies (run 32758792238). Verified with
+          # `git config --get-urlmatch`. Keeping the key repo-scoped rather than
+          # widening it to `https://github.com/` matters: the wider form would also
+          # attach our token to fetches from os_repo, which is on the same host.
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}"
 
           # No force flags anywhere. A rejection means another writer moved the
           # branch; merge it in and retry.
@@ -655,7 +663,14 @@ jobs:
           set -euo pipefail
           git config "http.https://github.com/${GITHUB_REPOSITORY}.extraheader" \
             "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          # No `.git` suffix. Git matches http.<url>.* by whole path components, so
+          # a header keyed on ".../alana-mermaid" does NOT apply to a request for
+          # ".../alana-mermaid.git" — the push then falls through to asking for a
+          # username and dies (run 32758792238). Verified with
+          # `git config --get-urlmatch`. Keeping the key repo-scoped rather than
+          # widening it to `https://github.com/` matters: the wider form would also
+          # attach our token to fetches from os_repo, which is on the same host.
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}"
           git push origin "${UPSTREAM_SHA}:${STATE_REF}" --force
 
       - name: Summary
@@ -715,6 +730,7 @@ jobs:
           BLOCKED_REASON: ${{ needs.probe.outputs.blocked_reason }}
           SYNC_STATUS: ${{ needs.sync.outputs.status }}
           SYNC_HANDOFF: ${{ needs.sync.outputs.handoff }}
+          WF_FILES: ${{ needs.sync.outputs.wf_files }}
           SYNC_RESULT: ${{ needs.sync.result }}
           PROBE_RESULT: ${{ needs.probe.result }}
           UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
@@ -752,6 +768,10 @@ jobs:
               printf 'previously synced: never\n'
             fi
             printf 'jobs: probe=%s, sync=%s\n' "$PROBE_RESULT" "$SYNC_RESULT"
+            if [ -n "$WF_FILES" ]; then
+              printf 'workflow files upstream changed:\n'
+              printf '%s\n' "$WF_FILES" | sed 's/^/  - /'
+            fi
             if [ -n "$PR_NUMBER" ]; then
               printf 'pull request: %s/%s/pull/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PR_NUMBER"
             fi
@@ -780,6 +800,11 @@ jobs:
           DETAILS: ${{ steps.msg.outputs.details }}
         run: |
           set -euo pipefail
+          # "Ensure labels exist" only runs after a successful push, and a blocked
+          # run never pushes — so without this the `--label` below fails and the
+          # fallback creates an unlabelled issue (#132).
+          gh label create 'sync: blocked' --color B60205 \
+            --description 'Upstream sync is blocked and cannot proceed automatically' --force
           TITLE='Upstream sync automation needs attention'
           BODY="${SUMMARY}"$'\n\n'"${DETAILS}"$'\n'"Run: ${RUN_URL}"
           NUM="$(gh issue list --state open --search "\"$TITLE\" in:title" --limit 1 --json number --jq '.[0].number // ""')"
