@@ -418,7 +418,10 @@ jobs:
         run: |
           set -euo pipefail
           HANDOFF=false
-          if [ -f .git/MERGE_HEAD ]; then
+          # Not `-f .git/MERGE_HEAD`: in a linked worktree `.git` is a file, so
+          # that test is always false and the whole branch below is skipped
+          # silently. Asking git makes this work in a rehearsal worktree too.
+          if [ -f "$(git rev-parse --git-path MERGE_HEAD)" ]; then
             UNMERGED="$(git diff --name-only --diff-filter=U)"
             if [ -n "$UNMERGED" ]; then
               # Deliberate: conflicts are handed to a human rather than resolved
