@@ -33,8 +33,17 @@ if [ -z "$NUMBER" ]; then
   # mistaken for something ready to review.
   args=(--base "$BASE_BRANCH" --head "$SYNC_BRANCH" --title "$TITLE" --body-file "$REPORT")
   [ "$STATUS" = 'green' ] || args+=(--draft)
-  gh pr create "${args[@]}"
-  NUMBER="$(gh pr list --head "$SYNC_BRANCH" --state open --limit 1 --json number --jq '.[0].number')"
+  # Take the number from create's own output rather than re-listing. `gh pr list`
+  # returns an empty string when it has nothing, so a momentarily stale list here
+  # leaves NUMBER empty and the `gh pr edit "$NUMBER"` below fails on a PR that
+  # was in fact created. The list stays as a fallback.
+  CREATED="$(gh pr create "${args[@]}")"
+  printf '%s\n' "$CREATED"
+  NUMBER="$(sed -n 's#.*/pull/\([0-9][0-9]*\).*#\1#p' <<<"$CREATED" | tail -1)"
+  if [ -z "$NUMBER" ]; then
+    NUMBER="$(gh pr list --head "$SYNC_BRANCH" --state open --limit 1 --json number --jq '.[0].number // ""')"
+  fi
+  [ -n "$NUMBER" ] || { echo "::error::created a PR but could not determine its number"; exit 1; }
   WAS_DRAFT=true
   PREVIOUS_STATUS=''
   echo "created PR #${NUMBER}"
