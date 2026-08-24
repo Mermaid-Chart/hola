@@ -330,6 +330,11 @@ jobs:
       - name: Compute alpha versions
         id: version
         if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        env:
+          # Defaults to os_repo/develop, which a dispatch against any other
+          # upstream_ref never fetched — every upstream read then returned null
+          # and the rule silently degraded to "keep the fork base".
+          FORK_SYNC_UPSTREAM_REF: os_repo/${{ env.UPSTREAM_BRANCH }}
         run: |
           set -euo pipefail
           node .github/fork-sync/version.mjs --write --json > "$SYNC_DIR/versions.json"
@@ -342,9 +347,17 @@ jobs:
             git commit --no-verify -m "chore(release): bump alpha versions for the develop line"
           fi
 
+      # Only meaningful on a CLEAN merge. `pnpm install` runs the root `prepare`
+      # (`husky && pnpm build`), so on a conflicted tree esbuild chokes on the
+      # markers and the gate fails at `install` for a reason that says nothing
+      # about the merge — 95 wasted seconds plus a misleading verify.fast.json
+      # fed to the report and the resolver's prompt.
       - name: Fast gate
         id: fastgate
-        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && steps.merge.outputs.conflicted != 'true'
         continue-on-error: true
         run: bash .github/fork-sync/verify.sh --tier fast --out "$SYNC_DIR/verify.fast.json"
 

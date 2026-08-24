@@ -32,7 +32,7 @@ case "$TIER" in
   *) echo "--tier must be 'fast' or 'full', got '$TIER'" >&2; exit 2 ;;
 esac
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 2
 
 RESULTS=()
 FAILED=0
@@ -76,7 +76,12 @@ if [ "$TIER" = fast ]; then
 fi
 
 # --- lint --------------------------------------------------------------------
-run eslint npx eslint --quiet --cache --cache-strategy content .
+# The explicit heap is required, not defensive. Type-aware eslint over this fork
+# exceeds node's default limit (~2.2 GB on a 7 GiB runner) and dies with
+# "FATAL ERROR: Ineffective mark-compacts near heap limit" — which reads exactly
+# like a lint failure in the JSON gate output. Observed in run 32734010530.
+run eslint env NODE_OPTIONS=--max-old-space-size=5120 \
+  npx eslint --quiet --cache --cache-strategy content .
 
 # Trap: do NOT run `prettier --check .` and do NOT use `pnpm lint` as the gate.
 # `docs:code` writes generated files into packages/mermaid/src/docs/config/setup/,

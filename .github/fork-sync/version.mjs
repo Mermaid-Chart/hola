@@ -153,10 +153,17 @@ const main = () => {
     let upstreamVersion = null;
     if (pkg.upstream) {
       const upstreamPkg = readJsonAt(UPSTREAM_REF, pkg.upstream);
-      if (upstreamPkg?.version) {
-        upstreamVersion = upstreamPkg.version;
-        upstreamBase = parseVersion(upstreamPkg.version).base;
+      // Must not be soft. A missing read looks identical to "upstream is behind"
+      // and quietly keeps the fork base, so layout-tidy-tree would stay at 0.2.1
+      // while upstream shipped 0.2.2 — the exact drift this rule exists to fix.
+      if (!upstreamPkg?.version) {
+        throw new Error(
+          `Cannot read ${pkg.upstream}/package.json at ${UPSTREAM_REF}. ` +
+            `Fetch that ref, or set FORK_SYNC_UPSTREAM_REF to one that exists.`
+        );
       }
+      upstreamVersion = upstreamPkg.version;
+      upstreamBase = parseVersion(upstreamPkg.version).base;
     }
 
     let next;
