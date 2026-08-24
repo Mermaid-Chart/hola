@@ -341,17 +341,36 @@ jobs:
             echo 'blocked=false' >> "$GITHUB_OUTPUT"
           fi
 
+      # Nothing below here is needed on a conflict handoff: no versioning, no
+      # gate, no resolver, no verification. Skipping saves the setup entirely.
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
-        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && steps.merge.outputs.conflicted != 'true'
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
-        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && steps.merge.outputs.conflicted != 'true'
         with:
           cache: pnpm
           node-version-file: '.node-version'
 
+      # MUST NOT run on a conflicted merge. Its `git add -A && git commit`
+      # COMPLETES the in-progress merge: MERGE_HEAD disappears, the conflicted
+      # paths get staged as-is, and the commit silently becomes the merge commit.
+      # Observed in run 32751735165 — a `DU` conflict (upstream modified a file
+      # this fork had deleted) was auto-resolved by resurrecting the file, with
+      # no conflict marker anywhere to catch it, so the handoff never fired and
+      # the guardrails ran on a tree nobody had reviewed. Only a downstream
+      # eslint failure surfaced it.
       - name: Compute alpha versions
         id: version
-        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && steps.merge.outputs.conflicted != 'true'
         env:
           # Defaults to os_repo/develop, which a dispatch against any other
           # upstream_ref never fetched — every upstream read then returned null
@@ -364,6 +383,12 @@ jobs:
           # Workspace version changes can move the lockfile, and validate-lockfile.yml
           # runs on any package.json change.
           pnpm install --lockfile-only
+          # Belt and braces against the failure above: committing here while a
+          # merge is in progress would complete it behind the handoff's back.
+          if [ -f "$(git rev-parse --git-path MERGE_HEAD)" ]; then
+            echo "::error title=Merge in progress::Refusing to commit a version bump while MERGE_HEAD exists; that would silently complete the merge."
+            exit 1
+          fi
           git add -A
           if ! git diff --cached --quiet; then
             git commit --no-verify -m "chore(release): bump alpha versions for the develop line"
@@ -415,8 +440,18 @@ jobs:
       - name: Commit the resolution
         id: finalise
         if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        env:
+          MERGE_CONFLICTED: ${{ steps.merge.outputs.conflicted }}
         run: |
           set -euo pipefail
+          # If the merge step reported conflicts, the merge must still be open when
+          # we get here. Anything else means an intervening step committed it, and
+          # a `DU`/`UD` conflict leaves no marker to notice that by.
+          if [ "$MERGE_CONFLICTED" = 'true' ] &&
+             [ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]; then
+            echo "::error title=Merge completed behind our back::The merge step reported conflicts, but MERGE_HEAD is gone, so some step between them committed it. Conflicted paths may have been staged unreviewed. Refusing to continue."
+            exit 1
+          fi
           HANDOFF=false
           # Not `-f .git/MERGE_HEAD`: in a linked worktree `.git` is a file, so
           # that test is always false and the whole branch below is skipped
@@ -434,8 +469,18 @@ jobs:
               # So commit the markers and push. The PR is a draft, labelled
               # "sync: needs human", and its CI will be red — which is the point:
               # the human gets the merge already done and somewhere to work.
-              echo "::warning title=Conflicts handed to a human::$(printf '%s\n' "$UNMERGED" | wc -l | tr -d ' ') file(s) conflicted; committing the markers for review."
+              echo "::warning title=Conflicts handed to a human::$(printf '%s\n' "$UNMERGED" | wc -l | tr -d ' ') file(s) conflicted; committing them for review."
               printf '%s\n' "$UNMERGED"
+              # Delete/modify conflicts carry NO marker, so `git add -A` below
+              # resolves them by resurrecting a file the fork deleted, and the PR
+              # diff shows an innocuous-looking file addition. Record them before
+              # staging so the report can point a reviewer straight at them.
+              git status --porcelain | grep -E '^(DU|UD|AU|UA|DD) ' \
+                > "$SYNC_DIR/deleted-modified.txt" || true
+              if [ -s "$SYNC_DIR/deleted-modified.txt" ]; then
+                echo "::warning title=Delete/modify conflicts::$(wc -l < "$SYNC_DIR/deleted-modified.txt" | tr -d ' ') path(s) conflict as delete/modify and have no conflict marker. Each needs an explicit keep-the-deletion or port-the-change decision."
+                cat "$SYNC_DIR/deleted-modified.txt"
+              fi
               HANDOFF=true
               git add -A
               git commit --no-verify -m "Merge OSS ${UPSTREAM_BRANCH} (${UPSTREAM_SHA:0:9}) into ${SYNC_BRANCH} — CONFLICTED" \

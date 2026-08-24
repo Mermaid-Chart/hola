@@ -73,6 +73,26 @@ During a merge, `--ours` is **the fork** and `--theirs` is **upstream**.
 | Trivial          | Comment or whitespace drift                     | Take upstream and move on                               |
 | Semantic         | Real logic on both sides                        | Read both fully. See below                              |
 | Test expectation | Upstream test asserts something false here      | Section 5, then retarget — never weaken                 |
+| Delete/modify    | `git status` shows `DU` or `UD`                 | Almost always keep the fork's deletion. **No markers**  |
+
+**Delete/modify (`DU`/`UD`) deserves its own warning: it is the only conflict
+category with no conflict marker anywhere.** The fork has deleted whole trees
+upstream still carries — `cypress/` being the obvious one, removed by the Playwright
+migration — so any upstream branch that predates a deletion, or that touches a file
+the fork dropped, conflicts as `DU` (deleted by us, modified by them). Because
+nothing is rewritten in place, `git grep` for `<<<<<<<` finds **nothing**, and a
+blanket `git add -A` silently resolves it by **resurrecting the deleted file**.
+
+Run 32751735165 is the worked example: `os_repo/4743-timeline-html-formatting`
+modified `cypress/integration/rendering/timeline/timeline.spec.ts`, which this fork
+had deleted. A `git add -A && git commit` in a later step completed the merge, the
+Cypress spec reappeared in the tree, no marker existed to notice it, and the only
+symptom was eslint failing 80 seconds later.
+
+So: after any conflicted merge, run `git status --porcelain | grep -E '^(DU|UD)'`
+explicitly. Do not rely on a marker scan. The rule is almost always "keep the
+deletion" — `git rm` the path — but check first that the fork has not simply moved
+the file, in which case upstream's change may need porting to the new location.
 
 For **semantic** conflicts where both sides independently invented the same
 abstraction — which happens more often than you would expect, because the same

@@ -97,7 +97,7 @@ echo 'Not verified here: e2e, Playwright and Argos. Those run on this pull reque
 echo
 
 if [ "$STATUS" = 'needs-human' ] && [ "$CONFLICTED" = 'true' ]; then
-  echo '### This branch contains conflict markers, on purpose'
+  echo '### This branch contains unresolved conflicts, on purpose'
   echo
   echo 'The merge conflicted, so it was committed **as-is** and handed to you rather'
   echo 'than resolved automatically. CI on this pull request will be red until you'
@@ -107,9 +107,26 @@ if [ "$STATUS" = 'needs-human' ] && [ "$CONFLICTED" = 'true' ]; then
   echo
   echo '```bash'
   echo "git fetch origin && git switch ${SYNC_BRANCH:-chore/sync-oss-develop}"
-  echo 'git grep -lE "^(<{7}|={7}|>{7})( |$)"   # the files still to resolve'
+  echo 'git grep -lE "^(<{7}|={7}|>{7})( |$)"   # files with markers'
   echo '```'
   echo
+  echo 'The commit message lists every conflicted path — trust that over a marker'
+  echo 'scan, because delete/modify conflicts leave no markers at all.'
+  echo
+  if [ -s "$SYNC_DIR/deleted-modified.txt" ]; then
+    echo '#### Delete/modify conflicts — these have no conflict markers'
+    echo
+    echo 'Each path below was deleted on one side and modified on the other, so'
+    echo 'there is nothing to grep for. `git add -A` staged them as-is, which for'
+    echo '`DU` means a file this fork had **deleted has been resurrected** and'
+    echo 'appears in the diff as an ordinary addition. Decide per path: keep the'
+    echo 'deletion (`git rm`), or port the change if the fork moved the file.'
+    echo
+    echo '```'
+    cat "$SYNC_DIR/deleted-modified.txt"
+    echo '```'
+    echo
+  fi
   echo 'Read `.github/fork-sync/GUIDE.md` section 3 for the rule per conflict'
   echo 'category, and section 5 for the fork-only invariants a clean-looking'
   echo 'resolution can still break. Then `bash .github/fork-sync/verify.sh --tier full`'
