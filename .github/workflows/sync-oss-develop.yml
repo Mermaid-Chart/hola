@@ -40,6 +40,10 @@ on:
         description: 'DANGER: recreate the sync branch from develop, discarding anything on it'
         type: boolean
         default: false
+      notify_test:
+        description: Send a test failure notification and do nothing else
+        type: boolean
+        default: false
 
 # One sync at a time, repo-wide. A per-ref group would let the schedule and a
 # manual dispatch race on the same branch. cancel-in-progress must stay false:
@@ -157,7 +161,10 @@ jobs:
   # ---------------------------------------------------------------------------
   sync:
     needs: probe
-    if: needs.probe.outputs.should_run == 'true' && needs.probe.outputs.blocked_reason == ''
+    if: >-
+      needs.probe.outputs.should_run == 'true'
+      && needs.probe.outputs.blocked_reason == ''
+      && !inputs.notify_test
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -578,6 +585,7 @@ jobs:
     if: >-
       always() && github.repository == 'Mermaid-Chart/alana-mermaid'
       && (failure()
+          || inputs.notify_test
           || needs.probe.outputs.blocked_reason != ''
           || needs.sync.outputs.status == 'blocked-workflow-files'
           || needs.sync.outputs.status == 'needs-human')
@@ -609,10 +617,14 @@ jobs:
           UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
           LAST_SYNCED_SHA: ${{ needs.probe.outputs.last_synced_sha }}
           PR_NUMBER: ${{ needs.sync.outputs.pr_number }}
+          NOTIFY_TEST: ${{ inputs.notify_test }}
         run: |
           set -euo pipefail
 
-          if [ -n "$BLOCKED_REASON" ]; then
+          if [ "$NOTIFY_TEST" = 'true' ]; then
+            STATUS='notification-test'
+            SUMMARY='Test of the failure-alerting path, triggered by hand. Nothing is wrong, and no sync was attempted.'
+          elif [ -n "$BLOCKED_REASON" ]; then
             STATUS='blocked'
             SUMMARY="$BLOCKED_REASON"
           elif [ "$SYNC_STATUS" = 'blocked-workflow-files' ]; then
@@ -651,7 +663,9 @@ jobs:
       # states where no PR carries the signal — a needs-human PR is already
       # labelled and visible, so an issue for it would just be noise.
       - name: Open or update the tracking issue
-        if: steps.msg.outputs.status != 'needs-human'
+        if: >-
+          steps.msg.outputs.status != 'needs-human'
+          && steps.msg.outputs.status != 'notification-test'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
