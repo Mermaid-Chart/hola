@@ -61,7 +61,15 @@ runs:
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
         # No github_token on purpose. Nothing in this task needs the GitHub API,
-        # and the workflow owns every push and pull-request mutation.
+        # and the workflow owns every push and pull-request mutation. Omitting it
+        # falls back to github.token, so no GitHub App is involved.
+        #
+        # Scheduled runs are attributed to whoever last edited the workflow, and
+        # autofix.ci runs `prettier --write .` over this repo — so that actor can
+        # become a bot, which the action would otherwise reject, silently skipping
+        # the resolver. Safe to allow here: the repo is private and the prompt is a
+        # committed file, so there is no external prompt-injection path.
+        allowed_bots: '*'
         settings: .github/fork-sync/claude-settings.json
         claude_args: |
           --model claude-opus-5
