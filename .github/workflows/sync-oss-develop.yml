@@ -310,7 +310,24 @@ jobs:
           BASE_BEFORE: ${{ steps.prepare.outputs.base_before }}
         run: |
           set -euo pipefail
-          CHANGED="$(git diff --name-only "${BASE_BEFORE}..HEAD" -- .github/workflows/ || true)"
+          # Two questions, because one of them is blind half the time.
+          #
+          # A conflicted `git merge` creates no commit, so HEAD is still the
+          # pre-merge tip and a two-dot BASE..HEAD diff sees none of what
+          # upstream brought. Measured on os_repo/6623-add-image-icons-support-
+          # to-sequence-diagram: 9 conflicted files, and BASE..HEAD reported 0
+          # changes in a directory upstream had changed 5 files in. That made
+          # the check blind on precisely the large, conflicted merges most
+          # likely to touch workflows — it would spend ~35 min and ~$8.50 on the
+          # resolver and then die at `git push`, which is what it exists to
+          # prevent.
+          #
+          # So: the three-dot diff asks "what does the upstream side bring?",
+          # which is commit-state independent, and the two-dot asks "what does
+          # the branch already carry?". Either one is a stop.
+          INCOMING="$(git diff --name-only "${BASE_BEFORE}...${UPSTREAM_SHA}" -- .github/workflows/ || true)"
+          CARRIED="$(git diff --name-only "${BASE_BEFORE}..HEAD" -- .github/workflows/ || true)"
+          CHANGED="$(printf '%s\n%s\n' "$INCOMING" "$CARRIED" | grep -v '^$' | sort -u || true)"
           if [ -n "$CHANGED" ]; then
             echo 'blocked=true' >> "$GITHUB_OUTPUT"
             { echo 'files<<EOF'; printf '%s\n' "$CHANGED"; echo 'EOF'; } >> "$GITHUB_OUTPUT"
