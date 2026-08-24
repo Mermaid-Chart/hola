@@ -119,8 +119,12 @@ jobs:
           fi
 
           ORIGIN="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          REFS="$(git ls-remote "$ORIGIN" "$STATE_REF" "refs/heads/${SYNC_BRANCH}")"
-          LAST_SHA="$(awk -v r="$STATE_REF" '$2==r{print $1}' <<<"$REFS")"
+          REFS="$(git ls-remote "$ORIGIN" "${STATE_REF}/*" "refs/heads/${SYNC_BRANCH}")"
+          # The last-synced SHA is carried in the ref NAME, not the object it points
+          # at — see "Advance the state ref" for why it cannot point at the upstream
+          # commit. Newest wins if a failed run ever left two behind.
+          LAST_SHA="$(awk '{print $2}' <<<"$REFS" | grep "^${STATE_REF}/" \
+            | sed "s|^${STATE_REF}/||" | tail -1)"
           BRANCH_SHA="$(awk -v r="refs/heads/${SYNC_BRANCH}" '$2==r{print $1}' <<<"$REFS")"
 
           {
@@ -671,7 +675,21 @@ jobs:
           # widening it to `https://github.com/` matters: the wider form would also
           # attach our token to fetches from os_repo, which is on the same host.
           git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}"
-          git push origin "${UPSTREAM_SHA}:${STATE_REF}" --force
+          # The recorded SHA lives in the ref NAME, and the ref points at a commit
+          # the server already has. It must NOT point at the upstream commit
+          # itself: GITHUB_TOKEN may not create or update `.github/workflows/**`,
+          # and an upstream commit's tree ALWAYS differs there — `e2e.yml` carries
+          # permanent fork deltas and two workflows are fork-only, so upstream
+          # develop's tree currently differs in 9 workflow files. Pushing it was
+          # rejected outright (run 32759364030), and would have been on every run,
+          # not occasionally. Pointing at our own base tip changes no workflow
+          # file, so the push carries nothing GitHub objects to.
+          OLD="$(git ls-remote origin "${STATE_REF}/*" | awk '{print $2}')"
+          ARGS=("refs/remotes/origin/${BASE_BRANCH}:${STATE_REF}/${UPSTREAM_SHA}")
+          for ref in $OLD; do
+            [ "$ref" = "${STATE_REF}/${UPSTREAM_SHA}" ] || ARGS+=(":${ref}")
+          done
+          git push origin --force "${ARGS[@]}"
 
       - name: Summary
         if: always()
