@@ -82,17 +82,14 @@ export async function imageSquare<T extends SVGGraphicsElement>(
 
   const imageNode = rc.rectangle(x, y, imageWidth, imageHeight, options);
 
+  // The outer box enclosing image and label is only used for bounds, so pass it as
+  // known geometry rather than drawing an unpainted rect to measure. Such a rect sorts
+  // above the label and consumers that style node paths on hover then make it swallow
+  // label clicks.
   const outerWidth = Math.max(imageWidth, bbox.width);
   const outerHeight = imageHeight + bbox.height + labelPadding;
 
-  const outerNode = rc.rectangle(-outerWidth / 2, -outerHeight / 2, outerWidth, outerHeight, {
-    ...options,
-    fill: 'none',
-    stroke: 'none',
-  });
-
   const iconShape = shapeSvg.insert(() => imageNode, ':first-child');
-  const outerShape = shapeSvg.insert(() => outerNode);
 
   if (node.img) {
     const image = shapeSvg.append('image');
@@ -125,7 +122,7 @@ export async function imageSquare<T extends SVGGraphicsElement>(
     })`
   );
 
-  updateNodeBounds(node, outerShape);
+  updateNodeBounds(node, iconShape, { width: outerWidth, height: outerHeight });
 
   node.intersect = function (point) {
     log.info('iconSquare intersect', node, point);
