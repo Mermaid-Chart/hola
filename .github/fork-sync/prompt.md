@@ -5,6 +5,14 @@ is to make that result correct and verifiably green, then write up what you did.
 
 During a merge, `--ours` is **the fork** and `--theirs` is **upstream**.
 
+**You will almost always be looking at a CLEAN merge.** The workflow now hands
+conflicted merges straight to a human — a conflict marker is visible and a person
+will see it, so paying a model to resolve one is poor value. You are invoked when
+the merge produced no conflict and the fast gate went red, which is the case humans
+miss: upstream code that merges without complaint and silently breaks fork-only
+behaviour. Step 2 is therefore your main job, not step 1. If the run facts below do
+list conflicted files, resolve them as step 1 describes — but that is the exception.
+
 ## Step 0 — load the institutional knowledge first
 
 Read `.github/fork-sync/GUIDE.md` in full before touching anything. It carries the
@@ -48,8 +56,16 @@ surrounding lines.
 
 ## Step 3 — verify
 
-Run `bash .github/fork-sync/verify.sh --tier full` and iterate until it passes. Do
-not run e2e, Playwright or Argos; they run on the pull request.
+Run `bash .github/fork-sync/verify.sh --tier fast` and iterate until it passes.
+
+**Use `--tier fast`, not `--tier full`.** The workflow runs the full tier itself
+afterwards, from cold caches, because a green signal produced by you is not a green
+signal. Running it here duplicates ~7 minutes of eslint, prettier, jison and build
+per pass and buys nothing — it was a large share of the $8.54 that rehearsal
+32734010530 cost. Anything the full tier catches and the fast tier misses becomes a
+`sync: needs human` verdict on the pull request, which is the correct outcome.
+
+Do not run e2e, Playwright or Argos; they run on the pull request.
 
 Read the guide's verification section before concluding that any failure is
 pre-existing or spurious. Several of these commands have known traps, and a wrong

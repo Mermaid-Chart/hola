@@ -174,6 +174,7 @@ jobs:
     outputs:
       status: ${{ steps.classify.outputs.status }}
       pr_number: ${{ steps.pr.outputs.number }}
+      handoff: ${{ steps.finalise.outputs.handoff }}
     env:
       UPSTREAM_BRANCH: ${{ inputs.upstream_ref || 'develop' }}
       UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
@@ -256,11 +257,15 @@ jobs:
           fi
           echo "base_before=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-          # Our own runs cannot leave a conflicted tree (invariant 1), and
-          # `git ls-files -u` is always empty in a fresh clone — so check the
-          # tree itself.
+          # A previous run may have committed markers deliberately and opened a
+          # draft PR for a human (see "Commit the resolution"), so this state is
+          # expected rather than anomalous. Either way, refuse: merging more
+          # upstream on top of unresolved conflicts compounds them. Failing loudly
+          # is the right noise — the Slack alert says the sync is stuck behind a
+          # PR someone needs to finish. `git ls-files -u` is always empty in a
+          # fresh clone, so check the tree itself.
           if git grep -nIE '^(<{7}|={7}|>{7})( |$)' -- . ':(exclude)*.md' | head -5 | grep .; then
-            echo "::error title=Conflict markers on branch::${SYNC_BRANCH} already contains conflict markers; refusing to merge on top."
+            echo "::error title=Conflict markers on branch::${SYNC_BRANCH} still contains unresolved conflict markers, so this run will not merge on top. Finish the open sync PR first."
             exit 1
           fi
 
@@ -389,7 +394,7 @@ jobs:
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
           && needs.probe.outputs.ai_configured == 'true'
-          && (steps.merge.outputs.conflicted == 'true' || steps.fastgate.outcome == 'failure')
+          && steps.fastgate.outcome == 'failure'
         uses: ./.github/fork-sync/resolve
         with:
           sync_dir: ${{ env.SYNC_DIR }}
@@ -403,7 +408,7 @@ jobs:
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
           && needs.probe.outputs.ai_configured != 'true'
-          && (steps.merge.outputs.conflicted == 'true' || steps.fastgate.outcome == 'failure')
+          && steps.fastgate.outcome == 'failure'
         run: |
           echo "::warning title=No AI credential::This merge needs resolution but neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set; handing off to a human."
 
@@ -412,17 +417,35 @@ jobs:
         if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
         run: |
           set -euo pipefail
+          HANDOFF=false
           if [ -f .git/MERGE_HEAD ]; then
             UNMERGED="$(git diff --name-only --diff-filter=U)"
             if [ -n "$UNMERGED" ]; then
-              echo "::error title=Unresolved paths::Refusing to commit. Still unmerged:"
+              # Deliberate: conflicts are handed to a human rather than resolved
+              # by the model. Resolving them cost ~$8.50 a run, and the merges
+              # that actually need judgement are the CONFLICT-FREE ones — the two
+              # real catches in rehearsal 32734010530 were both clean-merge
+              # follow-ons, while its 9 conflicts were, in its own words,
+              # mechanical. A marker is visible; silent breakage is not.
+              #
+              # So commit the markers and push. The PR is a draft, labelled
+              # "sync: needs human", and its CI will be red — which is the point:
+              # the human gets the merge already done and somewhere to work.
+              echo "::warning title=Conflicts handed to a human::$(printf '%s\n' "$UNMERGED" | wc -l | tr -d ' ') file(s) conflicted; committing the markers for review."
               printf '%s\n' "$UNMERGED"
-              exit 1
+              HANDOFF=true
+              git add -A
+              git commit --no-verify -m "Merge OSS ${UPSTREAM_BRANCH} (${UPSTREAM_SHA:0:9}) into ${SYNC_BRANCH} — CONFLICTED" \
+                -m "Committed with conflict markers in place, for a human to resolve." \
+                -m "$(printf '%s\n' "$UNMERGED")"
+            else
+              # --no-verify: `prepare` installs husky, whose hook would run a build.
+              git commit --no-edit --no-verify
             fi
-            # --no-verify: `prepare` installs husky, whose hook would run a build.
-            git commit --no-edit --no-verify
           fi
-          if git grep -nIE '^(<{7}|={7}|>{7})( |$)' -- . ':(exclude)*.md' | head -5 | grep .; then
+          echo "handoff=${HANDOFF}" >> "$GITHUB_OUTPUT"
+          if [ "$HANDOFF" != 'true' ] &&
+             git grep -nIE '^(<{7}|={7}|>{7})( |$)' -- . ':(exclude)*.md' | head -5 | grep .; then
             echo "::error title=Conflict markers::The resolution left conflict markers in the tree."
             exit 1
           fi
@@ -434,7 +457,7 @@ jobs:
 
       - name: Guardrails
         id: guard
-        if: steps.finalise.outputs.empty == 'false'
+        if: steps.finalise.outputs.empty == 'false' && steps.finalise.outputs.handoff != 'true'
         continue-on-error: true
         env:
           BASE_BEFORE: ${{ steps.prepare.outputs.base_before }}
@@ -442,7 +465,7 @@ jobs:
 
       - name: Full verification
         id: fullverify
-        if: steps.finalise.outputs.empty == 'false'
+        if: steps.finalise.outputs.empty == 'false' && steps.finalise.outputs.handoff != 'true'
         continue-on-error: true
         run: |
           set -euo pipefail
@@ -643,6 +666,7 @@ jobs:
         env:
           BLOCKED_REASON: ${{ needs.probe.outputs.blocked_reason }}
           SYNC_STATUS: ${{ needs.sync.outputs.status }}
+          SYNC_HANDOFF: ${{ needs.sync.outputs.handoff }}
           SYNC_RESULT: ${{ needs.sync.result }}
           PROBE_RESULT: ${{ needs.probe.result }}
           UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
@@ -661,6 +685,9 @@ jobs:
           elif [ "$SYNC_STATUS" = 'blocked-workflow-files' ]; then
             STATUS='blocked-workflow-files'
             SUMMARY="This sync merges upstream changes to \`.github/workflows/**\`, which the default GITHUB_TOKEN cannot push. Nothing was pushed. Finish this one by hand — see \`.github/fork-sync/GUIDE.md\`, and re-apply the fork deltas in \`e2e.yml\`."
+          elif [ "$SYNC_STATUS" = 'needs-human' ] && [ "$SYNC_HANDOFF" = 'true' ]; then
+            STATUS='needs-human'
+            SUMMARY='The merge conflicted, so it was committed with its conflict markers in place and pushed as a draft PR for someone to resolve. Nothing was verified and no model was invoked, so CI on that PR will be red until the conflicts are resolved. Until it is finished, later syncs will refuse to merge on top.'
           elif [ "$SYNC_STATUS" = 'needs-human' ]; then
             STATUS='needs-human'
             SUMMARY='The merge was pushed and a draft PR is open, but it did not verify cleanly, so auto-merge was not requested. Check the guardrail errors and the failing verification step.'

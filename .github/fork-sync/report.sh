@@ -96,7 +96,27 @@ done
 echo 'Not verified here: e2e, Playwright and Argos. Those run on this pull request.'
 echo
 
-if [ "$STATUS" = 'needs-human' ]; then
+if [ "$STATUS" = 'needs-human' ] && [ "$CONFLICTED" = 'true' ]; then
+  echo '### This branch contains conflict markers, on purpose'
+  echo
+  echo 'The merge conflicted, so it was committed **as-is** and handed to you rather'
+  echo 'than resolved automatically. CI on this pull request will be red until you'
+  echo 'resolve it — that is expected. Nothing was verified and no model was invoked.'
+  echo
+  echo 'To finish it:'
+  echo
+  echo '```bash'
+  echo "git fetch origin && git switch ${SYNC_BRANCH:-chore/sync-oss-develop}"
+  echo 'git grep -lE "^(<{7}|={7}|>{7})( |$)"   # the files still to resolve'
+  echo '```'
+  echo
+  echo 'Read `.github/fork-sync/GUIDE.md` section 3 for the rule per conflict'
+  echo 'category, and section 5 for the fork-only invariants a clean-looking'
+  echo 'resolution can still break. Then `bash .github/fork-sync/verify.sh --tier full`'
+  echo 'before pushing. The `/sync-oss-develop` slash command drives this with the'
+  echo 'same knowledge base the automation uses.'
+  echo
+elif [ "$STATUS" = 'needs-human' ]; then
   echo '### What to check'
   echo
   echo 'Auto-merge was **not** requested. Look at:'
