@@ -67,6 +67,12 @@ export class FlowDB implements DiagramDB {
   // AST storage (built from inline mappings or set by ANTLR parser)
   private ast?: FlowchartAST;
 
+  // Opt into comment-preserving parsing: `Diagram.fromText` keeps `%%` comments
+  // in the parsed text and hands over the frontmatter line offset, so the
+  // captured Jison `@$` positions below are reported in original-source space
+  // (including any YAML frontmatter the parser never saw).
+  public readonly preserveCommentsWhenParsing = true;
+
   // Inline position tracking: populated by Jison grammar rules during parsing
   private sourceText?: string;
   private lineOffsets: number[] = [];
@@ -1952,6 +1958,12 @@ You have to call mermaid.initialize.`
           dir: subGraph.dir,
           isGroup: true,
           look: config.look,
+          // Forwarded so layout engines can read per-container settings such as
+          // `@{ algorithm: elk.box }`. `view` is consumed above; everything else
+          // is opaque here and simply passed through. The cast is the
+          // interface-vs-index-signature gap: `NodeMetaData` is an interface, so
+          // it is not structurally assignable to `Record<string, unknown>`.
+          metadata: subGraph.metadata as Record<string, unknown> | undefined,
         });
       }
     }
