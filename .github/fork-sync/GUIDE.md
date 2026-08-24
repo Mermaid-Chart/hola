@@ -102,6 +102,29 @@ rename plus line-number drift — regenerating resolves them and restores the fo
 The highest-value section. Each entry is "if upstream does X, this fork needs Y",
 with the commit that taught it.
 
+**New upstream e2e specs are Cypress-shaped.** Section 6 covers upstream text
+merging _into_ an existing fork spec (`oldShapes.spec.ts`). A **new** upstream spec
+is worse, because it lands with no conflict at all and neither tier of `verify.sh`
+opens `e2e/`. Upstream branches that predate or sit beside the Playwright migration
+add specs with bare `describe`/`it`, `import { imgSnapshotTest } from '../../helpers/util'`,
+and an un-awaited `imgSnapshotTest(code, opts)`. In this fork the helper is
+`e2e/helpers/util.ts` and its signature is `imgSnapshotTest(page, testInfo, code, opts)`,
+so such a file resolves nothing and collects **zero tests** — passing silently.
+After any merge, run
+`git diff --name-only ORIG_HEAD..HEAD -- e2e/rendering` and check each added spec
+imports `'../helpers/util.ts'` and takes `({ page }, testInfo)`. Port it, keeping
+every case verbatim. Seen in `4c40dd406` (`sequenceDiagram-icon.spec.ts`,
+`sequenceDiagram-image.spec.ts`).
+
+**Fork-only DOM contracts on new render paths.** Every actor renderer in
+`sequence/svgDraw.js` tags its group with `data-et`/`data-type`/`data-id` and its
+life-line with `data-et="life-line"`; that is what the fork's code↔SVG sync
+consumes (`SequenceASTBuilder` emits `[data-et="participant"][data-id="<id>"]` for
+every `participant` statement). Upstream adding a new participant renderer sets
+none of them, so the shape renders correctly and is then **invisible to editor
+selection and highlight** — nothing fails. Whenever upstream adds a draw function
+alongside fork-instrumented siblings, check the instrumentation carries over.
+
 **Themes.** `packages/mermaid/src/themes/theme-mc.js` is fork-only and registered
 in `themes/index.js`. Upstream periodically ships a spec asserting that _every
 registered theme_ defines a new variable, and `theme-mc` is invisible to them. Two
@@ -202,6 +225,22 @@ not use it as the gate after a docs build.
 vite json-schema plugin and inflate the run; `fa9709de0f` chased 173 phantom
 failures to exactly this. A fresh CI checkout has none, so plain `npx vitest run`
 is right there; locally, exclude them.
+
+**`pnpm install` builds.** The root `prepare` is `husky && pnpm build`, so every
+`pnpm install` runs a full build. Two consequences: `git commit --no-verify` is
+mandatory during a merge, and the "fast" gate is never run on a tree that still
+holds conflict markers — esbuild chokes on `<<<<<<<` and `install` fails for a
+reason that says nothing about the merge.
+
+**eslint needs an explicit heap.** Type-aware eslint over this fork exceeds node's
+default limit (~2.2 GB on a 7 GiB runner) and aborts with
+`FATAL ERROR: Ineffective mark-compacts near heap limit`. That is the `ae005555b0`
+runner-memory shape, not a lint regression, and it reads exactly like a real
+failure in the gate's JSON. `verify.sh` therefore runs eslint under
+`NODE_OPTIONS=--max-old-space-size=5120`. If the step ever "fails" with no findings
+printed, look for the OOM banner before hunting a rule violation. Also note
+`--quiet` omits zero-message files from `--format json` output entirely, so an
+empty `[]` means "no errors", not "nothing linted".
 
 Expected shape of a healthy run: unit tests ~25 s, `tsc` 1–2 min, `build` 3–5 min.
 A test count that _drops_ is a red flag, never a win — both upstream and the fork

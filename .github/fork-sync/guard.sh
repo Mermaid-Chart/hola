@@ -21,7 +21,7 @@
 #   UPSTREAM_SHA   optional — enables attributing added lines to upstream
 set -uo pipefail
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 2
 BASE="${BASE_BEFORE:?BASE_BEFORE must be set to the pre-merge branch tip}"
 FAILED=0
 SPEC_GLOBS=('**/*.spec.ts' '**/*.spec.js' '**/*.spec.mjs' '**/*.test.ts' '**/*.test.js')
@@ -140,11 +140,17 @@ fi
 # send every sync to a human. cspell.config.yaml IS guarded, because it controls
 # which files get checked at all. The rest see 0-6 upstream commits a quarter,
 # so the occasional review they force is cheap.
+#
+# .github/fork-sync/* is guarded because it holds the gate itself. In the first
+# rehearsal the resolver edited verify.sh to raise eslint's heap — a defensible
+# fix, disclosed in its report, and invisible to every other check here. A gate
+# the agent can edit is not a gate; legitimate fixes go through a human.
 forbidden=$(git diff --name-only "$BASE..HEAD" -- \
   .gitignore .prettierignore eslint.config.js cspell.config.yaml \
+  '.github/fork-sync/*' \
   'tsconfig*.json' vite.config.ts vitest.workspace.ts playwright.config.ts || true)
 if [ -n "$forbidden" ]; then
-  fail "ignore/config file changed — these are where failures get hidden, so a human must look:"$'\n'"$forbidden"
+  fail "ignore/config/gate file changed — these are where failures get hidden, so a human must look:"$'\n'"$forbidden"
 else
   ok "no ignore/config files touched"
 fi

@@ -70,6 +70,7 @@ runs:
         } >>"$GITHUB_OUTPUT"
 
     - name: Claude Code
+      id: claude
       uses: anthropics/claude-code-action@c81e3bc69d1b18badbb63ba39581218f02421678 # v1.0.201
       with:
         prompt: ${{ steps.render.outputs.text }}
@@ -96,10 +97,33 @@ runs:
         settings: .github/fork-sync/claude-settings.json
         claude_args: |
           --model claude-opus-5
-          --max-turns 120
+          # NOT a stop: the action lets the session run to completion, then fails
+          # the step if num_turns exceeded this. A 7-commit merge with 9 conflicts
+          # legitimately took 126 turns, so a low value fails a good resolution.
+          # `timeout-minutes` on the job is the real runaway backstop.
+          --max-turns 400
           --add-dir ${{ inputs.sync_dir }}
           --append-system-prompt-file .github/fork-sync/AGENT_BRIEF.md
           --disallowedTools WebSearch,WebFetch
+
+    # The step log carries only the init and result JSON; every tool call, and
+    # every permission denial, lives in this file. The first rehearsal reported
+    # 8 denials with no way to see what they were.
+    - name: Keep the resolver transcript
+      if: always()
+      shell: bash
+      env:
+        SYNC_DIR: ${{ inputs.sync_dir }}
+      run: |
+        for f in "${RUNNER_TEMP}/claude-execution-output.json" \
+                 "${{ steps.claude.outputs.execution_file }}"; do
+          if [ -n "$f" ] && [ -s "$f" ]; then
+            cp "$f" "${SYNC_DIR}/claude-execution.json"
+            echo "Kept resolver transcript from $f"
+            exit 0
+          fi
+        done
+        echo "::warning title=No resolver transcript::Could not find the execution log; denials and turn detail will not be diagnosable."
 
     - name: Check the resolver left an account of itself
       shell: bash
