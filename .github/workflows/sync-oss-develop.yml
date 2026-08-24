@@ -1,0 +1,700 @@
+name: Sync OSS develop
+
+# Merges new commits from upstream OSS (mermaid-js/mermaid, remote `os_repo`)
+# into ONE rolling branch and keeps ONE pull request into `develop` up to date.
+# `develop` is never written to directly.
+#
+# Design invariants — read before editing:
+#
+#  1. The remote is mutated ONLY by the `Push`, `Sync PR` and `Advance state ref`
+#     steps, in that order and at the very end. A crash, cancellation or timeout
+#     anywhere earlier leaves the remote byte-identical, so a half-merged branch
+#     can never be published.
+#  2. The push carries NO --force and NO --force-with-lease. autofix.ci pushes
+#     lint-fix commits onto this same branch between runs; a force push would
+#     silently delete them. A rejected push is a feature: re-merge and retry.
+#  3. Merges always go INTO the sync branch. Never rebase, never reset --hard.
+#  4. The state ref moves LAST, so any failure leaves the run repeatable and
+#     idempotent tomorrow.
+
+on:
+  schedule:
+    # 04:40 UTC daily. Off the hour on purpose: GitHub delays scheduled runs at
+    # the start of every hour. Also clear of refresh-sheet-order.yml ('17 4 * * 1').
+    - cron: '40 4 * * *'
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: Upstream branch to merge
+        type: string
+        default: develop
+      force:
+        description: Run even if the probe reports nothing new
+        type: boolean
+        default: false
+      dry_run:
+        description: Merge and verify only; do not touch the remote
+        type: boolean
+        default: false
+      reset_branch:
+        description: 'DANGER: recreate the sync branch from develop, discarding anything on it'
+        type: boolean
+        default: false
+      notify_test:
+        description: Send a test failure notification and do nothing else
+        type: boolean
+        default: false
+
+# One sync at a time, repo-wide. A per-ref group would let the schedule and a
+# manual dispatch race on the same branch. cancel-in-progress must stay false:
+# cancelling mid-merge is harmless, but cancelling between the push and the PR
+# update would leave the PR describing the previous merge.
+concurrency:
+  group: sync-oss-develop
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  UPSTREAM_URL: https://github.com/mermaid-js/mermaid.git
+  UPSTREAM_REMOTE: os_repo
+  SYNC_BRANCH: chore/sync-oss-develop
+  BASE_BRANCH: develop
+  # Records the upstream SHA last successfully synced. A ref rather than a
+  # committed file: refs/sync/* is covered by no ruleset, stays out of the branch
+  # list, and adds nothing to any PR diff.
+  STATE_REF: refs/sync/oss-develop-last
+  NEEDS_HUMAN_LABEL: 'sync: needs human'
+  BLOCKED_LABEL: 'sync: blocked'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Cheap gate. No checkout, no Node, no pnpm — two ls-remote calls. Most days
+  # end here, and the expensive job never allocates a runner.
+  # ---------------------------------------------------------------------------
+  probe:
+    if: github.repository == 'Mermaid-Chart/alana-mermaid'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+      upstream_sha: ${{ steps.decide.outputs.upstream_sha }}
+      last_synced_sha: ${{ steps.decide.outputs.last_synced_sha }}
+      branch_sha: ${{ steps.decide.outputs.branch_sha }}
+      pr_number: ${{ steps.decide.outputs.pr_number }}
+      pr_state: ${{ steps.decide.outputs.pr_state }}
+      blocked_reason: ${{ steps.decide.outputs.blocked_reason }}
+      # `secrets` cannot be read in jobs.<id>.if, but it can here — so surface it
+      # as an output and gate the agent step on it. Otherwise a missing
+      # credential produces a green run that quietly does half the job.
+      ai_configured: ${{ steps.decide.outputs.ai_configured }}
+    steps:
+      - name: Probe upstream and local state
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_BRANCH: ${{ inputs.upstream_ref || 'develop' }}
+          FORCE: ${{ inputs.force || false }}
+          HAS_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+
+          if [ "$HAS_API_KEY" = 'true' ] || [ "$HAS_OAUTH" = 'true' ]; then
+            echo 'ai_configured=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ai_configured=false' >> "$GITHUB_OUTPUT"
+          fi
+
+          # Match the exact ref, so a branch called `develop-foo` cannot match.
+          UPSTREAM_SHA="$(git ls-remote "$UPSTREAM_URL" "refs/heads/${UPSTREAM_BRANCH}" | cut -f1)"
+          if [ -z "$UPSTREAM_SHA" ]; then
+            echo "::error title=Upstream ref missing::${UPSTREAM_URL} has no refs/heads/${UPSTREAM_BRANCH}"
+            exit 1
+          fi
+
+          ORIGIN="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          REFS="$(git ls-remote "$ORIGIN" "$STATE_REF" "refs/heads/${SYNC_BRANCH}")"
+          LAST_SHA="$(awk -v r="$STATE_REF" '$2==r{print $1}' <<<"$REFS")"
+          BRANCH_SHA="$(awk -v r="refs/heads/${SYNC_BRANCH}" '$2==r{print $1}' <<<"$REFS")"
+
+          {
+            echo "upstream_sha=$UPSTREAM_SHA"
+            echo "last_synced_sha=$LAST_SHA"
+            echo "branch_sha=$BRANCH_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$UPSTREAM_SHA" = "$LAST_SHA" ] && [ "$FORCE" != 'true' ]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            { echo "pr_number="; echo "pr_state="; echo "blocked_reason="; } >> "$GITHUB_OUTPUT"
+            echo "No new upstream commits (\`${UPSTREAM_SHA:0:9}\`)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Only spend API calls once we know there is work.
+          PR_JSON='{}'
+          if [ -n "$BRANCH_SHA" ]; then
+            PR_JSON="$(gh pr list --head "$SYNC_BRANCH" --state all --limit 1 \
+              --json number,state,isDraft --jq '.[0] // {}')"
+          fi
+          PR_NUMBER="$(jq -r '.number // ""' <<<"$PR_JSON")"
+          PR_STATE="$(jq -r '.state // ""' <<<"$PR_JSON")"
+
+          # A human closing the PR unmerged is an explicit stop.
+          BLOCKED=""
+          if [ "$PR_STATE" = 'CLOSED' ] && [ "${{ inputs.reset_branch || false }}" != 'true' ]; then
+            BLOCKED="PR #${PR_NUMBER} was closed without merging. Re-run this workflow with reset_branch=true to discard ${SYNC_BRANCH} and start fresh."
+          fi
+
+          {
+            echo "should_run=true"
+            echo "pr_number=$PR_NUMBER"
+            echo "pr_state=$PR_STATE"
+            echo "blocked_reason=$BLOCKED"
+          } >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  sync:
+    needs: probe
+    if: >-
+      needs.probe.outputs.should_run == 'true'
+      && needs.probe.outputs.blocked_reason == ''
+      && !inputs.notify_test
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write # push the sync branch and the state ref
+      pull-requests: write # create/update the PR, toggle draft, auto-merge
+      issues: write # labels live on the issues API
+    outputs:
+      status: ${{ steps.classify.outputs.status }}
+      pr_number: ${{ steps.pr.outputs.number }}
+    env:
+      UPSTREAM_BRANCH: ${{ inputs.upstream_ref || 'develop' }}
+      UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
+      LAST_SYNCED_SHA: ${{ needs.probe.outputs.last_synced_sha }}
+      BRANCH_SHA_BEFORE: ${{ needs.probe.outputs.branch_sha }}
+      PR_STATE: ${{ needs.probe.outputs.pr_state }}
+      DRY_RUN: ${{ inputs.dry_run || false }}
+      RESET_BRANCH: ${{ inputs.reset_branch || false }}
+      FORCE: ${{ inputs.force || false }}
+    steps:
+      # SYNC_DIR cannot be a job-level env var: the `runner` context is not
+      # available there. Export it here instead, before anything needs it, so
+      # every later step (including the always() ones) sees the same path.
+      - name: Set up the scratch directory
+        run: |
+          echo "SYNC_DIR=${RUNNER_TEMP}/fork-sync" >> "$GITHUB_ENV"
+          mkdir -p "${RUNNER_TEMP}/fork-sync"
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: develop
+          fetch-depth: 0
+          # No github.com-wide credential in .git/config. Nothing before the push
+          # step can write to the remote, and the resolver step never sees a token.
+          persist-credentials: false
+
+      - name: Configure git and remotes
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add "$UPSTREAM_REMOTE" "$UPSTREAM_URL"
+          git remote set-url --push "$UPSTREAM_REMOTE" DISABLED-no-push-upstream
+          git fetch --no-tags "$UPSTREAM_REMOTE" \
+            "+refs/heads/${UPSTREAM_BRANCH}:refs/remotes/${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
+          git fetch --no-tags origin \
+            "+refs/heads/${SYNC_BRANCH}:refs/remotes/origin/${SYNC_BRANCH}" || true
+
+      - name: Prepare sync branch
+        id: prepare
+        run: |
+          set -uo pipefail
+          # Distinguish exit 1 (not an ancestor) from exit >1 (error).
+          ancestor() { git merge-base --is-ancestor "$1" "$2"; local rc=$?; [ "$rc" -le 1 ] || exit "$rc"; return "$rc"; }
+
+          TIP="refs/remotes/origin/${BASE_BRANCH}"
+          git rev-parse -q --verify "refs/remotes/origin/${SYNC_BRANCH}" >/dev/null \
+            && TIP="refs/remotes/origin/${SYNC_BRANCH}"
+
+          # Authoritative "nothing new": the graph, not just the recorded SHA.
+          # Also catches upstream commits that arrived by a hand-merge.
+          if [ "$FORCE" != 'true' ] && ancestor "$UPSTREAM_SHA" "$TIP"; then
+            echo 'already_merged=true' >> "$GITHUB_OUTPUT"
+            echo "Upstream ${UPSTREAM_SHA:0:9} is already contained in ${TIP}." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo 'already_merged=false' >> "$GITHUB_OUTPUT"
+
+          RECREATE=0
+          if [ -z "$BRANCH_SHA_BEFORE" ]; then
+            RECREATE=1
+          elif [ "$RESET_BRANCH" = 'true' ]; then
+            RECREATE=1
+          elif [ "$PR_STATE" = 'MERGED' ] && ! ancestor "refs/remotes/origin/${SYNC_BRANCH}" "refs/remotes/origin/${BASE_BRANCH}"; then
+            # Squash-merged: the tip is not in develop so it can neither
+            # fast-forward nor merge cleanly, but its content IS in develop, so
+            # recreating loses nothing. The only destructive path, and it is
+            # gated on the PR actually being merged.
+            RECREATE=1
+            echo "::notice title=Squash-merged::Recreating ${SYNC_BRANCH} from ${BASE_BRANCH}."
+          fi
+
+          if [ "$RECREATE" = 1 ]; then
+            git switch -c "$SYNC_BRANCH" "refs/remotes/origin/${BASE_BRANCH}"
+            echo 'recreated=true' >> "$GITHUB_OUTPUT"
+          else
+            git switch -c "$SYNC_BRANCH" "refs/remotes/origin/${SYNC_BRANCH}"
+            echo 'recreated=false' >> "$GITHUB_OUTPUT"
+          fi
+          echo "base_before=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+          # Our own runs cannot leave a conflicted tree (invariant 1), and
+          # `git ls-files -u` is always empty in a fresh clone — so check the
+          # tree itself.
+          if git grep -nIE '^(<{7}|={7}|>{7})( |$)' -- . ':(exclude)*.md' | head -5 | grep .; then
+            echo "::error title=Conflict markers on branch::${SYNC_BRANCH} already contains conflict markers; refusing to merge on top."
+            exit 1
+          fi
+
+      - name: Merge develop into the sync branch
+        if: steps.prepare.outputs.already_merged != 'true'
+        run: |
+          set -euo pipefail
+          if git merge-base --is-ancestor "refs/remotes/origin/${BASE_BRANCH}" HEAD; then
+            echo "Branch already contains ${BASE_BRANCH}."
+          elif ! git merge --no-edit --no-verify -m "Merge ${BASE_BRANCH} into ${SYNC_BRANCH}" \
+                 "refs/remotes/origin/${BASE_BRANCH}"; then
+            git merge --abort
+            echo "::error title=Fork-internal conflict::Merging ${BASE_BRANCH} into ${SYNC_BRANCH} conflicts. Resolve by hand."
+            exit 1
+          fi
+
+      - name: Merge upstream
+        id: merge
+        if: steps.prepare.outputs.already_merged != 'true'
+        run: |
+          set -uo pipefail
+          COMMITS="$(git rev-list --count "HEAD..${UPSTREAM_SHA}")"
+          echo "commit_count=$COMMITS" >> "$GITHUB_OUTPUT"
+          git log --oneline --no-merges "HEAD..${UPSTREAM_SHA}" > "$SYNC_DIR/incoming.txt" || true
+
+          # Leave any conflict in the index — the resolver step needs it.
+          if git merge --no-edit --no-ff --no-verify \
+               -m "Merge OSS ${UPSTREAM_BRANCH} (${UPSTREAM_SHA:0:9}) into ${SYNC_BRANCH}" \
+               "$UPSTREAM_SHA"; then
+            echo 'conflicted=false' >> "$GITHUB_OUTPUT"
+            : > "$SYNC_DIR/conflicts.txt"
+          else
+            echo 'conflicted=true' >> "$GITHUB_OUTPUT"
+            git diff --name-only --diff-filter=U > "$SYNC_DIR/conflicts.txt"
+            echo "::notice title=Conflicts::$(wc -l < "$SYNC_DIR/conflicts.txt") file(s) conflicted."
+          fi
+
+      # -----------------------------------------------------------------------
+      # GITHUB_TOKEN cannot create or update files under .github/workflows/ —
+      # there is no `workflows` permission for it. Detect that before spending
+      # any time on verification or the resolver, since the result cannot land.
+      # -----------------------------------------------------------------------
+      - name: Check for workflow-file changes
+        id: wfcheck
+        if: steps.prepare.outputs.already_merged != 'true'
+        env:
+          BASE_BEFORE: ${{ steps.prepare.outputs.base_before }}
+        run: |
+          set -euo pipefail
+          CHANGED="$(git diff --name-only "${BASE_BEFORE}..HEAD" -- .github/workflows/ || true)"
+          if [ -n "$CHANGED" ]; then
+            echo 'blocked=true' >> "$GITHUB_OUTPUT"
+            { echo 'files<<EOF'; printf '%s\n' "$CHANGED"; echo 'EOF'; } >> "$GITHUB_OUTPUT"
+            echo "::warning title=Workflow files changed::GITHUB_TOKEN cannot push these; handing off to a human."
+          else
+            echo 'blocked=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        with:
+          cache: pnpm
+          node-version-file: '.node-version'
+
+      - name: Compute alpha versions
+        id: version
+        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        run: |
+          set -euo pipefail
+          node .github/fork-sync/version.mjs --write --json > "$SYNC_DIR/versions.json"
+          node .github/fork-sync/version.mjs --check | tee "$SYNC_DIR/versions.txt"
+          # Workspace version changes can move the lockfile, and validate-lockfile.yml
+          # runs on any package.json change.
+          pnpm install --lockfile-only
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit --no-verify -m "chore(release): bump alpha versions for the develop line"
+          fi
+
+      - name: Fast gate
+        id: fastgate
+        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        continue-on-error: true
+        run: bash .github/fork-sync/verify.sh --tier fast --out "$SYNC_DIR/verify.fast.json"
+
+      # -----------------------------------------------------------------------
+      # The resolver. Only runs when there is judgement to apply: a conflicted
+      # merge, or a clean merge that broke something. Most days skip it, which is
+      # what keeps the model cost at zero.
+      # -----------------------------------------------------------------------
+      - name: Resolve with Claude Code
+        id: resolve
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && needs.probe.outputs.ai_configured == 'true'
+          && (steps.merge.outputs.conflicted == 'true' || steps.fastgate.outcome == 'failure')
+        uses: ./.github/fork-sync/resolve
+        with:
+          sync_dir: ${{ env.SYNC_DIR }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      - name: Report unresolvable state
+        id: unresolved
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && needs.probe.outputs.ai_configured != 'true'
+          && (steps.merge.outputs.conflicted == 'true' || steps.fastgate.outcome == 'failure')
+        run: |
+          echo "::warning title=No AI credential::This merge needs resolution but neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set; handing off to a human."
+
+      - name: Commit the resolution
+        id: finalise
+        if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
+        run: |
+          set -euo pipefail
+          if [ -f .git/MERGE_HEAD ]; then
+            UNMERGED="$(git diff --name-only --diff-filter=U)"
+            if [ -n "$UNMERGED" ]; then
+              echo "::error title=Unresolved paths::Refusing to commit. Still unmerged:"
+              printf '%s\n' "$UNMERGED"
+              exit 1
+            fi
+            # --no-verify: `prepare` installs husky, whose hook would run a build.
+            git commit --no-edit --no-verify
+          fi
+          if git grep -nIE '^(<{7}|={7}|>{7})( |$)' -- . ':(exclude)*.md' | head -5 | grep .; then
+            echo "::error title=Conflict markers::The resolution left conflict markers in the tree."
+            exit 1
+          fi
+          if git diff --quiet "refs/remotes/origin/${BASE_BRANCH}" HEAD; then
+            echo 'empty=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'empty=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Guardrails
+        id: guard
+        if: steps.finalise.outputs.empty == 'false'
+        continue-on-error: true
+        env:
+          BASE_BEFORE: ${{ steps.prepare.outputs.base_before }}
+        run: bash .github/fork-sync/guard.sh
+
+      - name: Full verification
+        id: fullverify
+        if: steps.finalise.outputs.empty == 'false'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          # Cold caches: a green signal that depends on state the resolver could
+          # have written is not a green signal.
+          rm -rf .eslintcache node_modules/.cache
+          bash .github/fork-sync/verify.sh --tier full --out "$SYNC_DIR/verify.full.json"
+
+      - name: Classify outcome
+        id: classify
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.wfcheck.outputs.blocked }}" = 'true' ]; then
+            echo 'status=blocked-workflow-files' >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.prepare.outputs.already_merged }}" = 'true' ] \
+            || [ "${{ steps.finalise.outputs.empty }}" = 'true' ]; then
+            echo 'status=no-op' >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.fullverify.outcome }}" = 'success' ] \
+            && [ "${{ steps.guard.outcome }}" = 'success' ]; then
+            echo 'status=green' >> "$GITHUB_OUTPUT"
+          else
+            echo 'status=needs-human' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the report
+        if: always()
+        env:
+          STATUS: ${{ steps.classify.outputs.status }}
+          COMMIT_COUNT: ${{ steps.merge.outputs.commit_count }}
+          CONFLICTED: ${{ steps.merge.outputs.conflicted }}
+          WF_FILES: ${{ steps.wfcheck.outputs.files }}
+          GUARD_OUTCOME: ${{ steps.guard.outcome }}
+          VERIFY_OUTCOME: ${{ steps.fullverify.outcome }}
+          FASTGATE_OUTCOME: ${{ steps.fastgate.outcome }}
+        run: |
+          # `if: always()` means this can run after an early failure, so fall
+          # back rather than depending on an earlier step having exported it.
+          SYNC_DIR="${SYNC_DIR:-${RUNNER_TEMP}/fork-sync}"
+          export SYNC_DIR
+          mkdir -p "$SYNC_DIR"
+          # The checkout is of `develop`. If the helper is not in that tree —
+          # which happens when this workflow is dispatched from a branch before
+          # it has merged — write a minimal report rather than failing a run
+          # whose actual work succeeded.
+          if [ -f .github/fork-sync/report.sh ]; then
+            bash .github/fork-sync/report.sh > "$SYNC_DIR/report.md"
+          else
+            echo "::warning title=Report helper missing::.github/fork-sync/report.sh is absent from the checked-out tree; wrote a minimal report instead."
+            # The backticks are markdown for the report body, and the single
+            # quotes are what keep them literal.
+            # shellcheck disable=SC2016
+            printf '## Upstream sync — `%s`\n\nThe report helper was not present in the checked-out tree, so this is a stub.\n' \
+              "${STATUS:-unknown}" > "$SYNC_DIR/report.md"
+          fi
+
+      # ----------------------------- MUTATIONS -------------------------------
+      - name: Push the sync branch
+        id: push
+        if: >-
+          env.DRY_RUN != 'true'
+          && steps.finalise.outputs.empty == 'false'
+          && steps.wfcheck.outputs.blocked != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BEFORE: ${{ steps.prepare.outputs.base_before }}
+        run: |
+          set -euo pipefail
+          [ "$(git symbolic-ref --short HEAD)" = "$SYNC_BRANCH" ] \
+            || { echo "::error::HEAD is not ${SYNC_BRANCH}"; exit 1; }
+          if [ -n "$BRANCH_SHA_BEFORE" ] && ! git merge-base --is-ancestor "$BRANCH_SHA_BEFORE" HEAD; then
+            echo "::error title=Would not fast-forward::HEAD does not descend from ${BRANCH_SHA_BEFORE}; aborting rather than risk losing autofix.ci commits."
+            exit 1
+          fi
+          git config "http.https://github.com/${GITHUB_REPOSITORY}.extraheader" \
+            "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+
+          # No force flags anywhere. A rejection means another writer moved the
+          # branch; merge it in and retry.
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:refs/heads/${SYNC_BRANCH}"; then
+              echo 'pushed=true' >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            echo "::notice::Push rejected (attempt ${attempt}); re-merging the remote tip."
+            git fetch --no-tags origin "+refs/heads/${SYNC_BRANCH}:refs/remotes/origin/${SYNC_BRANCH}"
+            git merge --no-edit --no-verify "refs/remotes/origin/${SYNC_BRANCH}" \
+              || { git merge --abort; echo "::error::Concurrent write to ${SYNC_BRANCH} conflicts."; exit 1; }
+          done
+          echo "::error title=Push failed::Gave up after 3 attempts."
+          exit 1
+
+      - name: Ensure labels exist
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # --force makes this idempotent; `gh pr edit --add-label` hard-errors on
+          # a label that does not exist in the repo.
+          gh label create "$NEEDS_HUMAN_LABEL" --color D93F0B \
+            --description 'Upstream sync needs manual review' --force
+          gh label create "$BLOCKED_LABEL" --color B60205 \
+            --description 'Upstream sync is blocked and cannot proceed automatically' --force
+
+      - name: Create or update the sync PR
+        id: pr
+        if: steps.push.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.classify.outputs.status }}
+        run: bash .github/fork-sync/pr.sh
+
+      - name: Enable auto-merge
+        if: steps.pr.outputs.number != '' && steps.classify.outputs.status == 'green'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Auto-merge still waits for the ruleset's required checks AND its
+          # required approvals — and require_extra_approval_for_unattributed_changes
+          # means a sync PR always needs a human approval. This removes the merge
+          # click, not the review.
+          if ! gh pr merge "${{ steps.pr.outputs.number }}" --auto --merge; then
+            echo "::warning title=Auto-merge unavailable::Could not enable auto-merge. Is 'Allow auto-merge' enabled on the repository?"
+          fi
+
+      # Last mutation, deliberately: if anything above failed, the ref stays put
+      # and tomorrow's run repeats the work idempotently.
+      - name: Advance the state ref
+        if: >-
+          env.DRY_RUN != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && (steps.push.outputs.pushed == 'true'
+              || steps.finalise.outputs.empty == 'true'
+              || steps.prepare.outputs.already_merged == 'true')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config "http.https://github.com/${GITHUB_REPOSITORY}.extraheader" \
+            "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git push origin "${UPSTREAM_SHA}:${STATE_REF}" --force
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Upstream sync — \`${{ steps.classify.outputs.status }}\`"
+            echo "- upstream: \`${UPSTREAM_SHA}\` (last synced \`${LAST_SYNCED_SHA:-none}\`)"
+            echo "- incoming commits: ${{ steps.merge.outputs.commit_count || 0 }}"
+            echo "- conflicted: ${{ steps.merge.outputs.conflicted || 'n/a' }}"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ -f "$SYNC_DIR/report.md" ] && cat "$SYNC_DIR/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: fork-sync-${{ github.run_id }}
+          path: ${{ runner.temp }}/fork-sync
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Failure reporting. Fires when the automation could not finish the job: a hard
+  # failure, a state it refuses to act on, a merge it cannot push, or a merge it
+  # could not get green. Posts to Slack and keeps one deduplicated tracking issue.
+  # ---------------------------------------------------------------------------
+  notify:
+    needs: [probe, sync]
+    if: >-
+      always() && github.repository == 'Mermaid-Chart/alana-mermaid'
+      && (failure()
+          || inputs.notify_test
+          || needs.probe.outputs.blocked_reason != ''
+          || needs.sync.outputs.status == 'blocked-workflow-files'
+          || needs.sync.outputs.status == 'needs-human')
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      SLACK_CHANNEL_ID: C0AHRPT37Q9
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      # No `ref:` on purpose. This checks out the ref the workflow itself came
+      # from, so the local action below always exists — unlike pinning `develop`,
+      # which breaks when the workflow is dispatched from an unmerged branch.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: .github/fork-sync
+
+      - name: Work out what to report
+        id: msg
+        env:
+          BLOCKED_REASON: ${{ needs.probe.outputs.blocked_reason }}
+          SYNC_STATUS: ${{ needs.sync.outputs.status }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+          PROBE_RESULT: ${{ needs.probe.result }}
+          UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
+          LAST_SYNCED_SHA: ${{ needs.probe.outputs.last_synced_sha }}
+          PR_NUMBER: ${{ needs.sync.outputs.pr_number }}
+          NOTIFY_TEST: ${{ inputs.notify_test }}
+        run: |
+          set -euo pipefail
+
+          if [ "$NOTIFY_TEST" = 'true' ]; then
+            STATUS='notification-test'
+            SUMMARY='Test of the failure-alerting path, triggered by hand. Nothing is wrong, and no sync was attempted.'
+          elif [ -n "$BLOCKED_REASON" ]; then
+            STATUS='blocked'
+            SUMMARY="$BLOCKED_REASON"
+          elif [ "$SYNC_STATUS" = 'blocked-workflow-files' ]; then
+            STATUS='blocked-workflow-files'
+            SUMMARY="This sync merges upstream changes to \`.github/workflows/**\`, which the default GITHUB_TOKEN cannot push. Nothing was pushed. Finish this one by hand — see \`.github/fork-sync/GUIDE.md\`, and re-apply the fork deltas in \`e2e.yml\`."
+          elif [ "$SYNC_STATUS" = 'needs-human' ]; then
+            STATUS='needs-human'
+            SUMMARY='The merge was pushed and a draft PR is open, but it did not verify cleanly, so auto-merge was not requested. Check the guardrail errors and the failing verification step.'
+          else
+            STATUS='workflow-failure'
+            SUMMARY='The sync workflow itself failed. No assumptions can be made about how far it got — see the run log.'
+          fi
+
+          {
+            printf 'upstream: %s\n' "\`${UPSTREAM_SHA:0:9}\`"
+            if [ -n "$LAST_SYNCED_SHA" ]; then
+              printf 'previously synced: %s\n' "\`${LAST_SYNCED_SHA:0:9}\`"
+            else
+              printf 'previously synced: never\n'
+            fi
+            printf 'jobs: probe=%s, sync=%s\n' "$PROBE_RESULT" "$SYNC_RESULT"
+            if [ -n "$PR_NUMBER" ]; then
+              printf 'pull request: %s/%s/pull/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PR_NUMBER"
+            fi
+          } > details.txt
+
+          {
+            echo "status=$STATUS"
+            echo "summary=$SUMMARY"
+            echo 'details<<DETAILS_EOF'
+            cat details.txt
+            echo 'DETAILS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # Filed first, so the record exists even if Slack is misconfigured. Only for
+      # states where no PR carries the signal — a needs-human PR is already
+      # labelled and visible, so an issue for it would just be noise.
+      - name: Open or update the tracking issue
+        if: >-
+          steps.msg.outputs.status != 'needs-human'
+          && steps.msg.outputs.status != 'notification-test'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
+          SUMMARY: ${{ steps.msg.outputs.summary }}
+          DETAILS: ${{ steps.msg.outputs.details }}
+        run: |
+          set -euo pipefail
+          TITLE='Upstream sync automation needs attention'
+          BODY="${SUMMARY}"$'\n\n'"${DETAILS}"$'\n'"Run: ${RUN_URL}"
+          NUM="$(gh issue list --state open --search "\"$TITLE\" in:title" --limit 1 --json number --jq '.[0].number // ""')"
+          if [ -n "$NUM" ]; then
+            # Deduplicate per upstream SHA so a persistent block does not comment daily.
+            if gh issue view "$NUM" --json comments --jq '.comments[].body' | grep -qF "$UPSTREAM_SHA"; then
+              echo "Already reported for ${UPSTREAM_SHA}; staying quiet."
+            else
+              gh issue comment "$NUM" --body "$BODY"
+            fi
+          else
+            gh issue create --title "$TITLE" --body "$BODY" --label 'sync: blocked' \
+              || gh issue create --title "$TITLE" --body "$BODY"
+          fi
+
+      - name: Notify Slack
+        uses: ./.github/fork-sync/slack-notify
+        with:
+          bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel: ${{ env.SLACK_CHANNEL_ID }}
+          status: ${{ steps.msg.outputs.status }}
+          summary: ${{ steps.msg.outputs.summary }}
+          details: ${{ steps.msg.outputs.details }}
+          run_url: ${{ env.RUN_URL }}

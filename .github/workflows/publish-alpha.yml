@@ -1,0 +1,200 @@
+name: Publish alpha (develop)
+
+# Publishes the fork's own packages from `develop` to the org's GitHub Packages
+# npm registry under the `dev` dist tag, at whatever version `develop` declares.
+#
+# Auth is GITHUB_TOKEN with `packages: write` — there is no secret to store and
+# nothing to configure outside this repository. GitHub Packages does not use npm
+# trusted publishing or OIDC, so there is no `id-token` and no provenance here.
+#
+# Three triggers, on purpose:
+#
+#   push      immediate publish when a merge lands normally.
+#   schedule  a reconciler. The push trigger alone is NOT reliable here: a merge
+#             performed by GitHub auto-merge that was enabled with GITHUB_TOKEN
+#             may raise no event that starts a workflow. Without this, exactly the
+#             automated merges we care about would silently never publish.
+#   dispatch  manual, and for dry runs.
+#
+# The job is idempotent: a package whose exact version is already on npm is
+# skipped. So re-running is always safe, and the reconciler is a no-op once a
+# push-triggered run has done the work.
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'packages/*/package.json'
+      - '.github/workflows/publish-alpha.yml'
+  schedule:
+    # 05:40 UTC — an hour after the sync workflow, so an overnight merge is picked
+    # up even when its push raised no event.
+    - cron: '40 5 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report what would be published, but publish nothing
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-alpha
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    if: github.repository == 'Mermaid-Chart/alana-mermaid'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # Publishing to the org's GitHub Packages registry. GITHUB_TOKEN is
+      # sufficient: a repository that publishes a package through a workflow is
+      # granted admin on that package automatically.
+      packages: write
+    env:
+      DIST_TAG: dev
+      GH_REGISTRY: https://npm.pkg.github.com
+      DRY_RUN: ${{ inputs.dry_run || false }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: develop
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          cache: pnpm
+          node-version-file: '.node-version'
+          # Writes an .npmrc into the runner's user config (not the repo's) that
+          # maps the scope to GitHub Packages and reads NODE_AUTH_TOKEN. The
+          # repo's own .npmrc still points dependency resolution at npmjs.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@mermaid-chart'
+
+      - name: Work out what needs publishing
+        id: plan
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The publishable set is defined once, in version.mjs. Queries must name
+          # the registry explicitly: the repo's .npmrc points at npmjs, which also
+          # carries these package names, so an unqualified `npm view` would answer
+          # from the wrong registry.
+          PLAN='[]'
+          while read -r name version dir; do
+            # develop owns the -a.N alpha line. Anything else is not ours to
+            # publish: until the first sync bumps them, these versions are still
+            # -b.N, and `main` owns that line. Skipping rather than failing keeps
+            # merges to develop green during that window.
+            if ! [[ "$version" =~ -a\.[0-9]+$ ]]; then
+              echo "skip    ${name}@${version} — not an alpha, so not the develop line"
+            elif npm view "${name}@${version}" version --registry="$GH_REGISTRY" >/dev/null 2>&1; then
+              echo "skip    ${name}@${version} — already on the registry"
+            else
+              echo "publish ${name}@${version}"
+              PLAN="$(jq -c --arg n "$name" --arg v "$version" --arg d "$dir" \
+                '. + [{name:$n, version:$v, dir:$d}]' <<<"$PLAN")"
+            fi
+          done < <(node .github/fork-sync/version.mjs --list-publishable |
+                     jq -r '.[] | "\(.name) \(.version) \(.dir)"')
+
+          echo "plan=$PLAN" >> "$GITHUB_OUTPUT"
+          COUNT="$(jq 'length' <<<"$PLAN")"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "${COUNT} package(s) to publish." >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.[] | "- `\(.name)@\(.version)`"' <<<"$PLAN" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install and build
+        if: steps.plan.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Publish
+        if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PLAN: ${{ steps.plan.outputs.plan }}
+        run: |
+          set -euo pipefail
+          jq -c '.[]' <<<"$PLAN" | while read -r entry; do
+            dir="$(jq -r '.dir' <<<"$entry")"
+            name="$(jq -r '.name' <<<"$entry")"
+            version="$(jq -r '.version' <<<"$entry")"
+            echo "::group::publishing ${name}@${version}"
+            # `npm publish`, not `pnpm publish`. Safe here because the only
+            # workspace: protocol reference in these packages is a devDependency,
+            # which consumers never install (and which the already-published
+            # versions carry too).
+            #
+            # --tag dev is load-bearing. `npm publish` moves `latest` regardless
+            # of semver ordering, and an alpha sorts BELOW the beta of the same
+            # base (prerelease ids compare alphabetically, so a < b). Publishing
+            # untagged would make an alpha the default install ahead of the beta
+            # that `main` publishes.
+            if ! ( cd "$dir" && npm publish --tag "$DIST_TAG" --registry="$GH_REGISTRY" ); then
+              echo "::endgroup::"
+              # A 403 here is almost always the package's Actions-access grant.
+              # It cannot be checked ahead of time: the packages REST API does
+              # not expose those grants, so a publish attempt is the only test.
+              echo "::error title=Publish failed::${name}@${version} was rejected. If this is a 403, open the package's Settings -> Manage Actions access and give ${GITHUB_REPOSITORY} the *Write* role (repositories are added with Read by default, which cannot publish). Packages that do not exist yet need no grant — the first publish creates them."
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Dry-run notice
+        if: steps.plan.outputs.count != '0' && env.DRY_RUN == 'true'
+        run: echo "::notice title=Dry run::Nothing was published. Re-run with dry_run=false to publish."
+
+      - name: Confirm the dist tags
+        if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
+        env:
+          PLAN: ${{ steps.plan.outputs.plan }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo '### Dist tags after publishing'
+            echo
+            echo '| package | dev | latest |'
+            echo '|---|---|---|'
+            jq -r '.[].name' <<<"$PLAN" | while read -r name; do
+              tags="$(npm view "$name" dist-tags --json --registry="$GH_REGISTRY" 2>/dev/null || echo '{}')"
+              # The backticks below are markdown for the job summary, and the
+              # single quotes are what keep them literal.
+              # shellcheck disable=SC2016
+              printf '| `%s` | %s | %s |\n' "$name" \
+                "$(jq -r '.dev // "—"' <<<"$tags")" \
+                "$(jq -r '.latest // "—"' <<<"$tags")"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A silent publish failure is the worst outcome here: develop would carry a
+      # version nobody can install. Most likely cause is the package's
+      # Actions-access grant, which cannot be checked in advance.
+      - name: Notify Slack on failure
+        if: failure()
+        uses: ./.github/fork-sync/slack-notify
+        with:
+          bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel: C0AHRPT37Q9
+          status: publish-failed
+          summary: "Publishing the develop alpha to GitHub Packages failed, so develop carries a version that is not installable. If this is a 403, the package's Settings -> Manage Actions access needs alana-mermaid at the *Write* role."
+          details: |
+            workflow: publish-alpha.yml
+            registry: https://npm.pkg.github.com
+            dist tag: dev
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
