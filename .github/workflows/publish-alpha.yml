@@ -1,7 +1,11 @@
 name: Publish alpha (develop)
 
-# Publishes the fork's own packages from `develop` to npm under the `dev` dist
-# tag, at whatever version `develop` currently declares.
+# Publishes the fork's own packages from `develop` to the org's GitHub Packages
+# npm registry under the `dev` dist tag, at whatever version `develop` declares.
+#
+# Auth is GITHUB_TOKEN with `packages: write` — there is no secret to store and
+# nothing to configure outside this repository. GitHub Packages does not use npm
+# trusted publishing or OIDC, so there is no `id-token` and no provenance here.
 #
 # Three triggers, on purpose:
 #
@@ -51,12 +55,13 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-      # npm trusted publishing exchanges this OIDC token for short-lived
-      # credentials, so no NPM_TOKEN is stored. Each package needs a trusted
-      # publisher configured on npm, pointing at this repository and this file.
-      id-token: write
+      # Publishing to the org's GitHub Packages registry. GITHUB_TOKEN is
+      # sufficient: a repository that publishes a package through a workflow is
+      # granted admin on that package automatically.
+      packages: write
     env:
       DIST_TAG: dev
+      GH_REGISTRY: https://npm.pkg.github.com
       DRY_RUN: ${{ inputs.dry_run || false }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -69,16 +74,25 @@ jobs:
         with:
           cache: pnpm
           node-version-file: '.node-version'
-          registry-url: 'https://registry.npmjs.org'
+          # Writes an .npmrc into the runner's user config (not the repo's) that
+          # maps the scope to GitHub Packages and reads NODE_AUTH_TOKEN. The
+          # repo's own .npmrc still points dependency resolution at npmjs.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@mermaid-chart'
 
       - name: Work out what needs publishing
         id: plan
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # The publishable set is defined once, in version.mjs.
+          # The publishable set is defined once, in version.mjs. Queries must name
+          # the registry explicitly: the repo's .npmrc points at npmjs, which also
+          # carries these package names, so an unqualified `npm view` would answer
+          # from the wrong registry.
           PLAN='[]'
           while read -r name version dir; do
-            if npm view "${name}@${version}" version >/dev/null 2>&1; then
+            if npm view "${name}@${version}" version --registry="$GH_REGISTRY" >/dev/null 2>&1; then
               echo "skip    ${name}@${version} — already on npm"
             else
               echo "publish ${name}@${version}"
@@ -121,36 +135,26 @@ jobs:
       - name: Publish
         if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
         env:
-          # Redundant under trusted publishing, which attaches provenance
-          # automatically — kept explicit to match upstream's release.yml and so
-          # the intent survives if the auth model ever changes.
-          NPM_CONFIG_PROVENANCE: 'true'
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN: ${{ steps.plan.outputs.plan }}
         run: |
           set -euo pipefail
-          # Trusted publishing requires npm >= 11.5.1 and Node >= 22.14.0. The
-          # repo's .node-version is 24.16.0, so only npm needs raising. Pinned to
-          # the documented floor rather than a bare `npm@11` so the requirement is
-          # visible in the diff if it ever changes.
-          npm install -g 'npm@^11.5.1'
-
           jq -c '.[]' <<<"$PLAN" | while read -r entry; do
             dir="$(jq -r '.dir' <<<"$entry")"
             name="$(jq -r '.name' <<<"$entry")"
             version="$(jq -r '.version' <<<"$entry")"
             echo "::group::publishing ${name}@${version}"
-            # `npm publish`, not `pnpm publish`: npm trusted publishing only
-            # supports the npm CLI. Safe here because the only workspace:
-            # protocol reference in these packages is a devDependency, which
-            # consumers never install (and which the already-published versions
-            # carry too).
+            # `npm publish`, not `pnpm publish`. Safe here because the only
+            # workspace: protocol reference in these packages is a devDependency,
+            # which consumers never install (and which the already-published
+            # versions carry too).
             #
             # --tag dev is load-bearing. `npm publish` moves `latest` regardless
             # of semver ordering, and an alpha sorts BELOW the beta of the same
             # base (prerelease ids compare alphabetically, so a < b). Publishing
             # untagged would make an alpha the default install ahead of the beta
             # that `main` publishes.
-            ( cd "$dir" && npm publish --tag "$DIST_TAG" --access public )
+            ( cd "$dir" && npm publish --tag "$DIST_TAG" --registry="$GH_REGISTRY" )
             echo "::endgroup::"
           done
 
@@ -162,6 +166,7 @@ jobs:
         if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
         env:
           PLAN: ${{ steps.plan.outputs.plan }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           {
@@ -171,7 +176,7 @@ jobs:
             echo '| package | dev | latest |'
             echo '|---|---|---|'
             jq -r '.[].name' <<<"$PLAN" | while read -r name; do
-              tags="$(npm view "$name" dist-tags --json 2>/dev/null || echo '{}')"
+              tags="$(npm view "$name" dist-tags --json --registry="$GH_REGISTRY" 2>/dev/null || echo '{}')"
               # The backticks below are markdown for the job summary, and the
               # single quotes are what keep them literal.
               # shellcheck disable=SC2016
