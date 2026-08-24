@@ -445,7 +445,20 @@ jobs:
           SYNC_DIR="${SYNC_DIR:-${RUNNER_TEMP}/fork-sync}"
           export SYNC_DIR
           mkdir -p "$SYNC_DIR"
-          bash .github/fork-sync/report.sh > "$SYNC_DIR/report.md"
+          # The checkout is of `develop`. If the helper is not in that tree —
+          # which happens when this workflow is dispatched from a branch before
+          # it has merged — write a minimal report rather than failing a run
+          # whose actual work succeeded.
+          if [ -f .github/fork-sync/report.sh ]; then
+            bash .github/fork-sync/report.sh > "$SYNC_DIR/report.md"
+          else
+            echo "::warning title=Report helper missing::.github/fork-sync/report.sh is absent from the checked-out tree; wrote a minimal report instead."
+            # The backticks are markdown for the report body, and the single
+            # quotes are what keep them literal.
+            # shellcheck disable=SC2016
+            printf '## Upstream sync — `%s`\n\nThe report helper was not present in the checked-out tree, so this is a stub.\n' \
+              "${STATUS:-unknown}" > "$SYNC_DIR/report.md"
+          fi
 
       # ----------------------------- MUTATIONS -------------------------------
       - name: Push the sync branch
