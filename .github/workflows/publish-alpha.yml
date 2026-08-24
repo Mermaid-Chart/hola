@@ -92,8 +92,14 @@ jobs:
           # from the wrong registry.
           PLAN='[]'
           while read -r name version dir; do
-            if npm view "${name}@${version}" version --registry="$GH_REGISTRY" >/dev/null 2>&1; then
-              echo "skip    ${name}@${version} — already on npm"
+            # develop owns the -a.N alpha line. Anything else is not ours to
+            # publish: until the first sync bumps them, these versions are still
+            # -b.N, and `main` owns that line. Skipping rather than failing keeps
+            # merges to develop green during that window.
+            if ! [[ "$version" =~ -a\.[0-9]+$ ]]; then
+              echo "skip    ${name}@${version} — not an alpha, so not the develop line"
+            elif npm view "${name}@${version}" version --registry="$GH_REGISTRY" >/dev/null 2>&1; then
+              echo "skip    ${name}@${version} — already on the registry"
             else
               echo "publish ${name}@${version}"
               PLAN="$(jq -c --arg n "$name" --arg v "$version" --arg d "$dir" \
@@ -107,23 +113,6 @@ jobs:
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "${COUNT} package(s) to publish." >> "$GITHUB_STEP_SUMMARY"
           jq -r '.[] | "- `\(.name)@\(.version)`"' <<<"$PLAN" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Guard against publishing a non-alpha from develop
-        if: steps.plan.outputs.count != '0'
-        env:
-          PLAN: ${{ steps.plan.outputs.plan }}
-        run: |
-          set -euo pipefail
-          # develop carries the alpha line. A `-b.N` version here means the
-          # release lines have been crossed, and publishing it under `dev` would
-          # confuse the beta channel that `main` owns.
-          BAD="$(jq -r '.[] | select(.version | test("-a\\.[0-9]+$") | not) | "\(.name)@\(.version)"' \
-            <<<"$PLAN")"
-          if [ -n "$BAD" ]; then
-            echo "::error title=Not an alpha version::develop publishes the -a.N alpha line, but these are not alpha versions:"
-            printf '%s\n' "$BAD"
-            exit 1
-          fi
 
       - name: Install and build
         if: steps.plan.outputs.count != '0'
