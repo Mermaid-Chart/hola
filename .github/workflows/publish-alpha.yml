@@ -181,3 +181,20 @@ jobs:
                 "$(jq -r '.latest // "—"' <<<"$tags")"
             done
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # A silent publish failure is the worst outcome here: develop would carry a
+      # version nobody can install. Most likely cause is the package's
+      # Actions-access grant, which cannot be checked in advance.
+      - name: Notify Slack on failure
+        if: failure()
+        uses: ./.github/fork-sync/slack-notify
+        with:
+          bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel: C0AHRPT37Q9
+          status: publish-failed
+          summary: "Publishing the develop alpha to GitHub Packages failed, so develop carries a version that is not installable. If this is a 403, the package's Settings -> Manage Actions access needs alana-mermaid at the *Write* role."
+          details: |
+            workflow: publish-alpha.yml
+            registry: https://npm.pkg.github.com
+            dist tag: dev
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

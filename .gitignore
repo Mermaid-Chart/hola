@@ -66,7 +66,17 @@ generated/
 /CLAUDE.md
 /AGENTS.md
 /assistant/
-/.claude/
+# Ignore local Claude Code state, but share the team's slash commands.
+#
+# Three lines are needed, in this order. `!/.claude/` first, because a developer's
+# global gitignore may exclude `.claude` outright and git will not descend into an
+# excluded directory — so no negation of a child can take effect until the
+# directory itself is re-included. Then exclude the contents, then re-include just
+# the commands. Keeps settings.local.json and worktrees/ local while sharing the
+# commands, and does so without depending on anyone's global config.
+!/.claude/
+/.claude/*
+!/.claude/commands/
 packages/mermaid/src/diagrams/CLAUDE.md
 packages/parser/CLAUDE.md
 AGENTS.mermaid.md

@@ -166,6 +166,7 @@ jobs:
       issues: write # labels live on the issues API
     outputs:
       status: ${{ steps.classify.outputs.status }}
+      pr_number: ${{ steps.pr.outputs.number }}
     env:
       UPSTREAM_BRANCH: ${{ inputs.upstream_ref || 'develop' }}
       UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
@@ -568,42 +569,102 @@ jobs:
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
+  # Failure reporting. Fires when the automation could not finish the job: a hard
+  # failure, a state it refuses to act on, a merge it cannot push, or a merge it
+  # could not get green. Posts to Slack and keeps one deduplicated tracking issue.
+  # ---------------------------------------------------------------------------
   notify:
     needs: [probe, sync]
     if: >-
       always() && github.repository == 'Mermaid-Chart/alana-mermaid'
-      && (failure() || needs.probe.outputs.blocked_reason != ''
-          || needs.sync.outputs.status == 'blocked-workflow-files')
+      && (failure()
+          || needs.probe.outputs.blocked_reason != ''
+          || needs.sync.outputs.status == 'blocked-workflow-files'
+          || needs.sync.outputs.status == 'needs-human')
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
+      contents: read
       issues: write
+    env:
+      SLACK_CHANNEL_ID: C0AHRPT37Q9
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      # No `ref:` on purpose. This checks out the ref the workflow itself came
+      # from, so the local action below always exists — unlike pinning `develop`,
+      # which breaks when the workflow is dispatched from an unmerged branch.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: .github/fork-sync
+
+      - name: Work out what to report
+        id: msg
+        env:
+          BLOCKED_REASON: ${{ needs.probe.outputs.blocked_reason }}
+          SYNC_STATUS: ${{ needs.sync.outputs.status }}
+          SYNC_RESULT: ${{ needs.sync.result }}
+          PROBE_RESULT: ${{ needs.probe.result }}
+          UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
+          LAST_SYNCED_SHA: ${{ needs.probe.outputs.last_synced_sha }}
+          PR_NUMBER: ${{ needs.sync.outputs.pr_number }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$BLOCKED_REASON" ]; then
+            STATUS='blocked'
+            SUMMARY="$BLOCKED_REASON"
+          elif [ "$SYNC_STATUS" = 'blocked-workflow-files' ]; then
+            STATUS='blocked-workflow-files'
+            SUMMARY="This sync merges upstream changes to \`.github/workflows/**\`, which the default GITHUB_TOKEN cannot push. Nothing was pushed. Finish this one by hand — see \`.github/fork-sync/GUIDE.md\`, and re-apply the fork deltas in \`e2e.yml\`."
+          elif [ "$SYNC_STATUS" = 'needs-human' ]; then
+            STATUS='needs-human'
+            SUMMARY='The merge was pushed and a draft PR is open, but it did not verify cleanly, so auto-merge was not requested. Check the guardrail errors and the failing verification step.'
+          else
+            STATUS='workflow-failure'
+            SUMMARY='The sync workflow itself failed. No assumptions can be made about how far it got — see the run log.'
+          fi
+
+          {
+            printf 'upstream: %s\n' "\`${UPSTREAM_SHA:0:9}\`"
+            if [ -n "$LAST_SYNCED_SHA" ]; then
+              printf 'previously synced: %s\n' "\`${LAST_SYNCED_SHA:0:9}\`"
+            else
+              printf 'previously synced: never\n'
+            fi
+            printf 'jobs: probe=%s, sync=%s\n' "$PROBE_RESULT" "$SYNC_RESULT"
+            if [ -n "$PR_NUMBER" ]; then
+              printf 'pull request: %s/%s/pull/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PR_NUMBER"
+            fi
+          } > details.txt
+
+          {
+            echo "status=$STATUS"
+            echo "summary=$SUMMARY"
+            echo 'details<<DETAILS_EOF'
+            cat details.txt
+            echo 'DETAILS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # Filed first, so the record exists even if Slack is misconfigured. Only for
+      # states where no PR carries the signal — a needs-human PR is already
+      # labelled and visible, so an issue for it would just be noise.
       - name: Open or update the tracking issue
+        if: steps.msg.outputs.status != 'needs-human'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          BLOCKED_REASON: ${{ needs.probe.outputs.blocked_reason }}
-          SYNC_STATUS: ${{ needs.sync.outputs.status }}
           UPSTREAM_SHA: ${{ needs.probe.outputs.upstream_sha }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SUMMARY: ${{ steps.msg.outputs.summary }}
+          DETAILS: ${{ steps.msg.outputs.details }}
         run: |
           set -euo pipefail
           TITLE='Upstream sync automation needs attention'
-
-          if [ -n "$BLOCKED_REASON" ]; then
-            REASON="$BLOCKED_REASON"
-          elif [ "$SYNC_STATUS" = 'blocked-workflow-files' ]; then
-            REASON=$'This sync merges upstream changes to `.github/workflows/**`, which the default `GITHUB_TOKEN` cannot push.\n\nFinish this one by hand — see `.github/fork-sync/GUIDE.md`, and pay particular attention to re-applying the fork deltas in `e2e.yml`.'
-          else
-            REASON='The sync workflow failed. See the run log.'
-          fi
-
-          BODY="${REASON}"$'\n\n'"Upstream: \`${UPSTREAM_SHA}\`"$'\n'"Run: ${RUN_URL}"
-
+          BODY="${SUMMARY}"$'\n\n'"${DETAILS}"$'\n'"Run: ${RUN_URL}"
           NUM="$(gh issue list --state open --search "\"$TITLE\" in:title" --limit 1 --json number --jq '.[0].number // ""')"
           if [ -n "$NUM" ]; then
-            # Dedupe per upstream SHA so a persistent block does not comment daily.
+            # Deduplicate per upstream SHA so a persistent block does not comment daily.
             if gh issue view "$NUM" --json comments --jq '.comments[].body' | grep -qF "$UPSTREAM_SHA"; then
               echo "Already reported for ${UPSTREAM_SHA}; staying quiet."
             else
@@ -613,3 +674,13 @@ jobs:
             gh issue create --title "$TITLE" --body "$BODY" --label 'sync: blocked' \
               || gh issue create --title "$TITLE" --body "$BODY"
           fi
+
+      - name: Notify Slack
+        uses: ./.github/fork-sync/slack-notify
+        with:
+          bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel: ${{ env.SLACK_CHANNEL_ID }}
+          status: ${{ steps.msg.outputs.status }}
+          summary: ${{ steps.msg.outputs.summary }}
+          details: ${{ steps.msg.outputs.details }}
+          run_url: ${{ env.RUN_URL }}
