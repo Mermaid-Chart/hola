@@ -154,7 +154,14 @@ jobs:
             # base (prerelease ids compare alphabetically, so a < b). Publishing
             # untagged would make an alpha the default install ahead of the beta
             # that `main` publishes.
-            ( cd "$dir" && npm publish --tag "$DIST_TAG" --registry="$GH_REGISTRY" )
+            if ! ( cd "$dir" && npm publish --tag "$DIST_TAG" --registry="$GH_REGISTRY" ); then
+              echo "::endgroup::"
+              # A 403 here is almost always the package's Actions-access grant.
+              # It cannot be checked ahead of time: the packages REST API does
+              # not expose those grants, so a publish attempt is the only test.
+              echo "::error title=Publish failed::${name}@${version} was rejected. If this is a 403, open the package's Settings -> Manage Actions access and give ${GITHUB_REPOSITORY} the *Write* role (repositories are added with Read by default, which cannot publish). Packages that do not exist yet need no grant — the first publish creates them."
+              exit 1
+            fi
             echo "::endgroup::"
           done
 
