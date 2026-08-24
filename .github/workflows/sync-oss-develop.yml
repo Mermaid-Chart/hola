@@ -365,6 +365,7 @@ jobs:
           sync_dir: ${{ env.SYNC_DIR }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Report unresolvable state
         id: unresolved

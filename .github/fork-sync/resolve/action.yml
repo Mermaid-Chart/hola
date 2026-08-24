@@ -16,11 +16,17 @@ inputs:
     description: Claude Code OAuth token, as an alternative to an API key.
     required: false
     default: ''
+  github_token:
+    description: >-
+      Token handed to the action. Required in practice: without it the action
+      attempts Claude-GitHub-App auth over OIDC and fails.
+    required: true
 
 runs:
   using: composite
   steps:
     - name: Render the run facts
+      id: render
       shell: bash
       env:
         SYNC_DIR: ${{ inputs.sync_dir }}
@@ -54,15 +60,32 @@ runs:
         cat .github/fork-sync/prompt.md "${SYNC_DIR}/run-facts.md" \
           >"${SYNC_DIR}/prompt.rendered.md"
 
+        # Emit the prompt *content*, not its path. Whether the action's `prompt`
+        # input resolves a file path is undocumented, and passing a path risks
+        # handing the agent the path string as its entire instruction set.
+        {
+          echo 'text<<FORK_SYNC_PROMPT_EOF_a7f3'
+          cat "${SYNC_DIR}/prompt.rendered.md"
+          echo 'FORK_SYNC_PROMPT_EOF_a7f3'
+        } >>"$GITHUB_OUTPUT"
+
     - name: Claude Code
       uses: anthropics/claude-code-action@c81e3bc69d1b18badbb63ba39581218f02421678 # v1.0.201
       with:
-        prompt: ${{ inputs.sync_dir }}/prompt.rendered.md
+        prompt: ${{ steps.render.outputs.text }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
         claude_code_oauth_token: ${{ inputs.claude_code_oauth_token }}
-        # No github_token on purpose. Nothing in this task needs the GitHub API,
-        # and the workflow owns every push and pull-request mutation. Omitting it
-        # falls back to github.token, so no GitHub App is involved.
+        # Passed explicitly, though nothing in this task needs the GitHub API.
+        # Omitting it does NOT fall back to github.token as the docs suggest: the
+        # action then tries to authenticate as the Claude GitHub App over OIDC and
+        # dies with "Could not fetch an OIDC token". Supplying the token avoids
+        # that without granting the job `id-token: write`, which would be a wider
+        # permission than the sync job should hold.
+        #
+        # The resolver still cannot reach GitHub: checkout used
+        # persist-credentials: false, and claude-settings.json denies gh, curl,
+        # git push and WebFetch.
+        github_token: ${{ inputs.github_token }}
         #
         # Scheduled runs are attributed to whoever last edited the workflow, and
         # autofix.ci runs `prettier --write .` over this repo — so that actor can
