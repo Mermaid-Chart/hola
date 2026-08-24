@@ -126,6 +126,20 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLAN: ${{ steps.plan.outputs.plan }}
+          # `prepublishOnly` runs `docs:verify-version`, which refuses to publish
+          # while any `src/docs/**/*.md` still holds the <MERMAID_RELEASE_VERSION>
+          # placeholder. That is correct for a real release and wrong for a
+          # preview: the placeholder is how a contributor says "whatever version
+          # this ships in", and substituting it would bake an alpha number into the
+          # docs source permanently. Two fork-only pages carry it today
+          # (syntax/agentflow.md, syntax/usecase.md).
+          #
+          # This env var is upstream's own escape hatch for exactly this case —
+          # release-preview-publish.yml sets it too — and it makes --verify warn
+          # instead of exit 1. The alpha line publishes to the `dev` tag, so
+          # shipping a preview whose docs still say <MERMAID_RELEASE_VERSION> is
+          # fine; `main`'s real release substitutes it for good.
+          ONLY_WARN_ON_VERIFY_ERROR: 'true'
         run: |
           set -euo pipefail
           jq -c '.[]' <<<"$PLAN" | while read -r entry; do
@@ -148,7 +162,11 @@ jobs:
               # A 403 here is almost always the package's Actions-access grant.
               # It cannot be checked ahead of time: the packages REST API does
               # not expose those grants, so a publish attempt is the only test.
-              echo "::error title=Publish failed::${name}@${version} was rejected. If this is a 403, open the package's Settings -> Manage Actions access and give ${GITHUB_REPOSITORY} the *Write* role (repositories are added with Read by default, which cannot publish). Packages that do not exist yet need no grant — the first publish creates them."
+              # Do not assume this was the registry. `npm publish` runs
+              # `prepublishOnly` first, so a failure here may never have reached
+              # GitHub at all — run 32766156722 failed on docs:verify-version and
+              # the 403 advice below sent the reader down the wrong path.
+              echo "::error title=Publish failed::${name}@${version} did not publish. Read the log above before assuming an auth problem: npm runs the package's own prepublishOnly hook first, and a failure there never contacts the registry. If it IS a 403 from ${GH_REGISTRY}, open the package's Settings -> Manage Actions access and give ${GITHUB_REPOSITORY} the *Write* role (repositories are added with Read by default, which cannot publish). Packages that do not exist yet need no grant — the first publish creates them."
               exit 1
             fi
             echo "::endgroup::"
