@@ -121,20 +121,30 @@ jobs:
       - name: Publish
         if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
         env:
-          # Attaches a provenance attestation using the OIDC token above.
+          # Redundant under trusted publishing, which attaches provenance
+          # automatically — kept explicit to match upstream's release.yml and so
+          # the intent survives if the auth model ever changes.
           NPM_CONFIG_PROVENANCE: 'true'
           PLAN: ${{ steps.plan.outputs.plan }}
         run: |
           set -euo pipefail
-          # Trusted publishing needs a recent npm; upstream's release.yml does the
-          # same thing for the same reason.
-          npm install -g npm@11
+          # Trusted publishing requires npm >= 11.5.1 and Node >= 22.14.0. The
+          # repo's .node-version is 24.16.0, so only npm needs raising. Pinned to
+          # the documented floor rather than a bare `npm@11` so the requirement is
+          # visible in the diff if it ever changes.
+          npm install -g 'npm@^11.5.1'
 
           jq -c '.[]' <<<"$PLAN" | while read -r entry; do
             dir="$(jq -r '.dir' <<<"$entry")"
             name="$(jq -r '.name' <<<"$entry")"
             version="$(jq -r '.version' <<<"$entry")"
             echo "::group::publishing ${name}@${version}"
+            # `npm publish`, not `pnpm publish`: npm trusted publishing only
+            # supports the npm CLI. Safe here because the only workspace:
+            # protocol reference in these packages is a devDependency, which
+            # consumers never install (and which the already-published versions
+            # carry too).
+            #
             # --tag dev is load-bearing. `npm publish` moves `latest` regardless
             # of semver ordering, and an alpha sorts BELOW the beta of the same
             # base (prerelease ids compare alphabetically, so a < b). Publishing
