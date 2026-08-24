@@ -23,7 +23,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mermaid-js/mermaid"
+    "url": "https://github.com/Mermaid-Chart/alana-mermaid",
+    "directory": "packages/mermaid-layout-elk"
   },
   "contributors": [
     "Knut Sveidqvist",
