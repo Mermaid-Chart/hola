@@ -169,6 +169,9 @@ uninstrumented
 unrouted
 unshift
 urlsafe
+usecase
+Usecase
+USECASE
 verifymethod
 VERIFYMTHD
 WARN_DOCSDIR_DOESNT_MATCH
