@@ -96,13 +96,15 @@ jobs:
 
       - name: Guard against publishing a non-alpha from develop
         if: steps.plan.outputs.count != '0'
+        env:
+          PLAN: ${{ steps.plan.outputs.plan }}
         run: |
           set -euo pipefail
           # develop carries the alpha line. A `-b.N` version here means the
           # release lines have been crossed, and publishing it under `dev` would
           # confuse the beta channel that `main` owns.
           BAD="$(jq -r '.[] | select(.version | test("-a\\.[0-9]+$") | not) | "\(.name)@\(.version)"' \
-            <<<'${{ steps.plan.outputs.plan }}')"
+            <<<"$PLAN")"
           if [ -n "$BAD" ]; then
             echo "::error title=Not an alpha version::develop publishes the -a.N alpha line, but these are not alpha versions:"
             printf '%s\n' "$BAD"
@@ -121,13 +123,14 @@ jobs:
         env:
           # Attaches a provenance attestation using the OIDC token above.
           NPM_CONFIG_PROVENANCE: 'true'
+          PLAN: ${{ steps.plan.outputs.plan }}
         run: |
           set -euo pipefail
           # Trusted publishing needs a recent npm; upstream's release.yml does the
           # same thing for the same reason.
           npm install -g npm@11
 
-          echo '${{ steps.plan.outputs.plan }}' | jq -c '.[]' | while read -r entry; do
+          jq -c '.[]' <<<"$PLAN" | while read -r entry; do
             dir="$(jq -r '.dir' <<<"$entry")"
             name="$(jq -r '.name' <<<"$entry")"
             version="$(jq -r '.version' <<<"$entry")"
@@ -147,6 +150,8 @@ jobs:
 
       - name: Confirm the dist tags
         if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
+        env:
+          PLAN: ${{ steps.plan.outputs.plan }}
         run: |
           set -euo pipefail
           {
@@ -155,8 +160,11 @@ jobs:
             echo
             echo '| package | dev | latest |'
             echo '|---|---|---|'
-            echo '${{ steps.plan.outputs.plan }}' | jq -r '.[].name' | while read -r name; do
+            jq -r '.[].name' <<<"$PLAN" | while read -r name; do
               tags="$(npm view "$name" dist-tags --json 2>/dev/null || echo '{}')"
+              # The backticks below are markdown for the job summary, and the
+              # single quotes are what keep them literal.
+              # shellcheck disable=SC2016
               printf '| `%s` | %s | %s |\n' "$name" \
                 "$(jq -r '.dev // "—"' <<<"$tags")" \
                 "$(jq -r '.latest // "—"' <<<"$tags")"

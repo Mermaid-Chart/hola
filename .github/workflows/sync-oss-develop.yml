@@ -175,8 +175,15 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run || false }}
       RESET_BRANCH: ${{ inputs.reset_branch || false }}
       FORCE: ${{ inputs.force || false }}
-      SYNC_DIR: ${{ runner.temp }}/fork-sync
     steps:
+      # SYNC_DIR cannot be a job-level env var: the `runner` context is not
+      # available there. Export it here instead, before anything needs it, so
+      # every later step (including the always() ones) sees the same path.
+      - name: Set up the scratch directory
+        run: |
+          echo "SYNC_DIR=${RUNNER_TEMP}/fork-sync" >> "$GITHUB_ENV"
+          mkdir -p "${RUNNER_TEMP}/fork-sync"
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -189,7 +196,6 @@ jobs:
       - name: Configure git and remotes
         run: |
           set -euo pipefail
-          mkdir -p "$SYNC_DIR"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git remote add "$UPSTREAM_REMOTE" "$UPSTREAM_URL"
@@ -434,7 +440,10 @@ jobs:
           VERIFY_OUTCOME: ${{ steps.fullverify.outcome }}
           FASTGATE_OUTCOME: ${{ steps.fastgate.outcome }}
         run: |
-          # `if: always()` means this can run before the scratch dir was created.
+          # `if: always()` means this can run after an early failure, so fall
+          # back rather than depending on an earlier step having exported it.
+          SYNC_DIR="${SYNC_DIR:-${RUNNER_TEMP}/fork-sync}"
+          export SYNC_DIR
           mkdir -p "$SYNC_DIR"
           bash .github/fork-sync/report.sh > "$SYNC_DIR/report.md"
 
