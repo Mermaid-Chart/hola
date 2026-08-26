@@ -719,10 +719,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Auto-merge still waits for the ruleset's required checks AND its
-          # required approvals — and require_extra_approval_for_unattributed_changes
-          # means a sync PR always needs a human approval. This removes the merge
-          # click, not the review.
+          # Auto-merge hands the PR to the merge queue once the ruleset's
+          # requirements are met. `develop` requires 0 approving reviews, so a
+          # green sync PR lands unattended — no human in the loop.
+          #
+          # This works only while the `develop` ruleset leaves "Restrict updates"
+          # OFF. That rule limits pushes to bypass actors (Organization admin,
+          # Repository admin), and the queue's push is attributed to whoever
+          # armed auto-merge — github-actions[bot] here, which holds neither
+          # role. With it on, the PR sat at BLOCKED with every check green and
+          # "Cannot update this protected ref" as the only clue (PR #145).
           if ! gh pr merge "${{ steps.pr.outputs.number }}" --auto --merge; then
             echo "::warning title=Auto-merge unavailable::Could not enable auto-merge. Is 'Allow auto-merge' enabled on the repository?"
           fi
@@ -858,8 +864,8 @@ jobs:
           elif [ "$SYNC_STATUS" = 'green' ]; then
             STATUS='green'
             case "${PR_ACTION:-}" in
-              created) SUMMARY='The sync verified cleanly, a pull request was opened and auto-merge was requested. It still needs a human approval before it can land.' ;;
-              updated) SUMMARY='The sync verified cleanly and the existing pull request was updated with the new upstream commits. Auto-merge was requested; it still needs a human approval.' ;;
+              created) SUMMARY='The sync verified cleanly, a pull request was opened and auto-merge was requested. It will enter the merge queue and land on its own once the required checks pass.' ;;
+              updated) SUMMARY='The sync verified cleanly and the existing pull request was updated with the new upstream commits. Auto-merge was requested; it will land on its own once the required checks pass.' ;;
               *)       SUMMARY='The sync verified cleanly and auto-merge was requested.' ;;
             esac
           elif [ "$SYNC_STATUS" = 'needs-human' ] && [ "$SYNC_HANDOFF" = 'true' ]; then
