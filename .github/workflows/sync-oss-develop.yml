@@ -353,19 +353,30 @@ jobs:
 
       # Nothing below here is needed on a conflict handoff: no versioning, no
       # gate, no resolver, no verification. Skipping saves the setup entirely.
+      # No longer gated on `conflicted`: autoresolve.sh needs node for the
+      # package.json three-way merge and pnpm for lockfile and docs regeneration.
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
         with:
           cache: pnpm
           node-version-file: '.node-version'
+
+      # Conflicts with a mechanical recipe are resolved here so that a human
+      # handoff is reserved for conflicts carrying a decision. PR #141 was a
+      # whole handoff spent on two package.json version strings.
+      - name: Auto-resolve mechanical conflicts
+        id: autoresolve
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && steps.merge.outputs.conflicted == 'true'
+        run: bash .github/fork-sync/autoresolve.sh
 
       # MUST NOT run on a conflicted merge. Its `git add -A && git commit`
       # COMPLETES the in-progress merge: MERGE_HEAD disappears, the conflicted
@@ -380,7 +391,8 @@ jobs:
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
+          && (steps.merge.outputs.conflicted != 'true'
+              || steps.autoresolve.outputs.remaining == '0')
         env:
           # Defaults to os_repo/develop, which a dispatch against any other
           # upstream_ref never fetched — every upstream read then returned null
@@ -414,7 +426,8 @@ jobs:
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
+          && (steps.merge.outputs.conflicted != 'true'
+              || steps.autoresolve.outputs.remaining == '0')
         continue-on-error: true
         run: bash .github/fork-sync/verify.sh --tier fast --out "$SYNC_DIR/verify.fast.json"
 
@@ -555,6 +568,8 @@ jobs:
           STATUS: ${{ steps.classify.outputs.status }}
           COMMIT_COUNT: ${{ steps.merge.outputs.commit_count }}
           CONFLICTED: ${{ steps.merge.outputs.conflicted }}
+          HANDOFF: ${{ steps.finalise.outputs.handoff }}
+          AUTORESOLVED: ${{ steps.autoresolve.outputs.remaining }}
           WF_FILES: ${{ steps.wfcheck.outputs.files }}
           GUARD_OUTCOME: ${{ steps.guard.outcome }}
           VERIFY_OUTCOME: ${{ steps.fullverify.outcome }}
