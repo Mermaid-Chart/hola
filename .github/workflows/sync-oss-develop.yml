@@ -182,6 +182,11 @@ jobs:
       status: ${{ steps.classify.outputs.status }}
       pr_number: ${{ steps.pr.outputs.number }}
       handoff: ${{ steps.finalise.outputs.handoff }}
+      # '0' when the resolver was skipped, which is most days — reported anyway,
+      # because "this sync cost nothing" is the number worth seeing regularly.
+      ai_cost_usd: ${{ steps.resolve.outputs.cost_usd || '0' }}
+      ai_turns: ${{ steps.resolve.outputs.num_turns || '0' }}
+      ai_invoked: ${{ steps.resolve.outcome == 'success' || steps.resolve.outcome == 'failure' }}
       wf_files: ${{ steps.wfcheck.outputs.files }}
     env:
       UPSTREAM_BRANCH: ${{ inputs.upstream_ref || 'develop' }}
@@ -353,19 +358,30 @@ jobs:
 
       # Nothing below here is needed on a conflict handoff: no versioning, no
       # gate, no resolver, no verification. Skipping saves the setup entirely.
+      # No longer gated on `conflicted`: autoresolve.sh needs node for the
+      # package.json three-way merge and pnpm for lockfile and docs regeneration.
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
         with:
           cache: pnpm
           node-version-file: '.node-version'
+
+      # Conflicts with a mechanical recipe are resolved here so that a human
+      # handoff is reserved for conflicts carrying a decision. PR #141 was a
+      # whole handoff spent on two package.json version strings.
+      - name: Auto-resolve mechanical conflicts
+        id: autoresolve
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && steps.merge.outputs.conflicted == 'true'
+        run: bash .github/fork-sync/autoresolve.sh
 
       # MUST NOT run on a conflicted merge. Its `git add -A && git commit`
       # COMPLETES the in-progress merge: MERGE_HEAD disappears, the conflicted
@@ -380,7 +396,8 @@ jobs:
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
+          && (steps.merge.outputs.conflicted != 'true'
+              || steps.autoresolve.outputs.remaining == '0')
         env:
           # Defaults to os_repo/develop, which a dispatch against any other
           # upstream_ref never fetched — every upstream read then returned null
@@ -414,7 +431,8 @@ jobs:
         if: >-
           steps.prepare.outputs.already_merged != 'true'
           && steps.wfcheck.outputs.blocked != 'true'
-          && steps.merge.outputs.conflicted != 'true'
+          && (steps.merge.outputs.conflicted != 'true'
+              || steps.autoresolve.outputs.remaining == '0')
         continue-on-error: true
         run: bash .github/fork-sync/verify.sh --tier fast --out "$SYNC_DIR/verify.fast.json"
 
@@ -555,6 +573,11 @@ jobs:
           STATUS: ${{ steps.classify.outputs.status }}
           COMMIT_COUNT: ${{ steps.merge.outputs.commit_count }}
           CONFLICTED: ${{ steps.merge.outputs.conflicted }}
+          HANDOFF: ${{ steps.finalise.outputs.handoff }}
+          AUTORESOLVED: ${{ steps.autoresolve.outputs.remaining }}
+          AI_COST: ${{ steps.resolve.outputs.cost_usd || '0' }}
+          AI_TURNS: ${{ steps.resolve.outputs.num_turns || '0' }}
+          AI_INVOKED: ${{ steps.resolve.outcome == 'success' || steps.resolve.outcome == 'failure' }}
           WF_FILES: ${{ steps.wfcheck.outputs.files }}
           GUARD_OUTCOME: ${{ steps.guard.outcome }}
           VERIFY_OUTCOME: ${{ steps.fullverify.outcome }}
@@ -704,6 +727,13 @@ jobs:
             echo "- upstream: \`${UPSTREAM_SHA}\` (last synced \`${LAST_SYNCED_SHA:-none}\`)"
             echo "- incoming commits: ${{ steps.merge.outputs.commit_count || 0 }}"
             echo "- conflicted: ${{ steps.merge.outputs.conflicted || 'n/a' }}"
+            echo "- auto-resolved: ${{ steps.autoresolve.outputs.remaining && format('{0} path(s) still unmerged', steps.autoresolve.outputs.remaining) || 'n/a' }}"
+            if [ "${{ steps.resolve.outcome }}" = 'success' ] || [ "${{ steps.resolve.outcome }}" = 'failure' ]; then
+              printf -- '- AI cost: %s%.2f over %s turns\n' '$' \
+                '${{ steps.resolve.outputs.cost_usd || 0 }}' '${{ steps.resolve.outputs.num_turns || 0 }}'
+            else
+              printf -- '- AI cost: %s0.00 (resolver not invoked)\n' '$'
+            fi
             echo
           } >> "$GITHUB_STEP_SUMMARY"
           [ -f "$SYNC_DIR/report.md" ] && cat "$SYNC_DIR/report.md" >> "$GITHUB_STEP_SUMMARY" || true
@@ -728,7 +758,8 @@ jobs:
           || inputs.notify_test
           || needs.probe.outputs.blocked_reason != ''
           || needs.sync.outputs.status == 'blocked-workflow-files'
-          || needs.sync.outputs.status == 'needs-human')
+          || needs.sync.outputs.status == 'needs-human'
+          || needs.sync.outputs.ai_invoked == 'true')
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -753,6 +784,9 @@ jobs:
           BLOCKED_REASON: ${{ needs.probe.outputs.blocked_reason }}
           SYNC_STATUS: ${{ needs.sync.outputs.status }}
           SYNC_HANDOFF: ${{ needs.sync.outputs.handoff }}
+          AI_COST: ${{ needs.sync.outputs.ai_cost_usd }}
+          AI_TURNS: ${{ needs.sync.outputs.ai_turns }}
+          AI_INVOKED: ${{ needs.sync.outputs.ai_invoked }}
           WF_FILES: ${{ needs.sync.outputs.wf_files }}
           SYNC_RESULT: ${{ needs.sync.result }}
           PROBE_RESULT: ${{ needs.probe.result }}
@@ -772,6 +806,9 @@ jobs:
           elif [ "$SYNC_STATUS" = 'blocked-workflow-files' ]; then
             STATUS='blocked-workflow-files'
             SUMMARY="This sync merges upstream changes to \`.github/workflows/**\`, which the default GITHUB_TOKEN cannot push. Nothing was pushed. Finish this one by hand — see \`.github/fork-sync/GUIDE.md\`, and re-apply the fork deltas in \`e2e.yml\`."
+          elif [ "$SYNC_STATUS" = 'green' ]; then
+            STATUS='green'
+            SUMMARY='The sync verified cleanly and auto-merge was requested. Reported only because the resolver was invoked, so this run had a model cost — see below.'
           elif [ "$SYNC_STATUS" = 'needs-human' ] && [ "$SYNC_HANDOFF" = 'true' ]; then
             STATUS='needs-human'
             SUMMARY='The merge conflicted, so it was committed with its conflict markers in place and pushed as a draft PR for someone to resolve. Nothing was verified and no model was invoked, so CI on that PR will be red until the conflicts are resolved. Until it is finished, later syncs will refuse to merge on top.'
@@ -791,6 +828,14 @@ jobs:
               printf 'previously synced: never\n'
             fi
             printf 'jobs: probe=%s, sync=%s\n' "$PROBE_RESULT" "$SYNC_RESULT"
+            if [ "${AI_INVOKED:-}" = 'true' ]; then
+              # Two decimals: the raw figure carries float noise (8.539203749999997).
+              printf 'AI cost: %s%.2f over %s turns\n' '$' "${AI_COST:-0}" "${AI_TURNS:-0}"
+            else
+              # The dollar sign is passed as an argument so that neither the
+              # shell nor shellcheck reads `$0` as a positional parameter.
+              printf 'AI cost: %s0.00 (resolver not invoked)\n' '$'
+            fi
             if [ -n "$WF_FILES" ]; then
               printf 'workflow files upstream changed:\n'
               printf '%s\n' "$WF_FILES" | sed 's/^/  - /'

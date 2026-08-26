@@ -117,6 +117,35 @@ there. Conflicts in `docs/config/setup/**` are almost always just the package
 rename plus line-number drift — regenerating resolves them and restores the fork's
 `@mermaid-chart/mermaid` naming in one step.
 
+### Auto-resolution (what the pipeline settles for you)
+
+`.github/fork-sync/autoresolve.sh` applies the recipes above automatically during
+a sync, so a handoff is reserved for conflicts that carry a decision:
+
+| Conflict                              | Handled how                                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/*/package.json`             | Three-way merged field by field. Only `version` may genuinely conflict; anything else defers to a human. `version.mjs` then sets the alpha. |
+| `pnpm-lock.yaml`                      | `pnpm install --lockfile-only --ignore-scripts`                                                                                             |
+| `docs/**`                             | `docs:build`                                                                                                                                |
+| `packages/mermaid/src/config.type.ts` | `types:build-config`                                                                                                                        |
+
+Two boundaries worth knowing when you are doing this by hand:
+
+- **Generated and derived files only.** Nothing under `packages/*/src` (bar the
+  generated `config.type.ts`), `e2e/`, or `.github/`. A wrong resolution in
+  generated output is fixed by regenerating; a wrong one in source is the silent
+  breakage this whole process exists to catch.
+- **Regeneration needs a buildable tree.** `pnpm install` runs the root `prepare`,
+  which builds, and a build cannot succeed while markers remain in source. So when
+  source conflicts are still open, the generated files are deferred too — resolve
+  the source first, then regenerate.
+
+For `package.json` specifically, do not reach for "is ours the same as theirs apart
+from the version". The fork permanently renames the package, retargets
+`repository` and adds fork-only scripts, so the two sides always differ in many
+fields. The question that matters is which fields **both** sides changed,
+differently, relative to the merge base.
+
 ## 5. Fork-only invariants that upstream code breaks
 
 The highest-value section. Each entry is "if upstream does X, this fork needs Y",

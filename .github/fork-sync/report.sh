@@ -16,11 +16,28 @@ UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-develop}"
 LAST_SYNCED_SHA="${LAST_SYNCED_SHA:-}"
 COMMIT_COUNT="${COMMIT_COUNT:-0}"
 CONFLICTED="${CONFLICTED:-false}"
+AI_COST="${AI_COST:-0}"
+AI_TURNS="${AI_TURNS:-0}"
+AI_INVOKED="${AI_INVOKED:-false}"
+# A conflicted merge no longer implies a handoff: autoresolve.sh may have settled
+# every conflict mechanically, in which case this run is a normal green sync.
+# HANDOFF is the truth about whether markers were committed for a human.
+HANDOFF="${HANDOFF:-false}"
+AUTORESOLVED="${AUTORESOLVED:-}"
 WF_FILES="${WF_FILES:-}"
 
 case "$STATUS" in
   green) headline='All checks passed. Auto-merge has been requested.' ;;
-  needs-human) headline='**Needs a human.** Something did not verify cleanly — details below.' ;;
+  needs-human)
+    # Do not assert a verification failure that never happened: a conflict
+    # handoff skips guardrails and full verification entirely, because both are
+    # meaningless on a tree holding conflict markers.
+    if [ "$HANDOFF" = 'true' ]; then
+      headline='**Needs a human.** Conflicts with no mechanical recipe were handed over unresolved — nothing was verified.'
+    else
+      headline='**Needs a human.** Something did not verify cleanly — details below.'
+    fi
+    ;;
   blocked-workflow-files) headline='**Blocked.** This merge changes GitHub Actions workflow files, which the default `GITHUB_TOKEN` cannot push.' ;;
   no-op) headline='Nothing to merge.' ;;
   *) headline="Status: ${STATUS}" ;;
@@ -40,6 +57,14 @@ else
 fi
 echo "| Incoming commits | ${COMMIT_COUNT} |"
 echo "| Conflicts | ${CONFLICTED} |"
+# Recorded on every sync, including the many that cost nothing — the point is to
+# watch the trend and know when the strategy needs revisiting, which a number
+# that only appears on expensive runs cannot tell you.
+if [ "${AI_INVOKED:-false}" = 'true' ]; then
+  printf '| AI cost | %s%.2f over %s turns |\n' '$' "${AI_COST:-0}" "${AI_TURNS:-0}"
+else
+  printf '| AI cost | %s0.00 — resolver not invoked |\n' '$'
+fi
 echo
 
 if [ "$STATUS" = 'blocked-workflow-files' ] && [ -n "$WF_FILES" ]; then
@@ -96,7 +121,21 @@ done
 echo 'Not verified here: e2e, Playwright and Argos. Those run on this pull request.'
 echo
 
-if [ "$STATUS" = 'needs-human' ] && [ "$CONFLICTED" = 'true' ]; then
+if [ -s "${SYNC_DIR}/autoresolve.json" ]; then
+  AR_COUNT="$(jq '.resolved | length' "${SYNC_DIR}/autoresolve.json")"
+  if [ "$AR_COUNT" != 0 ]; then
+    echo "### Auto-resolved (${AR_COUNT})"
+    echo
+    echo 'These conflicts have a mechanical recipe — GUIDE.md section 4 — so they were'
+    echo 'resolved without a model and without a human. Each is listed with the recipe'
+    echo 'used, and all of them still went through the gate and the guardrails below.'
+    echo
+    jq -r '.resolved[] | "- `\(.path)` — \(.recipe)"' "${SYNC_DIR}/autoresolve.json"
+    echo
+  fi
+fi
+
+if [ "$STATUS" = 'needs-human' ] && [ "$HANDOFF" = 'true' ]; then
   echo '### This branch contains unresolved conflicts, on purpose'
   echo
   echo 'The merge conflicted, so it was committed **as-is** and handed to you rather'

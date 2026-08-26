@@ -22,6 +22,17 @@ inputs:
       attempts Claude-GitHub-App auth over OIDC and fails.
     required: true
 
+outputs:
+  cost_usd:
+    description: What this resolver invocation cost, in USD. '0' if it never ran.
+    value: ${{ steps.transcript.outputs.cost_usd }}
+  num_turns:
+    description: Turns the resolver took. Reported alongside cost because turns, not context, are what the cost tracks.
+    value: ${{ steps.transcript.outputs.num_turns }}
+  duration_ms:
+    description: Wall-clock duration of the resolver session.
+    value: ${{ steps.transcript.outputs.duration_ms }}
+
 runs:
   using: composite
   steps:
@@ -110,20 +121,49 @@ runs:
     # every permission denial, lives in this file. The first rehearsal reported
     # 8 denials with no way to see what they were.
     - name: Keep the resolver transcript
+      id: transcript
       if: always()
       shell: bash
       env:
         SYNC_DIR: ${{ inputs.sync_dir }}
       run: |
+        set -uo pipefail
+        FOUND=''
         for f in "${RUNNER_TEMP}/claude-execution-output.json" \
                  "${{ steps.claude.outputs.execution_file }}"; do
           if [ -n "$f" ] && [ -s "$f" ]; then
             cp "$f" "${SYNC_DIR}/claude-execution.json"
+            FOUND="${SYNC_DIR}/claude-execution.json"
             echo "Kept resolver transcript from $f"
-            exit 0
+            break
           fi
         done
-        echo "::warning title=No resolver transcript::Could not find the execution log; denials and turn detail will not be diagnosable."
+
+        if [ -z "$FOUND" ]; then
+          echo "::warning title=No resolver transcript::Could not find the execution log; cost, turns and permission denials will not be reported."
+          { echo 'cost_usd='; echo 'num_turns='; echo 'duration_ms='; } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # The log's exact shape is not contracted — it has been seen both as a
+        # JSON array of events and as newline-delimited events. `-s` slurps
+        # either into one array, and `flatten` collapses the array-of-arrays
+        # case, so the same expression handles both. `// empty` keeps a shape
+        # change from failing the run over a reporting nicety.
+        RESULT="$(jq -s 'flatten | map(select(type == "object" and .type == "result")) | last // empty' \
+          "$FOUND" 2>/dev/null || true)"
+        if [ -z "$RESULT" ]; then
+          echo "::warning title=Unparseable transcript::Found the execution log but no result event; cost will report as unknown."
+          { echo 'cost_usd='; echo 'num_turns='; echo 'duration_ms='; } >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        {
+          printf 'cost_usd=%s\n' "$(jq -r '.total_cost_usd // 0' <<<"$RESULT")"
+          printf 'num_turns=%s\n' "$(jq -r '.num_turns // 0' <<<"$RESULT")"
+          printf 'duration_ms=%s\n' "$(jq -r '.duration_ms // 0' <<<"$RESULT")"
+        } >> "$GITHUB_OUTPUT"
+        jq -r '"resolver cost $\(.total_cost_usd // 0) over \(.num_turns // 0) turns, \(((.duration_ms // 0) / 60000) | floor)m, \(.permission_denials_count // 0) permission denial(s)"' \
+          <<<"$RESULT"
 
     - name: Check the resolver left an account of itself
       shell: bash
