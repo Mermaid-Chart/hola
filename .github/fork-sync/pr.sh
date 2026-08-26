@@ -46,6 +46,7 @@ if [ -z "$NUMBER" ]; then
   [ -n "$NUMBER" ] || { echo "::error::created a PR but could not determine its number"; exit 1; }
   WAS_DRAFT=true
   PREVIOUS_STATUS=''
+  ACTION=created
   echo "created PR #${NUMBER}"
 else
   WAS_DRAFT="$(jq -r '.isDraft' <<<"$EXISTING")"
@@ -53,10 +54,14 @@ else
   PREVIOUS_STATUS="$(jq -r '.body // ""' <<<"$EXISTING" |
     sed -n 's/.*sync-oss-develop: status=\([a-z-]*\).*/\1/p' | tail -1)"
   gh pr edit "$NUMBER" --title "$TITLE" --body-file "$REPORT"
+  ACTION=updated
   echo "updated PR #${NUMBER} (was draft=${WAS_DRAFT}, previous status=${PREVIOUS_STATUS:-none})"
 fi
 
-echo "number=${NUMBER}" >> "${GITHUB_OUTPUT:-/dev/null}"
+{
+  echo "number=${NUMBER}"
+  echo "action=${ACTION}"
+} >> "${GITHUB_OUTPUT:-/dev/null}"
 
 # Draft state can only be changed through GraphQL; REST PATCH /pulls ignores
 # `draft`. `gh pr ready` wraps the right mutations.

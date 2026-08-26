@@ -181,6 +181,7 @@ jobs:
     outputs:
       status: ${{ steps.classify.outputs.status }}
       pr_number: ${{ steps.pr.outputs.number }}
+      pr_action: ${{ steps.pr.outputs.action }}
       handoff: ${{ steps.finalise.outputs.handoff }}
       # '0' when the resolver was skipped, which is most days — reported anyway,
       # because "this sync cost nothing" is the number worth seeing regularly.
@@ -805,7 +806,8 @@ jobs:
           || needs.probe.outputs.blocked_reason != ''
           || needs.sync.outputs.status == 'blocked-workflow-files'
           || needs.sync.outputs.status == 'needs-human'
-          || needs.sync.outputs.ai_invoked == 'true')
+          || needs.sync.outputs.ai_invoked == 'true'
+          || needs.sync.outputs.pr_action != '')
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -833,6 +835,7 @@ jobs:
           AI_COST: ${{ needs.sync.outputs.ai_cost_usd }}
           AI_TURNS: ${{ needs.sync.outputs.ai_turns }}
           AI_INVOKED: ${{ needs.sync.outputs.ai_invoked }}
+          PR_ACTION: ${{ needs.sync.outputs.pr_action }}
           WF_FILES: ${{ needs.sync.outputs.wf_files }}
           SYNC_RESULT: ${{ needs.sync.result }}
           PROBE_RESULT: ${{ needs.probe.result }}
@@ -854,7 +857,11 @@ jobs:
             SUMMARY="This sync merges upstream changes to \`.github/workflows/**\`, which the default GITHUB_TOKEN cannot push. Nothing was pushed. Finish this one by hand — see \`.github/fork-sync/GUIDE.md\`, and re-apply the fork deltas in \`e2e.yml\`."
           elif [ "$SYNC_STATUS" = 'green' ]; then
             STATUS='green'
-            SUMMARY='The sync verified cleanly and auto-merge was requested. Reported only because the resolver was invoked, so this run had a model cost — see below.'
+            case "${PR_ACTION:-}" in
+              created) SUMMARY='The sync verified cleanly, a pull request was opened and auto-merge was requested. It still needs a human approval before it can land.' ;;
+              updated) SUMMARY='The sync verified cleanly and the existing pull request was updated with the new upstream commits. Auto-merge was requested; it still needs a human approval.' ;;
+              *)       SUMMARY='The sync verified cleanly and auto-merge was requested.' ;;
+            esac
           elif [ "$SYNC_STATUS" = 'needs-human' ] && [ "$SYNC_HANDOFF" = 'true' ]; then
             STATUS='needs-human'
             SUMMARY='The merge conflicted, so it was committed with its conflict markers in place and pushed as a draft PR for someone to resolve. Nothing was verified and no model was invoked, so CI on that PR will be red until the conflicts are resolved. Until it is finished, later syncs will refuse to merge on top.'
@@ -887,7 +894,8 @@ jobs:
               printf '%s\n' "$WF_FILES" | sed 's/^/  - /'
             fi
             if [ -n "$PR_NUMBER" ]; then
-              printf 'pull request: %s/%s/pull/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PR_NUMBER"
+              printf 'pull request: %s/%s/pull/%s%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$PR_NUMBER" \
+                "${PR_ACTION:+ ($PR_ACTION)}"
             fi
           } > details.txt
 
