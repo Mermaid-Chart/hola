@@ -383,6 +383,33 @@ jobs:
           && steps.merge.outputs.conflicted == 'true'
         run: bash .github/fork-sync/autoresolve.sh
 
+      # A fully auto-resolved merge is still an OPEN merge — `git merge` never
+      # committed it — so it has to be closed before anything else commits, or the
+      # next `git commit` silently becomes the merge commit and takes its message.
+      # Run 32953582507 stopped here: the version step correctly refused to commit
+      # while MERGE_HEAD existed.
+      - name: Close the auto-resolved merge
+        id: closemerge
+        if: >-
+          steps.prepare.outputs.already_merged != 'true'
+          && steps.wfcheck.outputs.blocked != 'true'
+          && steps.merge.outputs.conflicted == 'true'
+          && steps.autoresolve.outputs.remaining == '0'
+        run: |
+          set -euo pipefail
+          UNMERGED="$(git diff --name-only --diff-filter=U)"
+          if [ -n "$UNMERGED" ]; then
+            echo "::error title=Still unmerged::autoresolve.sh reported nothing left, but git disagrees:"
+            printf '%s\n' "$UNMERGED"
+            exit 1
+          fi
+          # --no-edit keeps the merge message written by the merge step, so the
+          # commit still records what was merged rather than being titled after
+          # whatever happened to commit next.
+          git commit --no-edit --no-verify
+          echo 'completed=true' >> "$GITHUB_OUTPUT"
+          echo "::notice title=Merge closed::Every conflict had a mechanical recipe, so the merge was completed without a handoff."
+
       # MUST NOT run on a conflicted merge. Its `git add -A && git commit`
       # COMPLETES the in-progress merge: MERGE_HEAD disappears, the conflicted
       # paths get staged as-is, and the commit silently becomes the merge commit.
@@ -470,12 +497,14 @@ jobs:
         if: steps.prepare.outputs.already_merged != 'true' && steps.wfcheck.outputs.blocked != 'true'
         env:
           MERGE_CONFLICTED: ${{ steps.merge.outputs.conflicted }}
+          MERGE_CLOSED: ${{ steps.closemerge.outputs.completed }}
         run: |
           set -euo pipefail
           # If the merge step reported conflicts, the merge must still be open when
           # we get here. Anything else means an intervening step committed it, and
           # a `DU`/`UD` conflict leaves no marker to notice that by.
           if [ "$MERGE_CONFLICTED" = 'true' ] &&
+             [ "${MERGE_CLOSED:-}" != 'true' ] &&
              [ ! -f "$(git rev-parse --git-path MERGE_HEAD)" ]; then
             echo "::error title=Merge completed behind our back::The merge step reported conflicts, but MERGE_HEAD is gone, so some step between them committed it. Conflicted paths may have been staged unreviewed. Refusing to continue."
             exit 1
@@ -519,6 +548,23 @@ jobs:
               git commit --no-edit --no-verify
             fi
           fi
+          # The resolver's only trigger is now a CLEAN merge that went red — and a
+          # clean merge is already committed, so MERGE_HEAD is absent and the block
+          # above does nothing at all. Without this, the resolver's entire output
+          # would stay uncommitted: the push would carry none of it, while full
+          # verification would still pass because it reads the working tree. A
+          # false green, on the one path the model still runs on.
+          if [ "$HANDOFF" != 'true' ]; then
+            git add -A
+            if ! git diff --cached --quiet; then
+              echo "::notice title=Committing the repair::Changes were left in the working tree after the merge commit."
+              git diff --cached --name-only | sed 's/^/  /'
+              git commit --no-verify \
+                -m "fix(sync): repair the upstream merge" \
+                -m "Changes made after the merge commit to get the tree verifiably green."
+            fi
+          fi
+
           echo "handoff=${HANDOFF}" >> "$GITHUB_OUTPUT"
           if [ "$HANDOFF" != 'true' ] &&
              git grep -nIE '^(<{7}|={7}|>{7})( |$)' -- . ':(exclude)*.md' | head -5 | grep .; then
