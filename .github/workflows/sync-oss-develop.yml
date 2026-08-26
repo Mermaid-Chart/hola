@@ -323,24 +323,26 @@ jobs:
           BASE_BEFORE: ${{ steps.prepare.outputs.base_before }}
         run: |
           set -euo pipefail
-          # Two questions, because one of them is blind half the time.
+          # Ask exactly what GitHub asks: does the MERGE RESULT change any
+          # workflow file relative to the base? GitHub evaluates the pushed
+          # ref's tree, not the history behind it.
           #
-          # A conflicted `git merge` creates no commit, so HEAD is still the
-          # pre-merge tip and a two-dot BASE..HEAD diff sees none of what
-          # upstream brought. Measured on os_repo/6623-add-image-icons-support-
-          # to-sequence-diagram: 9 conflicted files, and BASE..HEAD reported 0
-          # changes in a directory upstream had changed 5 files in. That made
-          # the check blind on precisely the large, conflicted merges most
-          # likely to touch workflows — it would spend ~35 min and ~$8.50 on the
-          # resolver and then die at `git push`, which is what it exists to
-          # prevent.
+          # The index IS the merge result, whether or not the merge committed: a
+          # clean merge leaves the index equal to HEAD, and a conflicted merge
+          # leaves cleanly-merged paths at stage 0 and conflicted ones unmerged
+          # — `git diff --cached` reports both. So this one command also covers
+          # the conflicted case a two-dot BASE..HEAD diff is blind to, since no
+          # commit means HEAD has not moved.
           #
-          # So: the three-dot diff asks "what does the upstream side bring?",
-          # which is commit-state independent, and the two-dot asks "what does
-          # the branch already carry?". Either one is a stop.
-          INCOMING="$(git diff --name-only "${BASE_BEFORE}...${UPSTREAM_SHA}" -- .github/workflows/ || true)"
-          CARRIED="$(git diff --name-only "${BASE_BEFORE}..HEAD" -- .github/workflows/ || true)"
-          CHANGED="$(printf '%s\n%s\n' "$INCOMING" "$CARRIED" | grep -v '^$' | sort -u || true)"
+          # Do NOT use a three-dot BASE...UPSTREAM diff here. It looks like the
+          # right question — "what does the upstream side bring?" — but this
+          # fork has MULTIPLE merge bases with upstream, so git picks one
+          # arbitrarily and the diff spans changes the fork already has. On
+          # 2026-08-25 that blocked a perfectly pushable sync (run 32932066031):
+          # three-dot reported .github/workflows/e2e.yml while the merge result
+          # changed no workflow file at all, because e2e.yml's only remaining
+          # difference from upstream is the fork's own permanent deltas.
+          CHANGED="$(git diff --cached --name-only "$BASE_BEFORE" -- .github/workflows/ || true)"
           if [ -n "$CHANGED" ]; then
             echo 'blocked=true' >> "$GITHUB_OUTPUT"
             { echo 'files<<EOF'; printf '%s\n' "$CHANGED"; echo 'EOF'; } >> "$GITHUB_OUTPUT"
