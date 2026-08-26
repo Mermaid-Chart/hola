@@ -60,12 +60,10 @@ const merge = (base, ours, theirs, trail = []) => {
       ...new Set([...Object.keys(ours), ...Object.keys(theirs), ...Object.keys(base ?? {})]),
     ];
     for (const k of keys) {
-      const merged = merge(
-        isPlainObject(base) ? base[k] : undefined,
-        ours[k],
-        theirs[k],
-        [...trail, k]
-      );
+      const merged = merge(isPlainObject(base) ? base[k] : undefined, ours[k], theirs[k], [
+        ...trail,
+        k,
+      ]);
       // `undefined` means the key is deleted on the winning side.
       if (merged !== undefined) {
         out[k] = merged;
