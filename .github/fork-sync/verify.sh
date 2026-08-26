@@ -90,12 +90,22 @@ run eslint env NODE_OPTIONS=--max-old-space-size=5120 \
 # files that are not even tracked. Checking tracked files only sidesteps it.
 prettier_tracked() {
   local out bad
-  out="$(git ls-files -z | xargs -0 npx prettier --cache --check 2>&1 || true)"
-  # Two error classes are benign and expected when files are passed explicitly
-  # rather than globbed: binary/unknown types (images, .mmd fixtures) have no
-  # parser, and CHANGELOG.md is a symlink that .prettierignore deliberately
-  # excludes. Anything else — and every [warn] — is a real finding.
+  # Deliberately the SAME invocation as the repo's own `pnpm lint`, so this gate
+  # cannot disagree with the check that gates the pull request. The previous form
+  # — `git ls-files -z | xargs -0 npx prettier --check` — passed a tree that
+  # `pnpm lint` failed on (an unformatted .github/fork-sync/*.mjs, run
+  # 32955797225 vs lint run 32957466260). Whatever the mechanism, a gate that
+  # disagrees with CI is worse than no gate: it grants confidence CI then
+  # withdraws.
+  out="$(npx prettier --cache --check . 2>&1 || true)"
+  # The one tolerated class, and the reason a bare `prettier --check .` was
+  # avoided before: `docs:code` writes generated files into
+  # packages/mermaid/src/docs/config/setup/, ignored only by the NESTED
+  # packages/mermaid/.gitignore, which prettier does not read. autoresolve.sh now
+  # runs docs:build, so those files may well be present. Scoped to that one path
+  # rather than filtering by message, so a real finding cannot hide behind it.
   bad="$(grep -E '^\[(warn|error)\]' <<<"$out" |
+    grep -vE 'packages/mermaid/src/docs/config/setup/' |
     grep -vE 'No parser could be inferred|is a symbolic link' || true)"
   if [ -n "$bad" ]; then
     printf '%s\n' "$bad" | head -40
