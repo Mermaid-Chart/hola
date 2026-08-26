@@ -16,6 +16,9 @@ UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-develop}"
 LAST_SYNCED_SHA="${LAST_SYNCED_SHA:-}"
 COMMIT_COUNT="${COMMIT_COUNT:-0}"
 CONFLICTED="${CONFLICTED:-false}"
+AI_COST="${AI_COST:-0}"
+AI_TURNS="${AI_TURNS:-0}"
+AI_INVOKED="${AI_INVOKED:-false}"
 # A conflicted merge no longer implies a handoff: autoresolve.sh may have settled
 # every conflict mechanically, in which case this run is a normal green sync.
 # HANDOFF is the truth about whether markers were committed for a human.
@@ -54,6 +57,14 @@ else
 fi
 echo "| Incoming commits | ${COMMIT_COUNT} |"
 echo "| Conflicts | ${CONFLICTED} |"
+# Recorded on every sync, including the many that cost nothing — the point is to
+# watch the trend and know when the strategy needs revisiting, which a number
+# that only appears on expensive runs cannot tell you.
+if [ "${AI_INVOKED:-false}" = 'true' ]; then
+  printf '| AI cost | %s%.2f over %s turns |\n' '$' "${AI_COST:-0}" "${AI_TURNS:-0}"
+else
+  printf '| AI cost | %s0.00 — resolver not invoked |\n' '$'
+fi
 echo
 
 if [ "$STATUS" = 'blocked-workflow-files' ] && [ -n "$WF_FILES" ]; then
