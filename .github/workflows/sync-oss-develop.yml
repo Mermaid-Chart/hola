@@ -81,6 +81,13 @@ jobs:
     if: github.repository == 'Mermaid-Chart/alana-mermaid'
     runs-on: ubuntu-slim
     timeout-minutes: 5
+    # This job has no checkout, so `gh` has no git remote to infer the repository
+    # from and every call dies with "fatal: not a git repository". Actions sets
+    # GITHUB_REPOSITORY, but gh does not read it — GH_REPO is the one it honours.
+    # Job-level rather than step-level so a later `gh` call cannot reintroduce
+    # this. See runs 33150274197 / 33234507941 / 33293162181.
+    env:
+      GH_REPO: ${{ github.repository }}
     outputs:
       should_run: ${{ steps.decide.outputs.should_run }}
       upstream_sha: ${{ steps.decide.outputs.upstream_sha }}
