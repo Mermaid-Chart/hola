@@ -88,6 +88,15 @@ jobs:
     # this. See runs 33150274197 / 33234507941 / 33293162181.
     env:
       GH_REPO: ${{ github.repository }}
+    # The workflow default is `contents: read`, which does not cover the
+    # repository.pullRequests GraphQL field behind `gh pr list` — it failed with
+    # "Resource not accessible by integration" (run 33377094009). A job-level
+    # block REPLACES the inherited set rather than adding to it, so `contents:
+    # read` has to be restated here for the ls-remote calls. Read-only on
+    # purpose: `sync` is the only job that may write.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       should_run: ${{ steps.decide.outputs.should_run }}
       upstream_sha: ${{ steps.decide.outputs.upstream_sha }}
