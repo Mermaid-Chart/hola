@@ -6,7 +6,7 @@ import type {
   DiagramLoader,
   ExternalDiagramDefinition,
 } from './types.js';
-import { anyCommentRegex, directiveRegex, frontMatterRegex } from './regexes.js';
+import { directiveRegex, frontMatterRegex, stripAnyComments } from './regexes.js';
 import { UnknownDiagramError } from '../errors.js';
 
 export const detectors: Record<string, DetectorRecord> = {};
@@ -37,10 +37,13 @@ export const detectType = function (text: string, config?: MermaidConfig): strin
   // Strip header prelude (front matter, directives, comments, blank lines) only at the top
   // Then detect based on the first significant keyword to avoid false positives in labels/strings
   const headerlessText = stripHeaderPrelude(text);
-  const cleanedText = text
-    .replace(frontMatterRegex, '') // no-op after stripHeaderPrelude, but safe
-    .replace(directiveRegex, '') // defensive if any directive remains at the top
-    .replace(anyCommentRegex, '\n');
+  // `stripAnyComments` is the linear-time equivalent of `.replace(anyCommentRegex, '\n')`,
+  // and regexes.ts requires callers to use it rather than the regex directly.
+  const cleanedText = stripAnyComments(
+    text
+      .replace(frontMatterRegex, '') // no-op after stripHeaderPrelude, but safe
+      .replace(directiveRegex, '') // defensive if any directive remains at the top
+  );
 
   // Robust anchored check for specific diagram types (after header prelude);
   // keep inside the loop so that detection before diagram registration still throws

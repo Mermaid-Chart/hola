@@ -96,6 +96,13 @@ class Theme {
     // this.actorBorder = lighten(this.border1, 0.5);
     this.actorBorder = this.actorBorder || this.primaryBorderColor;
     this.actorBkg = this.actorBkg || this.mainBkg;
+    // A `rect` section band falls back to `actorBkg`, which is `#ffffff` here on a
+    // `#ffffff` background — present in the DOM and invisible on screen. Same derivation
+    // the other modern light themes use, and direction-aware for the same reason:
+    // darken() is a no-op at pure black, so an override to #000000 shades the other way.
+    this.rectBkgColor =
+      this.rectBkgColor ||
+      (isDark(this.background) ? lighten(this.background, 4) : darken(this.background, 4));
     this.actorTextColor = this.actorTextColor || this.primaryTextColor;
     this.actorLineColor = this.actorLineColor || this.actorBorder;
     this.labelBoxBkgColor = this.labelBoxBkgColor || this.actorBkg;
