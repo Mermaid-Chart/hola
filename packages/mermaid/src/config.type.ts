@@ -98,6 +98,9 @@ export interface MermaidConfig {
   /**
    * Defines which layout algorithm to use for rendering the diagram.
    *
+   * Defaults to `elk`, which is bundled with mermaid. The `tiny` build omits
+   * ELK to stay small and falls back to `dagre`.
+   *
    */
   layout?: string;
   /**
@@ -1190,6 +1193,11 @@ export interface StateDiagramConfig extends BaseDiagramConfig {
    *
    */
   look?: 'classic' | 'handDrawn' | 'neo';
+  /**
+   * Defines which layout algorithm to use for rendering the diagram.
+   *
+   */
+  layout?: string;
   /**
    * Margin top for the text over the diagram
    */
