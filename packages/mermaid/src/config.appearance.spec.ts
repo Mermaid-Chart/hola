@@ -44,15 +44,6 @@ const UNCHANGED_DIAGRAMS = {
 } as const;
 
 /**
- * Read rather than named: this fork defaults every diagram to the neo theme and look,
- * where upstream defaults to `default`/`classic`. Taking them from `defaultConfig` keeps
- * these assertions exactly as strong while letting the schema stay the one place the
- * fork's choice is written down.
- */
-const GLOBAL_DEFAULT_THEME = defaultConfig.theme;
-const GLOBAL_DEFAULT_LOOK = defaultConfig.look;
-
-/**
  * The config the renderers are handed for `text`. Scope is bounded to the parse, so it is
  * re-established here over the same directives to read back the resolution it performed.
  */
@@ -92,8 +83,8 @@ describe('per-diagram appearance defaults', () => {
       '%s keeps the global default theme and look',
       async (_type, text) => {
         const config = await configFor(text);
-        expect(config.theme).toBe(GLOBAL_DEFAULT_THEME);
-        expect(config.look).toBe(GLOBAL_DEFAULT_LOOK);
+        expect(config.theme).toBe('default');
+        expect(config.look).toBe('classic');
       }
     );
 
@@ -192,15 +183,15 @@ describe('per-diagram appearance defaults', () => {
   describe('scope', () => {
     it('does not leak the previous diagram type into the next one', async () => {
       expect((await configFor(REDESIGNED_DIAGRAMS.flowchart)).theme).toBe('redux-color');
-      expect((await configFor(UNCHANGED_DIAGRAMS.pie)).theme).toBe(GLOBAL_DEFAULT_THEME);
+      expect((await configFor(UNCHANGED_DIAGRAMS.pie)).theme).toBe('default');
     });
 
     it('leaves the global defaults in charge once the parse is over', async () => {
       // Scope lasts exactly as long as the parse or render, so an embedder reading
       // `getConfig()` between them does not get the last diagram's appearance.
       await mermaidAPI.parse(REDESIGNED_DIAGRAMS.flowchart);
-      expect(getConfig().theme).toBe(GLOBAL_DEFAULT_THEME);
-      expect(getConfig().look).toBe(GLOBAL_DEFAULT_LOOK);
+      expect(getConfig().theme).toBe('default');
+      expect(getConfig().look).toBe('classic');
     });
   });
 

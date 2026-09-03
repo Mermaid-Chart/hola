@@ -27,7 +27,7 @@ import {
   STMT_STATE,
   STMT_STYLEDEF,
 } from './stateCommon.js';
-import type { MermaidConfig, StateDiagramConfig } from '../../config.type.js';
+import type { MermaidConfig } from '../../config.type.js';
 
 const CONSTANTS = {
   START_NODE: '[*]',
@@ -183,7 +183,6 @@ export interface Edge {
   thickness: string;
   classes: string;
   look: MermaidConfig['look'];
-  curve: StateDiagramConfig['curve'];
   /**
    * Stroke pattern, read by `insertEdge`. The note edge is the only state edge that sets
    * it; see the note-edge push in `dataFetcher.ts` for why the CSS class is not enough.

@@ -1219,11 +1219,6 @@ export interface StateDiagramConfig extends BaseDiagramConfig {
   compositTitleSize?: number;
   radius?: number;
   /**
-   * Defines how mermaid renders curves for flowcharts.
-   *
-   */
-  curve?: 'basis' | 'linear' | 'cardinal' | 'rounded';
-  /**
    * Decides which rendering engine that is to be used for the rendering.
    *
    */

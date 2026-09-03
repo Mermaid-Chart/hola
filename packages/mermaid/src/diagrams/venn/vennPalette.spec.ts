@@ -25,12 +25,8 @@ const vennColorsOf = (name: string) =>
 /**
  * Deliberately flat: their `cScale` is uniform grey in `redux` and near-black in the
  * others. Listed, so a new theme without venn colours fails the check below.
- *
- * `mc` is this fork's own theme and has never defined a `venn*` slot, so it renders flat
- * like the four above. Picking eight branded slot colours for it is a design decision, not
- * a merge one — until someone makes it, this records what `mc` actually does.
  */
-const NO_VENN_PALETTE = ['neo', 'neo-dark', 'redux', 'redux-dark', 'mc'];
+const NO_VENN_PALETTE = ['neo', 'neo-dark', 'redux', 'redux-dark'];
 
 const WITH_VENN_PALETTE = Object.keys(themes).filter((name) => !NO_VENN_PALETTE.includes(name));
 

@@ -189,7 +189,6 @@ const setupDoc = (
             thickness: G_EDGE_THICKNESS,
             classes: CSS_EDGE,
             look,
-            curve: config.state?.curve,
           };
           edges.push(edgeData);
           graphItemCount++;
@@ -484,7 +483,6 @@ export const dataFetcher = (
         labelType: G_EDGE_LABELTYPE,
         thickness: G_EDGE_THICKNESS,
         look,
-        curve: config.state?.curve,
       });
     } else {
       insertOrUpdateNode(nodes, nodeData, classes);

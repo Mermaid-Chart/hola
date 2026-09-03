@@ -228,7 +228,7 @@ const getStyles = (options: FlowChartStyleOptions) =>
   .cluster rect {
     fill: ${options.clusterBkg};
     stroke: ${options.clusterBorder};
-    stroke-width: ${options.strokeWidth}px;
+    stroke-width: 1px;
   }
 
   .cluster text {

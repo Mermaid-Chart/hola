@@ -170,14 +170,14 @@ g.stateGroup line {
   opacity: 0.5;
 }
 .edgeLabel {
-  background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
+  background-color: ${options.edgeLabelBackground};
   p {
-    background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
+    background-color: ${options.edgeLabelBackground};
   }
   rect {
     opacity: 0.5;
-    background-color: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
-    fill: ${options.stateEdgeLabelBackground ?? options.edgeLabelBackground};
+    background-color: ${options.edgeLabelBackground};
+    fill: ${options.edgeLabelBackground};
   }
   text-align: center;
 }
@@ -205,35 +205,21 @@ g.stateGroup line {
 }
 
 .node circle.state-end {
-  fill:  ${options.stateBkg || options.mainBkg};
+  fill: ${options.innerEndBackground};
   stroke: ${options.background};
-  stroke-width: 1.5;
+  stroke-width: 1.5
 }
-
-[data-look="neo"].node circle.state-end {
-  filter: none;
-  stroke:${options.background};
-  fill: ${options.lineColor};
-}
-
 .end-state-inner {
   fill: ${options.compositeBackground || options.background};
-  stroke: ${options.background};
-  stroke-width: 1.5;
+  // stroke: ${options.background};
+  stroke-width: 1.5
 }
 
 .node rect {
   fill: ${options.stateBkg || options.mainBkg};
   stroke: ${options.stateBorder || options.nodeBorder};
-  stroke-width: ${options.strokeWidth};
-}
-
-.node-rect-neo {
-  fill: ${options.stateBkg || options.mainBkg};
-  stroke: none;
   stroke-width: ${options.strokeWidth || 1}px;
 }
-
 .node polygon {
   fill: ${options.mainBkg};
   stroke: ${options.stateBorder || options.nodeBorder};;
@@ -251,27 +237,26 @@ g.stateGroup line {
 
 .cluster-label, .nodeLabel {
   color: ${options.stateLabelColor};
-  line-height: 1.0;
-  font-weight: ${options.fontWeight}
+  // line-height: 1;
 }
 
 .statediagram-cluster rect.outer {
-  rx: ${options.radius}px;
-  ry: ${options.radius}px;
+  rx: 5px;
+  ry: 5px;
 }
 .statediagram-state .divider {
   stroke: ${options.stateBorder || options.nodeBorder};
 }
 
 .statediagram-state .title-state {
-  rx: ${options.radius}px;
-  ry: ${options.radius}px;
+  rx: 5px;
+  ry: 5px;
 }
 .statediagram-cluster.statediagram-cluster .inner {
   fill: ${options.compositeBackground || options.background};
 }
 .statediagram-cluster.statediagram-cluster-alt .inner {
-  fill: ${options.altBackground ? options.altBackground : '#f0f0f0'};
+  fill: ${options.altBackground ? options.altBackground : '#efefef'};
 }
 
 .statediagram-cluster .inner {
@@ -280,16 +265,9 @@ g.stateGroup line {
 }
 
 .statediagram-state rect.basic {
-  rx: ${options.radius}px;
-  ry: ${options.radius}px;
+  rx: 5px;
+  ry: 5px;
 }
-
-
-.state-shadow-neo {
-  filter: ${options.dropShadow};
-}
-
-
 .statediagram-state rect.divider {
   stroke-dasharray: 10,10;
   fill: ${options.altBackground ? options.altBackground : '#efefef'};
@@ -321,11 +299,6 @@ g.stateGroup line {
 .statediagram-note .nodeLabel {
   color: ${options.noteTextColor};
 }
-
-.node.statediagram-note rect {
-  stroke: ${options.noteBorderColor} !important;
-}
-
 .statediagram .edgeLabel {
   color: red; // ${options.noteTextColor};
 }

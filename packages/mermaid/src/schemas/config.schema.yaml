@@ -63,17 +63,14 @@ required:
 properties:
   theme:
     $ref: '#/$defs/BaseDiagramConfig/properties/theme'
-    # Fork delta: upstream defaults to 'default' at the top level and sets
-    # 'redux-color' per diagram type. This fork defaults every diagram to neo.
-    default: 'neo'
+    default: 'default'
   themeVariables:
     tsType: any
   themeCSS:
     type: string
   look:
     $ref: '#/$defs/BaseDiagramConfig/properties/look'
-    # Fork delta: upstream defaults to 'classic' at the top level.
-    default: 'neo'
+    default: 'classic'
   handDrawnSeed:
     description: |
       Defines the seed to be used when using handDrawn look. This is important for the automated tests as they will always find differences without the seed. The default value is 0 which gives a random seed.
@@ -1729,12 +1726,6 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
       radius:
         type: number
         default: 5
-      curve:
-        description: |
-          Defines how mermaid renders curves for flowcharts.
-        type: string
-        enum: ['basis', 'linear', 'cardinal', 'rounded']
-        default: 'rounded'
       defaultRenderer:
         description: |
           Decides which rendering engine that is to be used for the rendering.
@@ -2565,7 +2556,7 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
             'stepBefore',
             'rounded',
           ]
-        default: 'rounded'
+        default: 'basis'
       edgeDebug:
         description: |
           Highlights the points in an edge for debugging.

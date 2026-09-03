@@ -10,12 +10,8 @@ import erStyles from './diagrams/er/styles.js';
 import { mermaidAPI } from './mermaidAPI.js';
 import themes from './themes/index.js';
 
-/**
- * What mermaid renders with when neither the user nor the diagram type says otherwise.
- * Read rather than named: this fork defaults to `neo` where upstream defaults to
- * `default`, and `defaultConfig` is the one place that choice is written down.
- */
-const GLOBAL_DEFAULT_THEME = configApi.defaultConfig.theme as keyof typeof themes;
+/** What mermaid renders with when neither the user nor the diagram type says otherwise. */
+const GLOBAL_DEFAULT_THEME = 'default';
 
 /** What the diagram types redesigned for it default to instead. */
 const DIAGRAM_DEFAULT_THEME = 'redux-color';

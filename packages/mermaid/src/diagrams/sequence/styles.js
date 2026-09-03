@@ -18,8 +18,6 @@ const getStyles = (options) => {
       stroke:${options.noteBorderColor};
       fill:${options.noteBkgColor};
       filter: ${dropShadow};
-      stroke-width: ${options.strokeWidth};
-
   }
 
   text.actor > tspan {
@@ -37,13 +35,13 @@ const getStyles = (options) => {
   }
 
   .messageLine0 {
-    stroke-width: ${options.strokeWidth};
+    stroke-width: 1.5;
     stroke-dasharray: none;
     stroke: ${options.signalColor};
   }
 
   .messageLine1 {
-    stroke-width: ${options.strokeWidth};
+    stroke-width: 1.5;
     stroke-dasharray: 2, 2;
     stroke: ${options.signalColor};
   }
@@ -151,8 +149,6 @@ const getStyles = (options) => {
   g rect.rect {
     filter: ${dropShadow};
     stroke: ${options.nodeBorder};
-    stroke-width: ${options.strokeWidth};
-
   }
 `;
 };

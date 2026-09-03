@@ -109,6 +109,7 @@ const getStyles = (options) =>
     stroke-width: ${options.strokeWidth};
   }
 
+
 .divider {
   stroke: ${options.nodeBorder};
   stroke-width: 1;
@@ -225,7 +226,7 @@ g.classGroup line {
   fill: ${options.textColor};
 }
 
-.edgeLabel {
+.edgeLabel[data-look="neo"] {
   background-color: ${options.edgeLabelBackground};
   p {
     background-color: ${options.edgeLabelBackground};
@@ -236,11 +237,6 @@ g.classGroup line {
     fill: ${options.edgeLabelBackground};
   }
   text-align: center;
-}
-  .cluster rect {
-  fill: ${options.clusterBkg};
-  stroke: ${options.clusterBorder};
-  stroke-width: ${options.strokeWidth}px;
 }
   ${getIconStyles()}
 `;
