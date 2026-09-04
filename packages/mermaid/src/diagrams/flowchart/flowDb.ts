@@ -1824,6 +1824,7 @@ You have to call mermaid.initialize.`
           ...baseNode,
           isGroup: false,
           shape: shapeFromVertex,
+          minWidth: config.flowchart?.minNodeWidth,
         });
       }
     }

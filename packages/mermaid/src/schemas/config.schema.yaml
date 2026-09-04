@@ -1662,6 +1662,8 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
       - titleTopMargin
       - useMaxWidth
       - defaultRenderer
+      - wrappingWidth
+      - minNodeWidth
     properties:
       theme:
         $ref: '#/$defs/BaseDiagramConfig/properties/theme'
@@ -1672,6 +1674,12 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
       layout:
         $ref: '#/$defs/BaseDiagramConfig/properties/layout'
         default: 'elk'
+      wrappingWidth:
+        $ref: '#/$defs/FlowchartDiagramConfig/properties/wrappingWidth'
+        default: 120
+      minNodeWidth:
+        $ref: '#/$defs/FlowchartDiagramConfig/properties/minNodeWidth'
+        default: 120
       titleTopMargin:
         $ref: '#/$defs/GitGraphDiagramConfig/properties/titleTopMargin'
         default: 25
@@ -2468,6 +2476,12 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
         type: integer
         minimum: 0
         default: 50
+      wrappingWidth:
+        $ref: '#/$defs/FlowchartDiagramConfig/properties/wrappingWidth'
+        default: 120
+      minNodeWidth:
+        $ref: '#/$defs/FlowchartDiagramConfig/properties/minNodeWidth'
+        default: 120
 
   FlowchartDiagramConfig:
     title: Flowchart Diagram Config
@@ -2485,6 +2499,7 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
       - useMaxWidth
       - defaultRenderer
       - wrappingWidth
+      - minNodeWidth
     properties:
       theme:
         $ref: '#/$defs/BaseDiagramConfig/properties/theme'
@@ -2588,7 +2603,17 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
           When using markdown strings the text is wrapped automatically, this
           value sets the max width of a text before it continues on a new line.
         type: number
-        default: 200
+        default: 120
+      minNodeWidth:
+        description: |
+          Minimum width of the label area of a node.
+
+          Labels narrower than this are widened to it, so nodes with short text
+          get a uniform width; the node's own padding is added on top, the same
+          way it is for `wrappingWidth`. Nodes with an explicit width are not
+          affected.
+        type: number
+        default: 120
 
       inheritDir:
         type: boolean
@@ -2899,6 +2924,8 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
     unevaluatedProperties: false
     required:
       - useMaxWidth
+      - wrappingWidth
+      - minNodeWidth
     properties:
       theme:
         $ref: '#/$defs/BaseDiagramConfig/properties/theme'
@@ -2906,6 +2933,12 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
       look:
         $ref: '#/$defs/BaseDiagramConfig/properties/look'
         default: 'neo'
+      wrappingWidth:
+        $ref: '#/$defs/FlowchartDiagramConfig/properties/wrappingWidth'
+        default: 120
+      minNodeWidth:
+        $ref: '#/$defs/FlowchartDiagramConfig/properties/minNodeWidth'
+        default: 120
       actorFontSize:
         description: Font size for actor labels
         type: number

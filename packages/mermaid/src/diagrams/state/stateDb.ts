@@ -166,6 +166,13 @@ export interface NodeData {
   labelType?: string;
   /** Palette slot for container shapes; see `nextColorSlot` in `dataFetcher.ts`. */
   colorIndex?: number;
+  /**
+   * Both are set by `getData()` from `state.wrappingWidth` / `state.minNodeWidth`, and both
+   * are declared on the shared `Node` type in `rendering-util/types.ts`. Declared here too
+   * because this interface is local to the state diagram rather than derived from `Node`.
+   */
+  wrappingWidth?: number;
+  minWidth?: number;
 }
 
 export interface Edge {
@@ -758,6 +765,12 @@ export class StateDB {
 
   getData() {
     const config = getConfig();
+    for (const node of this.nodes) {
+      node.wrappingWidth ??= config.state?.wrappingWidth;
+      if (!node.isGroup) {
+        node.minWidth ??= config.state?.minNodeWidth;
+      }
+    }
     return {
       nodes: this.nodes,
       edges: this.edges,

@@ -34,6 +34,10 @@ const compileUsecaseSchema = () => {
 const schema = configSchema as ConfigSchema;
 const usecaseDefinition = schema.$defs.UsecaseDiagramConfig;
 const baseDefinition = schema.$defs.BaseDiagramConfig;
+// `wrappingWidth` and `minNodeWidth` on the usecase config are `$ref`s into
+// `FlowchartDiagramConfig`, so the subset compiled below has to carry that definition
+// too or ajv cannot resolve them.
+const flowchartDefinition = schema.$defs.FlowchartDiagramConfig;
 
 const supportedConfig = {
   // The usecase diagram is one of the types that declares its own appearance
@@ -50,6 +54,8 @@ const supportedConfig = {
   rankSpacing: 50,
   diagramPadding: 20,
   colorScheme: 'role',
+  wrappingWidth: 120,
+  minNodeWidth: 120,
   useMaxWidth: true,
   // Fork-only: this fork adds `parser` to BaseDiagramConfig (JISON/ANTLR
   // selection), which every diagram config inherits through its `allOf`, so it
@@ -80,7 +86,7 @@ describe('usecase configuration', () => {
     expect(usecaseDefinition).toMatchObject({
       allOf: [{ $ref: '#/$defs/BaseDiagramConfig' }],
       unevaluatedProperties: false,
-      required: ['useMaxWidth'],
+      required: ['useMaxWidth', 'wrappingWidth', 'minNodeWidth'],
       properties: {
         theme: { default: 'redux-color' },
         look: { default: 'neo' },
@@ -96,12 +102,16 @@ describe('usecase configuration', () => {
         // `role` is the default deliberately: colour keyed to the kind of element is
         // invariant under insertion and reordering, where the rotating palette is not.
         colorScheme: { default: 'role' },
+        wrappingWidth: { default: 120 },
+        minNodeWidth: { default: 120 },
       },
     });
     expect(baseDefinition.properties?.useMaxWidth).toMatchObject({ default: true });
     expect(Object.keys(usecaseDefinition.properties ?? {})).toEqual([
       'theme',
       'look',
+      'wrappingWidth',
+      'minNodeWidth',
       'actorFontSize',
       'actorFontFamily',
       'actorFontWeight',
@@ -119,7 +129,7 @@ describe('usecase configuration', () => {
     const ajv = compileUsecaseSchema();
     const validate = ajv.compile({
       $schema: schema.$schema,
-      $defs: { BaseDiagramConfig: baseDefinition },
+      $defs: { BaseDiagramConfig: baseDefinition, FlowchartDiagramConfig: flowchartDefinition },
       ...usecaseDefinition,
     });
 
@@ -140,7 +150,7 @@ describe('usecase configuration', () => {
       const ajv = compileUsecaseSchema();
       return ajv.compile({
         $schema: schema.$schema,
-        $defs: { BaseDiagramConfig: baseDefinition },
+        $defs: { BaseDiagramConfig: baseDefinition, FlowchartDiagramConfig: flowchartDefinition },
         ...usecaseDefinition,
       });
     };
