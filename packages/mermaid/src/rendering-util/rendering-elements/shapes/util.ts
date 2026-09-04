@@ -26,13 +26,13 @@ import { c4LabelHelper } from './c4LabelHelper.js';
  * must keep the kind it was given, and SVG text stays centred as it grows.
  */
 export const withMinWidth = (bbox: DOMRect, minWidth: number): DOMRect => {
-  if (bbox.width >= minWidth) {
+  // Read the geometry up front: `getBBox()` hands back an SVGRect at runtime, which the
+  // DOM typings widen to DOMRect, so the `'left' in bbox` test below is a runtime check
+  // TypeScript believes can never fail and narrows `bbox` to `never` in its false branch.
+  const { x, y, width, height } = bbox;
+  if (width >= minWidth) {
     return bbox;
   }
-  // Destructured before the guard: `DOMRect` declares `left`, so TypeScript narrows `bbox`
-  // to `never` inside the negative branch and reading `bbox.width` there does not compile.
-  // The guard still does its job at runtime, where the value may be a plain object.
-  const { x, y, height, width } = bbox;
   if (!('left' in bbox)) {
     return { x: x - (minWidth - width) / 2, y, width: minWidth, height } as DOMRect;
   }
