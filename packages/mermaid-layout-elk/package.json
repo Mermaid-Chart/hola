@@ -26,6 +26,9 @@
     "url": "https://github.com/Mermaid-Chart/alana-mermaid",
     "directory": "packages/mermaid-layout-elk"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "contributors": [
     "Knut Sveidqvist",
     "Sidharth Vinod"
@@ -39,7 +42,7 @@
     "@mermaid-chart/mermaid": "workspace:^"
   },
   "peerDependencies": {
-    "@mermaid-chart/mermaid": "^11.0.0 || ^12.0.0"
+    "@mermaid-chart/mermaid": "workspace:^"
   },
   "files": [
     "dist",
