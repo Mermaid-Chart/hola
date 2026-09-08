@@ -14,23 +14,23 @@ export async function circle<T extends SVGGraphicsElement>(
 ) {
   const { labelStyles, nodeStyles } = styles2String(node);
   node.labelStyle = labelStyles;
-  // If incoming height & width are present, subtract the padding from them
-  // as labelHelper does not take padding into account
-  // also check if the width or height is less than minimum default values (50),
-  // if so set it to min value
   const { shapeSvg, bbox, halfPadding } = await labelHelper(parent, node, getNodeClasses(node));
-  const padding = node.padding ?? options?.padding ?? halfPadding ?? 0;
-  const labelPadding = node.look === 'neo' ? 16 : padding;
-  if (node.width || node.height) {
-    node.width = (node.width ?? 6) - labelPadding * 2;
-    node.height = node.width;
-  }
 
-  if (node?.width) {
-    node.width = node?.width - labelPadding * 2;
-  }
+  // Calculate radius based on look type
+  const labelPadding = 16;
+  const padding = options?.padding ?? halfPadding;
+  // Half the label box's diagonal, not half its width: a circle sized from the width alone
+  // clips every label taller than it is wide, which is what a narrow wrappingWidth produces.
+  const labelRadius = Math.sqrt(bbox.width ** 2 + bbox.height ** 2) / 2;
+  // Fork delta, and the only one in this file: a fixed-layout node carries its own size
+  // through `positions` (see `NodePosition`), so an explicit width wins over the
+  // label-derived radius. Every other shape honours it in upstream's own code.
+  const radius = node.width
+    ? node.width / 2
+    : node.look === 'neo'
+      ? labelRadius + labelPadding * 2
+      : labelRadius + padding;
 
-  const radius = (node?.width ? node?.width / 2 : bbox.width / 2) + labelPadding * 2;
   let circleElem;
   const { cssStyles } = node;
 

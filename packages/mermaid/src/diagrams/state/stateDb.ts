@@ -27,7 +27,7 @@ import {
   STMT_STATE,
   STMT_STYLEDEF,
 } from './stateCommon.js';
-import type { MermaidConfig, StateDiagramConfig } from '../../config.type.js';
+import type { MermaidConfig } from '../../config.type.js';
 
 const CONSTANTS = {
   START_NODE: '[*]',
@@ -164,6 +164,12 @@ export interface NodeData {
   position?: string;
   description?: string | string[];
   labelType?: string;
+  /** Palette slot for container shapes; see `nextColorSlot` in `dataFetcher.ts`. */
+  colorIndex?: number;
+  /** Width at which the label wraps; defaults from `state.wrappingWidth` in `getData`. */
+  wrappingWidth?: number;
+  /** Minimum width of the label area; defaults from `state.minNodeWidth` in `getData`. */
+  minWidth?: number;
 }
 
 export interface Edge {
@@ -181,7 +187,11 @@ export interface Edge {
   thickness: string;
   classes: string;
   look: MermaidConfig['look'];
-  curve: StateDiagramConfig['curve'];
+  /**
+   * Stroke pattern, read by `insertEdge`. The note edge is the only state edge that sets
+   * it; see the note-edge push in `dataFetcher.ts` for why the CSS class is not enough.
+   */
+  pattern?: 'solid' | 'dotted' | 'dashed';
 }
 
 /**
@@ -752,6 +762,12 @@ export class StateDB {
 
   getData() {
     const config = getConfig();
+    for (const node of this.nodes) {
+      node.wrappingWidth ??= config.state?.wrappingWidth;
+      if (!node.isGroup) {
+        node.minWidth ??= config.state?.minNodeWidth;
+      }
+    }
     return {
       nodes: this.nodes,
       edges: this.edges,

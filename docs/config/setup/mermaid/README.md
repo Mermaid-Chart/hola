@@ -13,10 +13,6 @@
 ## Interfaces
 
 - [AsyncIconLoader](interfaces/AsyncIconLoader.md)
-- [CommonLayoutPaintContext](interfaces/CommonLayoutPaintContext.md)
-- [CommonLayoutPaintOptions](interfaces/CommonLayoutPaintOptions.md)
-- [CommonLayoutRenderContext](interfaces/CommonLayoutRenderContext.md)
-- [CommonLayoutRendererDefinition](interfaces/CommonLayoutRendererDefinition.md)
 - [DetailedError](interfaces/DetailedError.md)
 - [ElementMapping](interfaces/ElementMapping.md)
 - [ElementPosition](interfaces/ElementPosition.md)
@@ -36,7 +32,6 @@
 
 ## Type Aliases
 
-- [CommonLayoutMeasure](type-aliases/CommonLayoutMeasure.md)
 - [IconLoader](type-aliases/IconLoader.md)
 - [InternalHelpers](type-aliases/InternalHelpers.md)
 - [ParseErrorFunction](type-aliases/ParseErrorFunction.md)
@@ -52,7 +47,3 @@
 - [calcIntersect](functions/calcIntersect.md)
 - [calcIntersections](functions/calcIntersections.md)
 - [calcNodeIntersections](functions/calcNodeIntersections.md)
-- [clearLayoutRenderState](functions/clearLayoutRenderState.md)
-- [createCommonLayoutRenderer](functions/createCommonLayoutRenderer.md)
-- [defaultMeasureLayout](functions/defaultMeasureLayout.md)
-- [paintLayoutData](functions/paintLayoutData.md)

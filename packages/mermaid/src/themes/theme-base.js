@@ -24,8 +24,8 @@ class Theme {
     this.strokeWidth = 1;
     // dark
 
-    this.fontFamily = 'arial, sans-serif';
-    this.fontSize = '14px';
+    this.fontFamily = '"trebuchet ms", verdana, arial, sans-serif';
+    this.fontSize = '16px';
     this.useGradient = true;
     this.dropShadow = 'drop-shadow( 1px 2px 2px rgba(185,185,185,1))';
   }
@@ -71,7 +71,6 @@ class Theme {
     this.flowContainerStroke = this.flowContainerStroke || this.secondaryBorderColor;
     this.nodeTextColor = this.nodeTextColor || this.primaryTextColor;
     /* Sequence Diagram variables */
-    this.clusterBkg = '#FFFFF8';
 
     // this.actorBorder = lighten(this.border1, 0.5);
     this.actorBorder = this.actorBorder || this.primaryBorderColor;
@@ -473,6 +472,22 @@ class Theme {
     keys.forEach((k) => {
       this[k] = overrides[k];
     });
+
+    /* `base` is the one theme documented as modifiable, so an explicit override has to be
+     * the thing that actually paints.
+     *
+     * Under `look: neo` the rules in `styles.ts` paint node strokes with
+     * `url(#…-gradient)` whenever `useGradient` is set, which `base` sets by default --
+     * so a custom `nodeBorder` was silently discarded, and the more specific the user was
+     * the less effect they had. Turning the gradient off when `nodeBorder` is overridden
+     * makes the override win, and costs nothing for anyone who has not set one.
+     *
+     * An explicit `useGradient` still takes precedence, so `{ nodeBorder, useGradient:
+     * true }` keeps the gradient and is the way to ask for both.
+     */
+    if (Object.hasOwn(overrides, 'nodeBorder') && !Object.hasOwn(overrides, 'useGradient')) {
+      this.useGradient = false;
+    }
   }
 }
 

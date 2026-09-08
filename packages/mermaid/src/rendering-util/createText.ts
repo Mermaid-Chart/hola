@@ -39,7 +39,8 @@ async function addHtmlSpan(
   addBackground = false,
   // TODO: Make config mandatory
   config: MermaidConfig = getConfig(),
-  overflowWrap: 'break-word' | 'anywhere' = 'break-word'
+  overflowWrap: 'break-word' | 'anywhere' = 'break-word',
+  minWidth = 0
 ) {
   const fo = element.append('foreignObject');
   const width = _width < 0 ? 0 : _width;
@@ -79,6 +80,10 @@ async function addHtmlSpan(
     div.style('display', 'table');
     div.style('white-space', 'break-spaces');
     div.style('width', width + 'px');
+  } else if (bbox.width < minWidth) {
+    div.style('display', 'table');
+    div.style('width', minWidth + 'px');
+    div.style('text-align', 'center');
   }
 
   return fo.node()!;
@@ -317,6 +322,11 @@ export const createText = async (
      * The width to wrap the text within. Set to `Number.POSITIVE_INFINITY` for no wrapping.
      */
     width = 200,
+    /**
+     * The minimum width of the label; narrower text is widened to it. `0` disables it.
+     * Only applies to HTML labels — SVG text has no box to size.
+     */
+    minWidth = 0,
     addSvgBackground = false,
     overflowWrap = 'break-word' as 'break-word' | 'anywhere',
   } = {},
@@ -354,7 +364,8 @@ export const createText = async (
       classes,
       addSvgBackground,
       config,
-      overflowWrap
+      overflowWrap,
+      minWidth
     );
     return vertexNode;
   } else {

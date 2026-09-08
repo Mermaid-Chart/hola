@@ -24,6 +24,7 @@ import * as configApi from './config.js';
 import { getEffectiveHtmlLabels } from './config.js';
 import type { MermaidConfig } from './config.type.js';
 import { addDiagrams } from './diagram-api/diagram-orchestration.js';
+import { detectType } from './diagram-api/detectType.js';
 import type {
   DiagramCode,
   DiagramMetadata,
@@ -77,6 +78,15 @@ const DOMPURIFY_ATTR = ['dominant-baseline'];
 function processAndSetConfigs(text: string) {
   const processed = preprocessDiagram(text);
   configApi.reset();
+  // The config needs the diagram type to apply that type's appearance defaults. Text
+  // matching nothing leaves the global defaults in charge; parse raises the real error.
+  let diagramType: string | undefined;
+  try {
+    diagramType = detectType(processed.code.cleaned, configApi.getConfig());
+  } catch {
+    diagramType = undefined;
+  }
+  configApi.setDiagramConfigScope(diagramType);
   configApi.addDirective(processed.config ?? {});
   return processed;
 }
@@ -110,6 +120,8 @@ async function parse(
       return { code: '', config: {}, success: false, error };
     }
     throw error;
+  } finally {
+    configApi.setDiagramConfigScope(undefined);
   }
 }
 
@@ -470,7 +482,7 @@ export const removeExistingElements = (
  * Deprecated for external use.
  */
 
-const render = async function (
+const renderDiagram = async function (
   id: string,
   inputText: string,
   svgContainingElement?: Element,
@@ -683,6 +695,24 @@ const render = async function (
 };
 
 /**
+ * Renders the diagram, holding the diagram config scope for exactly as long as the render.
+ * Leaving it set would make `getConfig()` report the last diagram's appearance as the
+ * global answer for every caller between renders.
+ */
+const render = async function (
+  id: string,
+  text: string,
+  svgContainingElement?: Element,
+  positions?: Positions
+): Promise<RenderResult> {
+  try {
+    return await renderDiagram(id, text, svgContainingElement, positions);
+  } finally {
+    configApi.setDiagramConfigScope(undefined);
+  }
+};
+
+/**
  * @param  userOptions - Initial Mermaid options
  */
 function initialize(userOptions: MermaidConfig = {}) {
@@ -696,13 +726,24 @@ function initialize(userOptions: MermaidConfig = {}) {
   // Set default options
   configApi.saveConfigFromInitialize(options);
 
-  if (options?.theme && options.theme in theme) {
+  // Stylesheets gate their palette rules on the theme *name*, so an unrecognised name left
+  // in place loads a palette that is then never rendered. Read the fallback from
+  // `defaultConfig` so the schema's `theme.default` stays the one place it is written down.
+  const fallbackTheme = configApi.defaultConfig.theme as keyof typeof theme;
+  if (options?.theme && Object.hasOwn(theme, options.theme)) {
     // Todo merge with user options
     options.themeVariables = theme[options.theme as keyof typeof theme].getThemeVariables(
       options.themeVariables
     );
   } else if (options) {
-    options.themeVariables = theme.neo.getThemeVariables(options.themeVariables);
+    // Two values deliberately keep their name. `'null'` is the documented sentinel for
+    // disabling the pre-defined themes, so normalising it would re-enable one; and an
+    // absent theme needs no name written in, because `defaultConfig` already supplies the
+    // same fallback. Anything else is a name no theme answers to, and is corrected here.
+    if (options.theme != null && options.theme !== 'null') {
+      options.theme = fallbackTheme;
+    }
+    options.themeVariables = theme[fallbackTheme].getThemeVariables(options.themeVariables);
   }
 
   const config =

@@ -96,6 +96,13 @@ class Theme {
     // this.actorBorder = lighten(this.border1, 0.5);
     this.actorBorder = this.actorBorder || this.primaryBorderColor;
     this.actorBkg = this.actorBkg || this.mainBkg;
+    // A `rect` section band falls back to `actorBkg`, which is `#ffffff` here on a
+    // `#ffffff` background — present in the DOM and invisible on screen. Same derivation
+    // the other modern light themes use, and direction-aware for the same reason:
+    // darken() is a no-op at pure black, so an override to #000000 shades the other way.
+    this.rectBkgColor =
+      this.rectBkgColor ||
+      (isDark(this.background) ? lighten(this.background, 4) : darken(this.background, 4));
     this.actorTextColor = this.actorTextColor || this.primaryTextColor;
     this.actorLineColor = this.actorLineColor || this.actorBorder;
     this.labelBoxBkgColor = this.labelBoxBkgColor || this.actorBkg;
@@ -244,6 +251,17 @@ class Theme {
     this.pieTitleTextColor = this.pieTitleTextColor || this.taskTextDarkColor;
     this.pieSectionTextSize = this.pieSectionTextSize || '17px';
     this.pieSectionTextColor = this.pieSectionTextColor || this.textColor;
+    /* venn -- same derivation the default, base and forest themes use, so a venn
+       diagram under `mc` gets eight distinguishable circles instead of eight flat
+       `primaryColor` ones. */
+    this.venn1 = this.venn1 ?? adjust(this.primaryColor, { l: -30 });
+    this.venn2 = this.venn2 ?? adjust(this.secondaryColor, { l: -30 });
+    this.venn3 = this.venn3 ?? adjust(this.tertiaryColor, { l: -40 });
+    this.venn4 = this.venn4 ?? adjust(this.primaryColor, { h: 60, l: -30 });
+    this.venn5 = this.venn5 ?? adjust(this.primaryColor, { h: -60, l: -30 });
+    this.venn6 = this.venn6 ?? adjust(this.secondaryColor, { h: 60, l: -30 });
+    this.venn7 = this.venn7 ?? adjust(this.primaryColor, { h: 120, l: -30 });
+    this.venn8 = this.venn8 ?? adjust(this.secondaryColor, { h: 120, l: -30 });
     this.vennTitleTextColor = this.vennTitleTextColor ?? this.titleColor;
     this.vennSetTextColor = this.vennSetTextColor ?? this.textColor;
     this.pieLegendTextSize = this.pieLegendTextSize || '17px';

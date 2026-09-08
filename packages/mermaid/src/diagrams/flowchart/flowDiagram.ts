@@ -1,6 +1,5 @@
 import type { DiagramDefinition } from '../../diagram-api/types.js';
 import type { MermaidConfig } from '../../config.type.js';
-import { getUserDefinedConfig } from '../../config.js';
 import { setConfig } from '../../diagram-api/diagramAPI.js';
 import { FlowDB } from './flowDb.js';
 import renderer from './flowRenderer-v3-unified.js';
@@ -9,12 +8,10 @@ import antlrParser from './parser/flowAntlrParser.js';
 import flowStyles from './styles.js';
 
 interface FlowDiagramOptions {
-  defaultLayout?: string;
   styles?: typeof flowStyles;
 }
 
 export const createFlowDiagram = ({
-  defaultLayout,
   styles = flowStyles,
 }: FlowDiagramOptions = {}): DiagramDefinition => ({
   parser: jisonParser,
@@ -33,10 +30,8 @@ export const createFlowDiagram = ({
     if (!cnf.flowchart) {
       cnf.flowchart = {};
     }
-    const layout = getUserDefinedConfig().layout ?? defaultLayout ?? cnf.layout;
-    if (layout) {
-      setConfig({ layout });
-    }
+    // The layout is not forced here: swimlanes declare `layout: swimlane` in the schema,
+    // which puts it below a user's `layout` or `swimlane.layout` instead of above both.
     cnf.flowchart.arrowMarkerAbsolute = cnf.arrowMarkerAbsolute;
     setConfig({ flowchart: { arrowMarkerAbsolute: cnf.arrowMarkerAbsolute } });
   },

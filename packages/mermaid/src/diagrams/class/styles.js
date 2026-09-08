@@ -1,7 +1,45 @@
 import { getIconStyles } from '../globalStyles.js';
+import { colorSlotCount, hasPalette, isColorTheme, safeLook } from '../common/colorThemeGate.js';
+
+/**
+ * Cycling per-class colour, mirroring `er/styles.ts`. A class box is the structural twin
+ * of an ER entity -- a titled box with member rows, naming one distinct participant -- so
+ * the same index-based palette applies.
+ *
+ * Targets `.outer-path` and `.divider` rather than a bare `.node path`, so member icons
+ * and other inner paths are left alone. Nothing here is `!important`: `classBox.ts` puts
+ * user `classDef` / `style` declarations in an inline `style` attribute, which must keep
+ * winning over the theme palette.
+ */
+const genColor = (options) => {
+  const { theme, bkgColorArray, borderColorArray } = options;
+  if (!isColorTheme(theme, borderColorArray)) {
+    return '';
+  }
+  const look = safeLook(options.look);
+  const hasBkgColors = hasPalette(bkgColorArray);
+  let sections = '';
+
+  for (let i = 0; i < colorSlotCount(options.THEME_COLOR_LIMIT, borderColorArray); i++) {
+    const borderColor = borderColorArray[i % borderColorArray.length];
+    sections += `
+
+    [data-look="${look}"][data-color-id="color-${i}"].node .outer-path path {
+      stroke: ${borderColor};
+      ${hasBkgColors ? `fill: ${bkgColorArray[i % bkgColorArray.length]};` : ''}
+    }
+
+    [data-look="${look}"][data-color-id="color-${i}"].node .divider path {
+      stroke: ${borderColor};
+    }
+    `;
+  }
+  return sections;
+};
 
 const getStyles = (options) =>
-  `g.classGroup text {
+  `${genColor(options)}
+  g.classGroup text {
   fill: ${options.nodeBorder || options.classText};
   stroke: none;
   font-family: ${options.fontFamily};
@@ -70,6 +108,7 @@ const getStyles = (options) =>
     stroke: ${options.nodeBorder};
     stroke-width: ${options.strokeWidth};
   }
+
 
 .divider {
   stroke: ${options.nodeBorder};
@@ -187,7 +226,7 @@ g.classGroup line {
   fill: ${options.textColor};
 }
 
-.edgeLabel {
+.edgeLabel[data-look="neo"] {
   background-color: ${options.edgeLabelBackground};
   p {
     background-color: ${options.edgeLabelBackground};
@@ -198,11 +237,6 @@ g.classGroup line {
     fill: ${options.edgeLabelBackground};
   }
   text-align: center;
-}
-  .cluster rect {
-  fill: ${options.clusterBkg};
-  stroke: ${options.clusterBorder};
-  stroke-width: ${options.strokeWidth}px;
 }
   ${getIconStyles()}
 `;

@@ -1,6 +1,6 @@
 {
   "name": "@mermaid-chart/layout-tidy-tree",
-  "version": "0.2.2-a.0",
+  "version": "0.2.2-a.1",
   "description": "Tidy-tree layout engine for mermaid",
   "module": "dist/mermaid-layout-tidy-tree.core.mjs",
   "types": "dist/layouts.d.ts",
@@ -32,6 +32,9 @@
     "Sidharth Vinod"
   ],
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "dependencies": {
     "d3": "^7.9.0"
   },
@@ -41,7 +44,7 @@
     "non-layered-tidy-tree-layout": "^2.0.2"
   },
   "peerDependencies": {
-    "@mermaid-chart/mermaid": "^11.0.2"
+    "@mermaid-chart/mermaid": "^11.0.2 || ^12.0.0"
   },
   "files": [
     "dist"

@@ -98,6 +98,9 @@ export interface MermaidConfig {
   /**
    * Defines which layout algorithm to use for rendering the diagram.
    *
+   * Defaults to `elk`, which is bundled with mermaid. The `tiny` build omits
+   * ELK to stay small and falls back to `dagre`.
+   *
    */
   layout?: string;
   /**
@@ -122,10 +125,97 @@ export interface MermaidConfig {
     nodePlacementStrategy?: 'SIMPLE' | 'NETWORK_SIMPLEX' | 'LINEAR_SEGMENTS' | 'BRANDES_KOEPF';
     /**
      * Elk specific option affecting Brandes-Koepf node placement alignment.
-     * NONE picks the alignment with the smallest height.
+     * BALANCED combines the four directional alignments; NONE picks the
+     * smallest result. Defaults to BALANCED for the default preset and NONE
+     * for named non-default presets.
      *
      */
     nodePlacementAlignment?: 'NONE' | 'LEFTUP' | 'LEFTDOWN' | 'RIGHTUP' | 'RIGHTDOWN' | 'BALANCED';
+    /**
+     * Named combination of layering, node placement, placement alignment
+     * and cycle breaking options. Explicit options override the preset for
+     * that option; the remaining preset values still apply.
+     *
+     * `default` — network simplex layering, balanced Brandes-Koepf placement
+     * at the top level and inside subgraphs, and depth-first cycle breaking.
+     * Balanced placement favors centered branches and composite-state entries,
+     * sometimes at the cost of a wider or taller drawing. It does not
+     * guarantee that every edge attaches to the center of its target.
+     *
+     * `legacy` — Brandes-Koepf placement with NONE alignment and ELK's own
+     * greedy cycle breaking. Reproduces the rendering before presets existed.
+     *
+     * `modelOrder` — network simplex layering and top-level placement,
+     * Brandes-Koepf placement inside subgraphs, NONE alignment, and greedy
+     * model-order cycle breaking, which favors declaration order.
+     *
+     * `depthFirst` — the previous default: network simplex layering and
+     * top-level placement, Brandes-Koepf placement inside subgraphs, NONE
+     * alignment, and depth-first cycle breaking.
+     *
+     * Setting `layeringStrategy`, `nodePlacementStrategy`,
+     * `nodePlacementAlignment` or `cycleBreakingStrategy` explicitly overrides
+     * the preset for that option, including an explicit NONE alignment.
+     *
+     */
+    preset?: 'default' | 'legacy' | 'modelOrder' | 'depthFirst';
+    /**
+     * Straightens an edge that leaves or enters a node with a tiny step.
+     *
+     * ELK spreads an edge's port evenly along a node's side but routes the
+     * edge down a channel whose row rarely lines up with that port exactly,
+     * leaving a staircase of a few pixels right at the border. With rounded
+     * corners the two micro-bends land on top of each other and read as a
+     * kink. Enabling this moves the channel onto the port's row and drops
+     * the step, so the edge draws as one straight line and both ports stay
+     * exactly where the layout put them.
+     *
+     * Only the step next to a node is touched, and only when the edge
+     * continues the same way afterwards, so a real turn is never collapsed.
+     * An edge is left alone entirely when moving its run would drag the far
+     * port, or would introduce a crossing.
+     *
+     */
+    straightenEdges?: boolean;
+    /**
+     * Renders edge crossings as small arcs ("hops") or visible gaps, so that
+     * it is clear which line passes over which where two edges meet.
+     *
+     * The edge that gives way loses its corner rounding for the segment
+     * carrying the hop, which is the trade for a readable crossing. Curved
+     * edges are skipped rather than rewritten, to avoid corrupting their
+     * geometry. Set to `false` to draw plain crossings.
+     *
+     */
+    lineHops?: boolean | ('arc' | 'gap');
+    /**
+     * Elk specific option deciding which layer each node is assigned to — the
+     * column in a left-to-right diagram, the row in a top-down one. This is
+     * the coarsest of the three placement decisions, so changing it moves
+     * nodes further than anything else short of altering spacing.
+     *
+     * NETWORK_SIMPLEX aims for the fewest long edges. LONGEST_PATH pushes
+     * every node as late as it can go. COFFMAN_GRAHAM bounds how many nodes
+     * share a layer, giving a more even, block-like shape on wide graphs.
+     * MIN_WIDTH and STRETCH_WIDTH trade edge length for a narrower or wider
+     * drawing. INTERACTIVE honours positions already on the nodes.
+     *
+     */
+    layeringStrategy?:
+      | 'NETWORK_SIMPLEX'
+      | 'LONGEST_PATH'
+      | 'LONGEST_PATH_SOURCE'
+      | 'COFFMAN_GRAHAM'
+      | 'MIN_WIDTH'
+      | 'STRETCH_WIDTH'
+      | 'INTERACTIVE';
+    /**
+     * Elk specific option capping how many nodes COFFMAN_GRAHAM will put in
+     * one layer. Ignored by every other layering strategy. Lower values give
+     * a taller, narrower drawing.
+     *
+     */
+    layeringLayerBound?: number;
     /**
      * This strategy decides how to find cycles in the graph and deciding which edges need adjustment to break loops.
      *
@@ -282,6 +372,30 @@ export interface MermaidConfig {
  */
 export interface FlowchartDiagramConfig extends BaseDiagramConfig {
   /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
+  /**
    * Margin top for the text over the diagram
    */
   titleTopMargin?: number;
@@ -357,11 +471,6 @@ export interface FlowchartDiagramConfig extends BaseDiagramConfig {
    */
   padding?: number;
   /**
-   * Decides which rendering engine that is to be used for the rendering.
-   *
-   */
-  defaultRenderer?: 'dagre-d3' | 'dagre-wrapper' | 'elk';
-  /**
    * Width of nodes where text is wrapped.
    *
    * When using markdown strings the text is wrapped automatically, this
@@ -369,6 +478,16 @@ export interface FlowchartDiagramConfig extends BaseDiagramConfig {
    *
    */
   wrappingWidth?: number;
+  /**
+   * Minimum width of the label area of a node.
+   *
+   * Labels narrower than this are widened to it, so nodes with short text
+   * get a uniform width; the node's own padding is added on top, the same
+   * way it is for `wrappingWidth`. Nodes with an explicit width are not
+   * affected.
+   *
+   */
+  minNodeWidth?: number;
   /**
    * If true, subgraphs without explicit direction will inherit the global graph direction
    * (e.g., LR, TB, RL, BT). Defaults to false to preserve legacy layout behavior.
@@ -393,6 +512,35 @@ export interface BaseDiagramConfig {
    * The parser to use for this diagram type
    */
   parser?: 'jison' | 'antlr' | 'langium';
+  /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
+  /**
+   * Defines which layout algorithm to use for rendering the diagram.
+   *
+   */
+  layout?: string;
 }
 /**
  * The object containing configurations specific for the swimlanes diagram type.
@@ -406,6 +554,35 @@ export interface BaseDiagramConfig {
  * via the `definition` "SwimlaneDiagramConfig".
  */
 export interface SwimlaneDiagramConfig extends BaseDiagramConfig {
+  /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
+  /**
+   * Defines which layout algorithm to use for rendering the diagram.
+   *
+   */
+  layout?: string;
   /**
    * Renders edge crossings as small arcs ("hops") or visible gaps so that
    * overlapping edges are easier to read. Set to `false` to disable. Edges
@@ -446,6 +623,30 @@ export interface SwimlaneDiagramConfig extends BaseDiagramConfig {
  */
 export interface AgentflowDiagramConfig extends BaseDiagramConfig {
   /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
+  /**
    * Margin top for the text over the diagram
    */
   titleTopMargin?: number;
@@ -471,6 +672,24 @@ export interface AgentflowDiagramConfig extends BaseDiagramConfig {
    *
    */
   rankSpacing?: number;
+  /**
+   * Width of nodes where text is wrapped.
+   *
+   * When using markdown strings the text is wrapped automatically, this
+   * value sets the max width of a text before it continues on a new line.
+   *
+   */
+  wrappingWidth?: number;
+  /**
+   * Minimum width of the label area of a node.
+   *
+   * Labels narrower than this are widened to it, so nodes with short text
+   * get a uniform width; the node's own padding is added on top, the same
+   * way it is for `wrappingWidth`. Nodes with an explicit width are not
+   * affected.
+   *
+   */
+  minNodeWidth?: number;
 }
 /**
  * The object containing configurations specific for sequence diagrams
@@ -479,6 +698,30 @@ export interface AgentflowDiagramConfig extends BaseDiagramConfig {
  * via the `definition` "SequenceDiagramConfig".
  */
 export interface SequenceDiagramConfig extends BaseDiagramConfig {
+  /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
   arrowMarkerAbsolute?: boolean;
   hideUnusedParticipants?: boolean;
   /**
@@ -882,6 +1125,30 @@ export interface TimelineDiagramConfig extends BaseDiagramConfig {
  */
 export interface ClassDiagramConfig extends BaseDiagramConfig {
   /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
+  /**
    * Margin top for the text over the diagram
    */
   titleTopMargin?: number;
@@ -894,11 +1161,6 @@ export interface ClassDiagramConfig extends BaseDiagramConfig {
   dividerMargin?: number;
   padding?: number;
   textHeight?: number;
-  /**
-   * Decides which rendering engine that is to be used for the rendering.
-   *
-   */
-  defaultRenderer?: 'dagre-d3' | 'dagre-wrapper' | 'elk';
   nodeSpacing?: number;
   rankSpacing?: number;
   /**
@@ -927,6 +1189,53 @@ export interface ClassDiagramConfig extends BaseDiagramConfig {
  */
 export interface StateDiagramConfig extends BaseDiagramConfig {
   /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
+  /**
+   * Defines which layout algorithm to use for rendering the diagram.
+   *
+   */
+  layout?: string;
+  /**
+   * Width of nodes where text is wrapped.
+   *
+   * When using markdown strings the text is wrapped automatically, this
+   * value sets the max width of a text before it continues on a new line.
+   *
+   */
+  wrappingWidth?: number;
+  /**
+   * Minimum width of the label area of a node.
+   *
+   * Labels narrower than this are widened to it, so nodes with short text
+   * get a uniform width; the node's own padding is added on top, the same
+   * way it is for `wrappingWidth`. Nodes with an explicit width are not
+   * affected.
+   *
+   */
+  minNodeWidth?: number;
+  /**
    * Margin top for the text over the diagram
    */
   titleTopMargin?: number;
@@ -954,16 +1263,6 @@ export interface StateDiagramConfig extends BaseDiagramConfig {
   edgeLengthFactor?: string;
   compositTitleSize?: number;
   radius?: number;
-  /**
-   * Defines how mermaid renders curves for flowcharts.
-   *
-   */
-  curve?: 'basis' | 'linear' | 'cardinal' | 'rounded';
-  /**
-   * Decides which rendering engine that is to be used for the rendering.
-   *
-   */
-  defaultRenderer?: 'dagre-d3' | 'dagre-wrapper' | 'elk';
 }
 /**
  * The object containing configurations specific for entity relationship diagrams
@@ -972,6 +1271,30 @@ export interface StateDiagramConfig extends BaseDiagramConfig {
  * via the `definition` "ErDiagramConfig".
  */
 export interface ErDiagramConfig extends BaseDiagramConfig {
+  /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
   /**
    * Margin top for the text over the diagram
    */
@@ -1240,6 +1563,30 @@ export interface XYChartAxisConfig {
  * via the `definition` "RequirementDiagramConfig".
  */
 export interface RequirementDiagramConfig extends BaseDiagramConfig {
+  /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
   rect_fill?: string;
   text_color?: string;
   rect_border_size?: string;
@@ -1989,6 +2336,48 @@ export interface RadarDiagramConfig extends BaseDiagramConfig {
  */
 export interface UsecaseDiagramConfig extends BaseDiagramConfig {
   /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
+  /**
+   * Width of nodes where text is wrapped.
+   *
+   * When using markdown strings the text is wrapped automatically, this
+   * value sets the max width of a text before it continues on a new line.
+   *
+   */
+  wrappingWidth?: number;
+  /**
+   * Minimum width of the label area of a node.
+   *
+   * Labels narrower than this are widened to it, so nodes with short text
+   * get a uniform width; the node's own padding is added on top, the same
+   * way it is for `wrappingWidth`. Nodes with an explicit width are not
+   * affected.
+   *
+   */
+  minNodeWidth?: number;
+  /**
    * Font size for actor labels
    */
   actorFontSize?: number;
@@ -2040,6 +2429,33 @@ export interface UsecaseDiagramConfig extends BaseDiagramConfig {
    * Padding around the entire diagram
    */
   diagramPadding?: number;
+  /**
+   * How a use case diagram takes its colours from the active theme.
+   *
+   * `role` (the default) gives every element of a kind one colour, read from the
+   * `usecaseActorBkg` / `usecaseActorBorder`, `usecaseBkg` / `usecaseBorder`, and
+   * `usecaseBoundaryBkg` / `usecaseBoundaryBorder` theme variables. Colour then says
+   * what an element *is*, and it is invariant under insertion, reordering, and
+   * renaming -- adding one use case in the middle does not recolour the ones after it,
+   * so diffs, documentation screenshots, and visual baselines stay stable.
+   *
+   * `rotate` instead gives each actor, use case, and system boundary its own slot from
+   * the theme's categorical palette (`borderColorArray` / `bkgColorArray`), the way ER
+   * entities and class boxes are coloured. Actors and use cases share one cycle, and
+   * system boundaries run a second one from zero, so a boundary is never forced to
+   * match an element inside it. Within the shared cycle the actors are numbered first
+   * and the use cases after them, each in declaration order -- an interleaved
+   * `actor A`, `usecase U`, `actor B` is therefore numbered A, B, U rather than
+   * A, U, B. This buys per-instance variety at the cost of the stability `role` has:
+   * inserting an element shifts the colour of every later element of its own kind, and
+   * inserting an actor shifts the use cases too. Only the colour themes
+   * (`redux-color`, `redux-dark-color`) carry a palette, so on every other theme the
+   * two settings render identically.
+   *
+   * `classDef` and `style` keep overriding both, whichever is set.
+   *
+   */
+  colorScheme?: 'role' | 'rotate';
 }
 /**
  * The object containing configurations specific for Venn diagrams.
@@ -2048,6 +2464,30 @@ export interface UsecaseDiagramConfig extends BaseDiagramConfig {
  * via the `definition` "VennDiagramConfig".
  */
 export interface VennDiagramConfig extends BaseDiagramConfig {
+  /**
+   * Theme, the CSS style sheet.
+   * You may also use `themeCSS` to override this value.
+   *
+   */
+  theme?:
+    | 'default'
+    | 'base'
+    | 'dark'
+    | 'forest'
+    | 'neutral'
+    | 'neo'
+    | 'neo-dark'
+    | 'redux'
+    | 'redux-dark'
+    | 'redux-color'
+    | 'redux-dark-color'
+    | 'mc'
+    | 'null';
+  /**
+   * Defines which main look to use for the diagram.
+   *
+   */
+  look?: 'classic' | 'handDrawn' | 'neo';
   /**
    * The width of the Venn diagram.
    */
