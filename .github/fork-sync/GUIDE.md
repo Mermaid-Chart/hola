@@ -1,7 +1,7 @@
 # Syncing upstream OSS mermaid into this fork
 
-> Last verified against `os_repo/develop` on 2026-08-24. Fork tip ~948 commits
-> ahead of upstream. Unit suite: ~6100 tests in ~267 files on `develop`.
+> Last verified against `os_repo/release/12.0.0` on 2026-09-09. Fork tip ~1012
+> commits ahead of upstream. Unit suite: ~7474 tests in ~356 files on `develop`.
 
 Two audiences read this: the CI resolver in
 [`sync-oss-develop.yml`](../workflows/sync-oss-develop.yml), which is pointed at it
@@ -262,13 +262,43 @@ source of truth; what follows is _why_.
 
 Two traps, both of which cost real time to rediscover:
 
-**Prettier must run on tracked files only.** Use
-`git ls-files -z | xargs -0 npx prettier --check`, which is what `verify.sh` does.
-`docs:code` writes generated files into `packages/mermaid/src/docs/config/setup/`,
-ignored only by the **nested** `packages/mermaid/.gitignore`. Prettier reads just
-the root `.gitignore` plus `.prettierignore`, so `prettier --check .` reports ~54
-failures for files that are not even tracked. **`pnpm lint` has this bug**, so do
-not use it as the gate after a docs build.
+**Prettier, and the stale generated docs that make it lie.** `docs:code` writes
+generated files into `packages/mermaid/src/docs/config/setup/`, ignored only by the
+**nested** `packages/mermaid/.gitignore`. Prettier reads just the root `.gitignore`
+plus `.prettierignore`, so it walks straight into them.
+
+The obvious fix — check tracked files only, via
+`git ls-files -z | xargs -0 npx prettier --check` — was tried and **withdrawn**: it
+passed a tree that `pnpm lint` then failed on. `verify.sh` now runs the repo's own
+`npx prettier --cache --check .` so the gate cannot disagree with the check that
+gates the pull request, and filters findings under that one generated path back out.
+Do not reintroduce the `git ls-files` form.
+
+The residue, and it will bite you locally: prettier's trailing
+`[warn] Code style issues found in N files.` summary carries **no path**, so it
+survives that filter. A local working copy holding generated output under
+`src/docs/config/setup/` therefore fails the gate with a bare count and not one file
+name — every finding behind it having been filtered as tolerated. `rm -rf
+packages/mermaid/src/docs/config/setup` and re-run. **Read the count**: if the gate
+prints paths, they are real; if it prints only the summary line, it is this.
+
+Two details make this local-only, and both are worth knowing because each looks
+like a bug on its own:
+
+- **CI never has the files.** `lint.yml` runs `Run Linting` _before_ `Verify Docs`,
+  and `build` does not run `docs:code`, so on a fresh checkout the directory does
+  not exist yet when prettier walks the tree. Any local tree that has run
+  `docs:build` even once does have it, permanently.
+- **`docs:code` does not format them, despite appearing to.** It ends with
+  `prettier --write ./src/docs/config/setup`, run from `packages/mermaid`. Prettier
+  3 defaults `--ignore-path` to `.gitignore` _and_ `.prettierignore`, resolved from
+  the cwd — so it reads `packages/mermaid/.gitignore`, finds `src/docs/config/setup`
+  listed, and matches **zero files**. It prints nothing and exits 0; `--check` on
+  the same path cheerfully reports "All matched files use Prettier code style!"
+  because it matched none. Do not read that as proof the files are clean. The same
+  cwd-relative resolution is why the root `prettier --check .` disagrees: from the
+  root only the root `.gitignore` and `.prettierignore` apply, and neither covers
+  that path.
 
 **Vitest and scratch worktrees.** Local `.claude/worktrees/**` copies break the
 vite json-schema plugin and inflate the run; `fa9709de0f` chased 173 phantom
