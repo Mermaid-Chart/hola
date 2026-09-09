@@ -13,7 +13,7 @@ const LABEL_BBOX = { width: 100, height: 50 };
  * `updateNodeBounds` afterwards, so the sizing fields have to be snapshotted here rather
  * than read off the node once the call has returned.
  */
-const measured: { width?: number; wrappingWidth?: number }[] = [];
+const measured: { width?: number; wrappingWidth?: number; minWidth?: number }[] = [];
 
 vi.mock('./handDrawnShapeStyles.js', async (importOriginal) => ({
   ...(await importOriginal<typeof HandDrawnShapeStyles>()),
@@ -27,7 +27,11 @@ vi.mock('./util.js', async (importOriginal) => {
     // The real label helper needs a full config/theme; the geometry under test only
     // depends on the measured label box, so return a fixed one.
     labelHelper: vi.fn((parent: D3Selection<SVGGElement>, node: Node) => {
-      measured.push({ width: node.width, wrappingWidth: node.wrappingWidth });
+      measured.push({
+        width: node.width,
+        wrappingWidth: node.wrappingWidth,
+        minWidth: node.minWidth,
+      });
       const shapeSvg = parent.insert('g');
       return Promise.resolve({
         shapeSvg,
@@ -101,6 +105,30 @@ describe('drawRect', () => {
     // the label helper never has to guess whether node.width is the inner or outer box.
     expect(node.wrappingWidth).toBe(216 - 20 * 2);
     expect(measured.at(-1)).toEqual({ width: undefined, wrappingWidth: 176 });
+  });
+
+  it('drops the diagram-level minimum label width when the node width is pinned', async () => {
+    const { drawRect } = await import('./drawRect.js');
+    // A fixed-layout node sized narrower than `flowchart.minNodeWidth`. The label helper
+    // only skips the minimum while `node.width` is set, and drawRect has just cleared it,
+    // so the 120px minimum used to leak through and push the label off-centre.
+    const node = { id: 'f', label: 'small', width: 50, minWidth: 120, padding: 20 } as Node;
+    measured.length = 0;
+
+    await drawRect(setupParent(), node, options());
+
+    expect(measured.at(-1)).toEqual({ width: undefined, wrappingWidth: 10, minWidth: undefined });
+    expect(node.width).toBe(50);
+  });
+
+  it('keeps the diagram-level minimum label width when no width is pinned', async () => {
+    const { drawRect } = await import('./drawRect.js');
+    const node = { id: 'g', label: 'small', minWidth: 120, padding: 20 } as Node;
+    measured.length = 0;
+
+    await drawRect(setupParent(), node, options());
+
+    expect(measured.at(-1)).toEqual({ width: undefined, wrappingWidth: undefined, minWidth: 120 });
   });
 
   it('leaves the wrap width alone when no width is pinned', async () => {
