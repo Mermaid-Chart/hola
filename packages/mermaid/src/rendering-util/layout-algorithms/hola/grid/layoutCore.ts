@@ -11,18 +11,18 @@ import {
   hasOverlaps,
   removeCyclicConstraints,
   resolveFlowAxis,
-} from '../cola/adapter/constraints.js';
-import type { PrioritisedConstraint } from '../cola/adapter/constraints.js';
-import { buildIpsepColaGraph } from '../cola/adapter/graph.js';
-import type { IpsepColaGraph } from '../cola/adapter/graph.js';
-import { computeInitialLayout } from '../cola/adapter/initialLayout.js';
-import { writeBackLayout } from '../cola/adapter/writeBack.js';
-import { BlockState } from '../cola/solver/blocks.js';
-import { ipsepCola } from '../cola/solver/ipsepCola.js';
-import { project } from '../cola/solver/project.js';
-import type { Axis, Position, Spring } from '../cola/solver/stress.js';
-import { idealDistances } from '../cola/solver/stress.js';
-import type { SeparationConstraint } from '../cola/solver/types.js';
+} from '../../layout-utils/ipsep-cola/adapter/constraints.js';
+import type { PrioritisedConstraint } from '../../layout-utils/ipsep-cola/adapter/constraints.js';
+import { buildIpsepColaGraph } from '../../layout-utils/ipsep-cola/adapter/graph.js';
+import type { IpsepColaGraph } from '../../layout-utils/ipsep-cola/adapter/graph.js';
+import { computeInitialLayout } from '../../layout-utils/ipsep-cola/adapter/initialLayout.js';
+import { writeBackLayout } from '../../layout-utils/ipsep-cola/adapter/writeBack.js';
+import { BlockState } from '../../layout-utils/ipsep-cola/solver/blocks.js';
+import { ipsepCola } from '../../layout-utils/ipsep-cola/solver/ipsepCola.js';
+import { project } from '../../layout-utils/ipsep-cola/solver/project.js';
+import type { Axis, Position, Spring } from '../../layout-utils/ipsep-cola/solver/stress.js';
+import { idealDistances } from '../../layout-utils/ipsep-cola/solver/stress.js';
+import type { SeparationConstraint } from '../../layout-utils/ipsep-cola/solver/types.js';
 import { adaptiveConstrainedAlignment } from './aca/aca.js';
 import type { SeparatedAlignment } from './aca/separatedAlignment.js';
 import { assembleAxisConstraints } from './gridConstraints.js';

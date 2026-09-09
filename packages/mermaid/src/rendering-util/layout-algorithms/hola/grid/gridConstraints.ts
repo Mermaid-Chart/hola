@@ -1,8 +1,13 @@
 import { log } from '../../../../logger.js';
-import { X_AXIS, Y_AXIS, pairKey, type FlowAxis } from '../cola/adapter/constraints.js';
-import type { IpsepColaGraph } from '../cola/adapter/graph.js';
-import type { Axis, Position } from '../cola/solver/stress.js';
-import type { SeparationConstraint } from '../cola/solver/types.js';
+import {
+  X_AXIS,
+  Y_AXIS,
+  pairKey,
+  type FlowAxis,
+} from '../../layout-utils/ipsep-cola/adapter/constraints.js';
+import type { IpsepColaGraph } from '../../layout-utils/ipsep-cola/adapter/graph.js';
+import type { Axis, Position } from '../../layout-utils/ipsep-cola/solver/stress.js';
+import type { SeparationConstraint } from '../../layout-utils/ipsep-cola/solver/types.js';
 import type { SeparatedAlignment } from './aca/separatedAlignment.js';
 import type { GridLikeOptions } from './options.js';
 import { usesGridSnap } from './options.js';

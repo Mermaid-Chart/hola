@@ -1,5 +1,5 @@
-import type { IpsepColaGraph } from '../../cola/adapter/graph.js';
-import type { Axis, Position } from '../../cola/solver/stress.js';
+import type { IpsepColaGraph } from '../../../layout-utils/ipsep-cola/adapter/graph.js';
+import type { Axis, Position } from '../../../layout-utils/ipsep-cola/solver/stress.js';
 import type { SeparatedAlignment } from './separatedAlignment.js';
 
 /**

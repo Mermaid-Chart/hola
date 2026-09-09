@@ -3,14 +3,18 @@
  *
  * Kieffer, Dwyer, Marriott & Wybrow, *HOLA: Human-like Orthogonal Network
  * Layout* (2015). The module is one pipeline built from five stages, each in
- * its own folder and each usable on its own:
+ * its own folder and each usable on its own. The first is shared with the
+ * standalone `ipsep-cola` layout and so lives outside this folder:
  *
- *   - `cola/`   IPSEP-COLA (Dwyer, Koren & Marriott 2006): stress majorisation
- *               under separation constraints. The placement everything else
- *               starts from.
+ *   - `layout-utils/ipsep-cola/`  IPSEP-COLA (Dwyer, Koren & Marriott 2006):
+ *               stress majorisation under separation constraints. The placement
+ *               everything else starts from. It sits outside this module
+ *               because it is also registered on its own as
+ *               `layout: 'ipsep-cola'`.
  *   - `grid/`   Grid-like layout (Kieffer, Dwyer, Marriott & Wybrow 2013):
- *               `cola/` plus Adaptive Constrained Alignment and grid snapping,
- *               so chosen edges come out exactly horizontal or vertical.
+ *               IPSEP-COLA plus Adaptive Constrained Alignment and grid
+ *               snapping, so chosen edges come out exactly horizontal or
+ *               vertical.
  *   - `core/`   HOLA proper: the topological decomposition that peels trees off
  *               the core, planarisation, symmetric tree layout, tree placement
  *               and the orthogonal router.

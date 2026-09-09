@@ -1,7 +1,7 @@
-import { X_AXIS, Y_AXIS } from '../../cola/adapter/constraints.js';
-import type { IpsepColaGraph } from '../../cola/adapter/graph.js';
-import type { Axis } from '../../cola/solver/stress.js';
-import type { SeparationConstraint } from '../../cola/solver/types.js';
+import { X_AXIS, Y_AXIS } from '../../../layout-utils/ipsep-cola/adapter/constraints.js';
+import type { IpsepColaGraph } from '../../../layout-utils/ipsep-cola/adapter/graph.js';
+import type { Axis } from '../../../layout-utils/ipsep-cola/solver/stress.js';
+import type { SeparationConstraint } from '../../../layout-utils/ipsep-cola/solver/types.js';
 import type { GridLikeOptions } from '../options.js';
 
 /**

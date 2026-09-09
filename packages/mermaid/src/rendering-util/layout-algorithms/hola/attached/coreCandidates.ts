@@ -42,7 +42,11 @@ import type { LayoutData } from '../../../types.js';
 import { runGridLikeLayoutCore } from '../grid/layoutCore.js';
 import type { GridLikeLayoutResult } from '../grid/layoutCore.js';
 import { countEdgeCrossings, countEdgesThroughForeignNodes } from '../parts/partQuality.js';
-import { X_AXIS, Y_AXIS, resolveFlowAxis } from '../cola/adapter/constraints.js';
+import {
+  X_AXIS,
+  Y_AXIS,
+  resolveFlowAxis,
+} from '../../layout-utils/ipsep-cola/adapter/constraints.js';
 import type { GridAttachedOptions } from './options.js';
 
 /** How the core may be drawn. Order is the tie-break: earlier wins. */

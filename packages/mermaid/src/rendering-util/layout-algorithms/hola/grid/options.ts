@@ -1,6 +1,6 @@
 import type { LayoutData } from '../../../types.js';
-import type { IpsepColaOptions } from '../cola/options.js';
-import { resolveIpsepColaOptions } from '../cola/options.js';
+import type { IpsepColaOptions } from '../../layout-utils/ipsep-cola/options.js';
+import { resolveIpsepColaOptions } from '../../layout-utils/ipsep-cola/options.js';
 
 /**
  * Which of the paper's phase-2 mechanisms to run (§2).

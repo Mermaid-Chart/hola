@@ -98,6 +98,15 @@ function scoreVariant(score: number, ok: boolean): 'success' | 'warning' | 'dang
   return score >= 700 ? 'warning' : 'danger';
 }
 
+/**
+ * Validation is often sub-millisecond on a small diagram, where `toFixed(0)`
+ * reads as "0 ms" — which looks like a failure to measure rather than a fast
+ * answer. Keep a decimal until the number is large enough not to need one.
+ */
+function fmtDuration(ms: number): string {
+  return ms < 10 ? `${ms.toFixed(1)} ms` : `${ms.toFixed(0)} ms`;
+}
+
 /** Cap on the individual messages rendered per group before "…and N more". */
 const MAX_SHOWN_PER_GROUP = 50;
 
@@ -164,7 +173,7 @@ export class DevValidationPanel extends LitElement {
           </div>
           <div class="subtle">
             ${b.nodeCount ?? '–'} nodes · ${b.edgeCount ?? '–'} edges · ${b.crossings ?? '–'}
-            crossings ${this.durationMs > 0 ? html` · ${this.durationMs.toFixed(0)} ms` : nothing}
+            crossings ${this.durationMs > 0 ? html` · ${fmtDuration(this.durationMs)}` : nothing}
           </div>
           ${result.ok
             ? html`<div class="subtle">

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Edge, LayoutData, Node } from '../../../../types.js';
-import { buildIpsepColaGraph } from '../../cola/adapter/graph.js';
-import type { Position } from '../../cola/solver/stress.js';
-import { idealDistances } from '../../cola/solver/stress.js';
+import { buildIpsepColaGraph } from '../../../layout-utils/ipsep-cola/adapter/graph.js';
+import type { Position } from '../../../layout-utils/ipsep-cola/solver/stress.js';
+import { idealDistances } from '../../../layout-utils/ipsep-cola/solver/stress.js';
 import { resolveGridLikeOptions } from '../options.js';
 import {
   accumulateEdgeNodeSeparation,

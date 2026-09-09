@@ -1,7 +1,7 @@
-import { X_AXIS, Y_AXIS } from '../../cola/adapter/constraints.js';
-import type { IpsepColaGraph } from '../../cola/adapter/graph.js';
-import type { Matrix } from '../../cola/solver/linalg.js';
-import type { Axis, Position } from '../../cola/solver/stress.js';
+import { X_AXIS, Y_AXIS } from '../../../layout-utils/ipsep-cola/adapter/constraints.js';
+import type { IpsepColaGraph } from '../../../layout-utils/ipsep-cola/adapter/graph.js';
+import type { Matrix } from '../../../layout-utils/ipsep-cola/solver/linalg.js';
+import type { Axis, Position } from '../../../layout-utils/ipsep-cola/solver/stress.js';
 import type { GridLikeOptions } from '../options.js';
 import { usesGridSnap, usesNodeSnap } from '../options.js';
 
