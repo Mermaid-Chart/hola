@@ -117,6 +117,9 @@ export class DevValidationPanel extends LitElement {
     error: { state: true },
     durationMs: { state: true },
     expanded: { state: true },
+    copyMsg: { state: true },
+    diagram: { state: true },
+    layout: { state: true },
   };
 
   declare state: ValidationState;
@@ -125,6 +128,15 @@ export class DevValidationPanel extends LitElement {
   declare durationMs: number;
   /** Issue types whose individual messages are shown. */
   declare expanded: string[];
+  /** Transient feedback for the copy button. */
+  declare copyMsg: string;
+  /**
+   * What was graded. Carried only so the copied JSON says which diagram and
+   * which layout produced the score — a bare score pasted into an issue is
+   * not worth much.
+   */
+  declare diagram: string;
+  declare layout: string;
 
   constructor() {
     super();
@@ -133,6 +145,9 @@ export class DevValidationPanel extends LitElement {
     this.error = '';
     this.durationMs = 0;
     this.expanded = [];
+    this.copyMsg = '';
+    this.diagram = '';
+    this.layout = '';
   }
 
   createRenderRoot() {
@@ -146,6 +161,43 @@ export class DevValidationPanel extends LitElement {
     this.error = '';
     this.durationMs = 0;
     this.expanded = [];
+    this.copyMsg = '';
+  }
+
+  /**
+   * The whole verdict as JSON: the score, the breakdown behind it, and every
+   * issue that cost points — not the grouping the panel renders, which is a
+   * reading aid rather than data.
+   */
+  #resultJson() {
+    const result = this.result;
+    return {
+      diagram: this.diagram || undefined,
+      layout: this.layout || undefined,
+      validatedAt: new Date().toISOString(),
+      durationMs: Number(this.durationMs.toFixed(3)),
+      ok: result?.ok,
+      score: result?.score,
+      issueCount: result?.issues.length ?? 0,
+      breakdown: result?.breakdown,
+      issues: result?.issues ?? [],
+    };
+  }
+
+  async #copyJson() {
+    const json = JSON.stringify(this.#resultJson(), null, 2);
+    try {
+      await navigator.clipboard.writeText(json);
+      this.copyMsg = 'Copied ✓';
+    } catch {
+      // Clipboard can be blocked (focus/permissions); fall back to the console
+      // so the output is never simply lost.
+      console.log('[dev-explorer] validation JSON:\n' + json);
+      this.copyMsg = 'Clipboard blocked — logged to console';
+    }
+    setTimeout(() => {
+      this.copyMsg = '';
+    }, 2500);
   }
 
   #toggle(type: string) {
@@ -271,6 +323,7 @@ export class DevValidationPanel extends LitElement {
           ${this.state === 'done'
             ? html`<span class="subtle">${issueCount} issue${issueCount === 1 ? '' : 's'}</span>`
             : nothing}
+          ${this.copyMsg ? html`<span class="subtle">${this.copyMsg}</span>` : nothing}
           <div class="spacer"></div>
           ${this.state === 'done' && issueCount > 0
             ? html`
@@ -283,6 +336,14 @@ export class DevValidationPanel extends LitElement {
                       : groupIssues(this.result?.issues ?? []).map((g) => g.type))}
                 >
                   ${this.expanded.length ? 'Collapse all' : 'Expand all'}
+                </sl-button>
+              `
+            : nothing}
+          ${this.state === 'done'
+            ? html`
+                <sl-button size="small" variant="default" @click=${() => void this.#copyJson()}>
+                  <sl-icon slot="prefix" name="clipboard"></sl-icon>
+                  Copy JSON
                 </sl-button>
               `
             : nothing}

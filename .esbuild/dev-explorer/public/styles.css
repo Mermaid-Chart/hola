@@ -336,6 +336,45 @@ dev-explorer-app .path {
   white-space: nowrap;
 }
 
+/* Header path plus its copy button. The path keeps the ellipsis, so the button
+   must not shrink with it. */
+dev-explorer-app .path-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+dev-explorer-app .path-row .path {
+  min-width: 0;
+}
+
+dev-explorer-app .icon-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+dev-explorer-app .icon-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--app-fg) 12%, transparent);
+  color: var(--app-fg);
+}
+
+dev-explorer-app .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 dev-explorer-app .diagram {
   height: 100%;
   overflow: hidden;

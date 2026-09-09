@@ -397,6 +397,7 @@ export class DevDiagramViewer extends LitElement {
     zoomY: { state: true },
     splitPosition: { state: true },
     sidePanelSplit: { state: true },
+    pathCopied: { state: true },
     activeTab: { state: true },
     dirty: { state: true },
     saving: { state: true },
@@ -435,6 +436,8 @@ export class DevDiagramViewer extends LitElement {
   declare splitPosition: number;
   /** Vertical split of the side pane: validation above, logs below. */
   declare sidePanelSplit: number;
+  /** Momentary tick on the header's copy-path button. */
+  declare pathCopied: boolean;
   declare activeTab: ViewerTab;
   declare dirty: boolean;
   declare saving: boolean;
@@ -528,6 +531,7 @@ export class DevDiagramViewer extends LitElement {
     // Validation is the shorter of the two: a score, and a grouped issue list
     // that is collapsed until asked. Logs get the rest.
     this.sidePanelSplit = storedSidePanelSplit ? Number(storedSidePanelSplit) : 40;
+    this.pathCopied = false;
 
     this.filePath = '';
     this.sseToken = 0;
@@ -835,6 +839,28 @@ export class DevDiagramViewer extends LitElement {
     writeStorage('devExplorer.viewer.sidePanelSplit', String(this.sidePanelSplit));
   }
 
+  /**
+   * Copy the open diagram's path. Ticks the button for a moment rather than
+   * showing a message — the header has no room for one, and the path is short
+   * enough that you can see for yourself what landed on the clipboard.
+   */
+  async #copyPath() {
+    if (!this.filePath) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(this.filePath);
+      this.pathCopied = true;
+      setTimeout(() => {
+        this.pathCopied = false;
+      }, 1500);
+    } catch {
+      // Clipboard can be blocked (focus/permissions). No tick, since nothing
+      // was copied; the path goes to the console so it is still reachable.
+      console.log('[dev-explorer] diagram path: ' + this.filePath);
+    }
+  }
+
   get #validationPanel(): DevValidationPanel | null {
     return this.querySelector('dev-validation-panel');
   }
@@ -881,6 +907,9 @@ export class DevDiagramViewer extends LitElement {
       }
       panel.result = result;
       panel.durationMs = elapsed;
+      // Context for the copied JSON, so a pasted score says what produced it.
+      panel.diagram = this.filePath;
+      panel.layout = this.layout;
       panel.state = 'done';
     } catch (err) {
       panel.error = err instanceof Error ? err.message : String(err);
@@ -1523,7 +1552,19 @@ export class DevDiagramViewer extends LitElement {
                 >`
               : nothing}
           </div>
-          <div class="path">${this.filePath}</div>
+          <div class="path-row">
+            <div class="path">${this.filePath}</div>
+            <button
+              type="button"
+              class="icon-btn"
+              title="Copy diagram path"
+              aria-label="Copy diagram path"
+              ?disabled=${!this.filePath}
+              @click=${() => void this.#copyPath()}
+            >
+              <sl-icon name=${this.pathCopied ? 'check2' : 'clipboard'}></sl-icon>
+            </button>
+          </div>
         </div>
         <div class="spacer"></div>
         <div class="viewer-controls">
