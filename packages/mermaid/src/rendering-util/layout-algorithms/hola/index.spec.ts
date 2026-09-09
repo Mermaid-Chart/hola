@@ -168,5 +168,25 @@ describe('grid-attached-subgraphs layout', () => {
       expect(document.querySelectorAll('path.flowchart-link')).toHaveLength(6);
       expect(data.edges).toHaveLength(6);
     });
+
+    it('paints a parent frame before its nested child frame', async () => {
+      const data = await parsedLayoutData(`flowchart LR
+        a --> b
+        subgraph A
+          B
+        end
+        subgraph B
+          b
+        end
+      `);
+      document.body.innerHTML = '<svg><g></g></svg>';
+
+      await render(data, select('svg') as never);
+
+      // The shared renderer paints clusters in `data.nodes` order. Parents must
+      // therefore precede their children, or the opaque parent fill covers the
+      // child frame that was inserted first.
+      expect(data.nodes.filter((node) => node.isGroup).map((node) => node.id)).toEqual(['A', 'B']);
+    });
   });
 });

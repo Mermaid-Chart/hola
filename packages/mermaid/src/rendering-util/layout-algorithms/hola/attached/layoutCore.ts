@@ -98,12 +98,15 @@ import type { FittedFrame, SubgraphModel } from './subgraphs.js';
 import type { LabelObstacles, RouteSegment } from './labelPlacement.js';
 import {
   redirectContainerEdges,
+  preserveContainerTerminalRuns,
   rerouteEdgesAroundForeignFrames,
   restoreContainerEdges,
+  straightenAlignedContainerBridges,
 } from './containerEdges.js';
 import { polylineHitsBounds, segmentsCross } from './geometry.js';
 import { combLevelsNeeded, routeComponentTrees, routeTreeSelfLoop } from './treeConnectors.js';
 import type { TreeConnector, TreeRouteRequest } from './treeConnectors.js';
+import { FULL_ROUNDED_CORNER_RUN } from './roundedCorners.js';
 
 /** One tree, as attached. */
 export interface GridAttachedTreeResult {
@@ -217,7 +220,9 @@ export function runGridAttachedLayoutCore(
   // the content instead of needing a second correction.
   const subgraphs = collectSubgraphs(data);
   const drawnNodes = laidOut.flatMap((component) => component.nodes);
-  const frames = timeStage('frames', () => fitSubgraphFrames(subgraphs, drawnNodes, options));
+  const frames = timeStage('frames', () =>
+    fitSubgraphFrames(subgraphs, drawnNodes, options, data.edges)
+  );
   const framed = timeStage('frames', () => keepCleanFrames(data, subgraphs, frames, diagnostics));
 
   // A frame reaches outside its members by its padding and its title, so the shift
@@ -259,7 +264,17 @@ export function runGridAttachedLayoutCore(
     }
   }
   restoreContainerEdges(containerEdges.redirected, frameBoxes);
+  straightenAlignedContainerBridges(
+    containerEdges.redirected,
+    frameBoxes,
+    data.nodes,
+    data.edges,
+    options
+  );
   rerouteEdgesAroundForeignFrames(data.edges, frameBoxes, data.nodes, options);
+  if (options.roundShortTerminalTurns) {
+    preserveContainerTerminalRuns(containerEdges.redirected);
+  }
   // Container routes are cut only now, after their endpoints and frames have their
   // final coordinates. A label placed before that cut can be left on the tiny run
   // that meets a frame, which is exactly where the frame title is painted.
@@ -1028,7 +1043,8 @@ function climbEnlargementLadder(
       connectorRequests(attempt, rects, sources, byId, options),
       options,
       drawing.ports,
-      flat.labels
+      flat.labels,
+      flat.originalEdges
     );
     const crossings = countDrawnCrossings(coreSegments(drawing, core), connectors);
     const nodeViolations = countDrawnConnectorNodeViolations(rects, attempt, connectors);
@@ -1425,8 +1441,17 @@ function writeCoreEdges(
     if (!routed || routed.length < 2) {
       continue;
     }
-    const route = options.roundShortTerminalTurns
-      ? centreShortTerminalCoreTurn(routed, options.treeBendSpacing)
+    const rounded = options.roundShortTerminalTurns
+      ? centreShortTerminalCoreTurn(
+          routed,
+          Math.max(options.treeBendSpacing, FULL_ROUNDED_CORNER_RUN)
+        )
+      : routed;
+    // Re-centering a short U-turn spends more of its existing outer corridor.
+    // Keep the router's original route if that extra runway would reach a third
+    // core node; rounded corners are never worth a new node collision.
+    const route = routeHasClearance(rounded, edge, drawing.nodes, options.routingClearance)
+      ? rounded
       : routed;
     edge.points = route;
     edge.curve = 'linear';
@@ -1452,6 +1477,8 @@ function writeCoreEdges(
  * that route is rendered in reverse, the lane becomes a short arrowhead stub and
  * rounded painting can soften only its first corner. Re-centre an ordinary
  * four-point route only when either terminal lacks room for the second curve.
+ * When the endpoints are aligned, extend the existing U-turn outward instead:
+ * centering it on the endpoint rank would erase the turn entirely.
  */
 function centreShortTerminalCoreTurn(
   points: readonly Point[],
@@ -1481,11 +1508,19 @@ function centreShortTerminalCoreTurn(
   const hasShortTerminal =
     Math.abs(firstAlong - startAlong) < minimumTerminalRun ||
     Math.abs(endAlong - secondAlong) < minimumTerminalRun;
-  if (!hasShortTerminal || span < 2 * minimumTerminalRun) {
+  if (!hasShortTerminal) {
     return [...points];
   }
 
-  const middle = (startAlong + endAlong) / 2;
+  const middle =
+    span < 1e-6
+      ? startAlong + Math.sign(firstAlong - startAlong) * minimumTerminalRun
+      : span >= 2 * minimumTerminalRun
+        ? (startAlong + endAlong) / 2
+        : undefined;
+  if (middle === undefined || !Number.isFinite(middle)) {
+    return [...points];
+  }
   return upright
     ? [start, { x: firstTurn.x, y: middle }, { x: secondTurn.x, y: middle }, end]
     : [start, { x: middle, y: firstTurn.y }, { x: middle, y: secondTurn.y }, end];
@@ -1861,7 +1896,13 @@ function writeConnectors(
   const edges: Edge[] = [];
   const labelRequests: WrittenConnectors['labelRequests'] = [];
 
-  for (const connector of routeComponentTrees(requests, options, reserved, flat.labels)) {
+  for (const connector of routeComponentTrees(
+    requests,
+    options,
+    reserved,
+    flat.labels,
+    flat.originalEdges
+  )) {
     const edge = flat.originalEdges.get(connector.originalEdgeId);
     if (!edge) {
       continue;

@@ -29,20 +29,20 @@
 
 import type { Point } from '../../../../types.js';
 import type { Edge, LayoutData, Node } from '../../../types.js';
-import type { Bounds, Rect } from '../core/model.js';
+import { nodeBounds, type Bounds, type Rect } from '../core/model.js';
 import type { GridAttachedOptions } from './options.js';
 import type { RouterConfig, RouterObstacle } from '../core/routing/orthogonalRouter.js';
 import { routeAlternatives } from '../core/routing/orthogonalRouter.js';
-import { polylineHitsBounds } from './geometry.js';
+import { polylineCrossesSegment, polylineHitsBounds } from './geometry.js';
+import { FULL_ROUNDED_CORNER_RUN } from './roundedCorners.js';
 
 /** Coordinates closer than this are the same coordinate. */
 const EPS = 1e-6;
 /**
- * The final leg must hold the point marker's 4px line offset, the rounded path's
- * 8px terminal stub, and an 8px curved approach. Anything shorter either
- * collapses to a zero-length leg at paint time or leaves the final corner sharp.
+ * The final leg must hold a complete 12px rounded corner. Anything shorter
+ * collapses the arc into a sharp angle at paint time.
  */
-const MIN_FRAME_TERMINAL_RUN = 20;
+const MIN_FRAME_TERMINAL_RUN = FULL_ROUNDED_CORNER_RUN;
 
 /** One edge whose endpoint named a container, and what it named. */
 export interface ContainerEdge {
@@ -160,6 +160,331 @@ export function restoreContainerEdges(
 }
 
 /**
+ * The foreign-frame avoidance pass can replace a route after it was clipped to a
+ * container. Reassert the rounded terminal runway on the final visible route.
+ */
+export function preserveContainerTerminalRuns(redirected: readonly ContainerEdge[]): void {
+  for (const { edge, startContainer, endContainer } of redirected) {
+    if (!edge.points || edge.points.length < 3) {
+      continue;
+    }
+    // A short inter-frame bridge cannot always make both terminal runs large
+    // without moving nodes. Preserve the terminal that actually owns the marker:
+    // flowchart arrows default to the end, while class inheritance can put it at
+    // the start. Extending both in sequence would simply undo the first repair.
+    const markerAtStart = edge.arrowTypeStart !== undefined && edge.arrowTypeStart !== 'none';
+    const markerAtEnd = edge.arrowTypeEnd === undefined || edge.arrowTypeEnd !== 'none';
+    if (endContainer !== undefined && markerAtEnd) {
+      edge.points = extendFrameTerminalRun(edge.points);
+    } else if (startContainer !== undefined && markerAtStart) {
+      edge.points = extendFrameTerminalRun([...edge.points].reverse()).reverse();
+    }
+  }
+}
+
+/**
+ * Prefer a straight bridge between two subgraph frames when their border spans
+ * overlap on one axis and the gap between them is genuinely unobstructed.
+ *
+ * A container endpoint is temporarily represented by one of its leaves while
+ * the topology is laid out. Its restored route consequently inherits that
+ * leaf's port, even when the two completed frames have a much clearer shared
+ * corridor. Frame-to-frame edges are semantic connections between boxes, so
+ * after the frames exist the cleanest representation is a single segment from
+ * one border to the other. We only take it when it avoids every leaf, foreign
+ * frame and existing route; otherwise the original rounded dogleg is retained.
+ */
+export function straightenAlignedContainerBridges(
+  redirected: readonly ContainerEdge[],
+  frames: ReadonlyMap<string, Bounds>,
+  nodes: readonly Node[],
+  edges: readonly Edge[],
+  options: GridAttachedOptions
+): void {
+  const clearance = Math.max(PORT_SEPARATION, options.routingClearance);
+  for (const { edge, startContainer, endContainer } of redirected) {
+    if (startContainer === undefined || endContainer === undefined) {
+      continue;
+    }
+    const source = frames.get(startContainer);
+    const target = frames.get(endContainer);
+    if (!source || !target) {
+      continue;
+    }
+
+    const route = clearStraightBridge(
+      source,
+      target,
+      startContainer,
+      endContainer,
+      edge,
+      frames,
+      nodes,
+      edges,
+      clearance
+    );
+    if (!route) {
+      continue;
+    }
+    edge.points = route;
+    if (edge.label) {
+      edge.x = (route[0].x + route[1].x) / 2;
+      edge.y = (route[0].y + route[1].y) / 2;
+    }
+  }
+}
+
+interface StraightBridge {
+  /** Coordinate shared by both endpoints (x for a vertical bridge, y for horizontal). */
+  low: number;
+  high: number;
+  axis: 'vertical' | 'horizontal';
+  route: (coordinate: number) => Point[];
+}
+
+function clearStraightBridge(
+  source: Bounds,
+  target: Bounds,
+  sourceId: string,
+  targetId: string,
+  edge: Edge,
+  frames: ReadonlyMap<string, Bounds>,
+  nodes: readonly Node[],
+  edges: readonly Edge[],
+  clearance: number
+): Point[] | undefined {
+  const bridges = alignedStraightBridges(source, target);
+  for (const bridge of bridges) {
+    for (const coordinate of bridgeCoordinates(
+      bridge,
+      sourceId,
+      targetId,
+      edge,
+      frames,
+      nodes,
+      edges,
+      clearance
+    )) {
+      const route = bridge.route(coordinate);
+      if (straightBridgeIsClear(route, sourceId, targetId, edge, frames, nodes, edges, clearance)) {
+        return route;
+      }
+    }
+  }
+  return undefined;
+}
+
+/** All direct horizontal/vertical connections made possible by the two frame boxes. */
+function alignedStraightBridges(source: Bounds, target: Bounds): StraightBridge[] {
+  const bridges: StraightBridge[] = [];
+  const xLow = Math.max(source.minX, target.minX);
+  const xHigh = Math.min(source.maxX, target.maxX);
+  if (xLow <= xHigh) {
+    if (source.maxY <= target.minY) {
+      bridges.push({
+        low: xLow,
+        high: xHigh,
+        axis: 'vertical',
+        route: (x) => [
+          { x, y: source.maxY },
+          { x, y: target.minY },
+        ],
+      });
+    } else if (target.maxY <= source.minY) {
+      bridges.push({
+        low: xLow,
+        high: xHigh,
+        axis: 'vertical',
+        route: (x) => [
+          { x, y: source.minY },
+          { x, y: target.maxY },
+        ],
+      });
+    }
+  }
+
+  const yLow = Math.max(source.minY, target.minY);
+  const yHigh = Math.min(source.maxY, target.maxY);
+  if (yLow <= yHigh) {
+    if (source.maxX <= target.minX) {
+      bridges.push({
+        low: yLow,
+        high: yHigh,
+        axis: 'horizontal',
+        route: (y) => [
+          { x: source.maxX, y },
+          { x: target.minX, y },
+        ],
+      });
+    } else if (target.maxX <= source.minX) {
+      bridges.push({
+        low: yLow,
+        high: yHigh,
+        axis: 'horizontal',
+        route: (y) => [
+          { x: source.minX, y },
+          { x: target.maxX, y },
+        ],
+      });
+    }
+  }
+
+  // A vertical or horizontal path is equally legible. Prefer the shorter gap,
+  // then retain the stable vertical-before-horizontal tie break.
+  return bridges.sort((first, second) => {
+    const firstRoute = first.route((first.low + first.high) / 2);
+    const secondRoute = second.route((second.low + second.high) / 2);
+    const firstLength =
+      Math.abs(firstRoute[1].x - firstRoute[0].x) + Math.abs(firstRoute[1].y - firstRoute[0].y);
+    const secondLength =
+      Math.abs(secondRoute[1].x - secondRoute[0].x) + Math.abs(secondRoute[1].y - secondRoute[0].y);
+    return firstLength - secondLength;
+  });
+}
+
+/**
+ * Centre lanes read best. Obstacle edges add escape lanes so a single block in
+ * the middle does not throw away a perfectly valid straight connection beside it.
+ */
+function bridgeCoordinates(
+  bridge: StraightBridge,
+  sourceId: string,
+  targetId: string,
+  edge: Edge,
+  frames: ReadonlyMap<string, Bounds>,
+  nodes: readonly Node[],
+  edges: readonly Edge[],
+  clearance: number
+): number[] {
+  const low = bridge.low + clearance;
+  const high = bridge.high - clearance;
+  if (low > high) {
+    return [];
+  }
+
+  const candidates = new Set<number>([(low + high) / 2, low, high]);
+  for (const node of nodes) {
+    if (node.isGroup === true || !isMeasurable(node)) {
+      continue;
+    }
+    addBridgeObstacleCandidates(candidates, bridge, nodeBounds(rectOfNode(node)), clearance);
+  }
+  for (const bounds of frames.values()) {
+    addBridgeObstacleCandidates(candidates, bridge, bounds, clearance);
+  }
+  for (const other of edges) {
+    if (other === edge || other.isLayoutOnly || !other.points || other.points.length < 2) {
+      continue;
+    }
+    for (const [nodeId, port] of [
+      [other.start, other.points[0]],
+      [other.end, other.points.at(-1)!],
+    ] as const) {
+      if (nodeId !== sourceId && nodeId !== targetId) {
+        continue;
+      }
+      const coordinate = bridge.axis === 'vertical' ? port.x : port.y;
+      candidates.add(coordinate - clearance);
+      candidates.add(coordinate + clearance);
+    }
+  }
+
+  const middle = (low + high) / 2;
+  return [...candidates]
+    .filter((coordinate) => coordinate >= low - EPS && coordinate <= high + EPS)
+    .sort((first, second) => Math.abs(first - middle) - Math.abs(second - middle));
+}
+
+function addBridgeObstacleCandidates(
+  candidates: Set<number>,
+  bridge: StraightBridge,
+  bounds: Bounds,
+  clearance: number
+): void {
+  const sample = bridge.route((bridge.low + bridge.high) / 2);
+  const routeLow =
+    bridge.axis === 'vertical'
+      ? Math.min(sample[0].y, sample[1].y)
+      : Math.min(sample[0].x, sample[1].x);
+  const routeHigh =
+    bridge.axis === 'vertical'
+      ? Math.max(sample[0].y, sample[1].y)
+      : Math.max(sample[0].x, sample[1].x);
+  const obstacleLow = bridge.axis === 'vertical' ? bounds.minY : bounds.minX;
+  const obstacleHigh = bridge.axis === 'vertical' ? bounds.maxY : bounds.maxX;
+  if (obstacleHigh <= routeLow + EPS || obstacleLow >= routeHigh - EPS) {
+    return;
+  }
+
+  const crossLow = bridge.axis === 'vertical' ? bounds.minX : bounds.minY;
+  const crossHigh = bridge.axis === 'vertical' ? bounds.maxX : bounds.maxY;
+  candidates.add(crossLow - clearance);
+  candidates.add(crossHigh + clearance);
+}
+
+function straightBridgeIsClear(
+  route: Point[],
+  sourceId: string,
+  targetId: string,
+  edge: Edge,
+  frames: ReadonlyMap<string, Bounds>,
+  nodes: readonly Node[],
+  edges: readonly Edge[],
+  clearance: number
+): boolean {
+  for (const node of nodes) {
+    if (node.isGroup === true || !isMeasurable(node)) {
+      continue;
+    }
+    if (polylineHitsBounds(route, expand(nodeBounds(rectOfNode(node)), clearance))) {
+      return false;
+    }
+  }
+  for (const [id, bounds] of frames) {
+    if (
+      id !== sourceId &&
+      id !== targetId &&
+      polylineHitsBounds(route, expand(bounds, clearance))
+    ) {
+      return false;
+    }
+  }
+  for (const other of edges) {
+    if (other === edge || other.isLayoutOnly || !other.points || other.points.length < 2) {
+      continue;
+    }
+    if (polylineCrossesSegment(other.points, { a: route[0], b: route[1] })) {
+      return false;
+    }
+    if (
+      usesNearbyPort(route[0], sourceId, other, clearance) ||
+      usesNearbyPort(route[1], targetId, other, clearance)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function usesNearbyPort(point: Point, nodeId: string, edge: Edge, clearance: number): boolean {
+  const start = edge.points![0];
+  const end = edge.points!.at(-1)!;
+  return (
+    (edge.start === nodeId && Math.hypot(point.x - start.x, point.y - start.y) < clearance - EPS) ||
+    (edge.end === nodeId && Math.hypot(point.x - end.x, point.y - end.y) < clearance - EPS)
+  );
+}
+
+function expand(bounds: Bounds, amount: number): Bounds {
+  return {
+    minX: bounds.minX - amount,
+    minY: bounds.minY - amount,
+    maxX: bounds.maxX + amount,
+    maxY: bounds.maxY + amount,
+  };
+}
+
+/**
  * Re-route every visible edge that passes through a frame neither endpoint owns.
  *
  * Container edges are the conspicuous case because they are restored after the
@@ -199,7 +524,10 @@ export function rerouteEdgesAroundForeignFrames(
       reservedPorts
     );
     if (rerouted) {
-      edge.points = rerouted;
+      // The post-frame router runs after container endpoints were trimmed. It
+      // must retain that terminal-run invariant too; otherwise its fresh route
+      // can put a sharp corner immediately before the arrowhead it just fixed.
+      edge.points = options.roundShortTerminalTurns ? extendFrameTerminalRun(rerouted) : rerouted;
     }
     reserveRoutePorts(edge, nodeById, reservedPorts);
   }
@@ -301,6 +629,7 @@ function routeAroundForeignFrames(
     bendPenalty: options.routingBendPenalty,
     crossingPenalty: options.routingCrossingPenalty,
     maxExpansions: options.routingMaxExpansions,
+    minTerminalLegLength: options.roundShortTerminalTurns ? FULL_ROUNDED_CORNER_RUN : undefined,
   };
   const portSeparation = Math.max(PORT_SEPARATION, config.clearance);
   let best: Point[] | undefined;

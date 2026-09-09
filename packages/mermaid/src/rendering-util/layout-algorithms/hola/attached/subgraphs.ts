@@ -21,7 +21,7 @@
  */
 
 import type { Bounds, HolaGraph } from '../core/model.js';
-import type { LayoutData, Node } from '../../../types.js';
+import type { Edge, LayoutData, Node } from '../../../types.js';
 import type { GridAttachedOptions } from './options.js';
 
 /** One container, with the leaves and containers it directly holds. */
@@ -174,7 +174,8 @@ const SIBLING_FRAME_GUTTER = 8;
 export function fitSubgraphFrames(
   model: SubgraphModel,
   drawn: readonly Node[],
-  options: GridAttachedOptions
+  options: GridAttachedOptions,
+  edges: readonly Edge[] = []
 ): FittedFrame[] {
   const boxByNodeId = new Map<string, Bounds>();
   for (const node of drawn) {
@@ -183,13 +184,16 @@ export function fitSubgraphFrames(
       boxByNodeId.set(node.id, box);
     }
   }
+  const routeBoundsByGroup = internalRouteBounds(model, drawn, edges);
 
   const candidates = new Map<string, FrameCandidate>();
   const depths = [...new Set(model.ordered.map((group) => group.depth))].sort((a, b) => b - a);
   for (const depth of depths) {
     const level = model.ordered
       .filter((group) => group.depth === depth)
-      .map((group) => fitFrameCandidate(group, boxByNodeId, options));
+      .map((group) =>
+        fitFrameCandidate(group, boxByNodeId, options, routeBoundsByGroup.get(group.id))
+      );
 
     // A child frame is a member of its parent, so this has to happen depth by
     // depth. Once sibling border padding is tightened, the next parent sees the
@@ -221,7 +225,8 @@ export function fitSubgraphFrames(
 function fitFrameCandidate(
   group: Subgraph,
   boxByNodeId: ReadonlyMap<string, Bounds>,
-  options: GridAttachedOptions
+  options: GridAttachedOptions,
+  internalRoute?: Bounds
 ): FrameCandidate {
   const members: Bounds[] = [];
   for (const leafId of group.childLeafIds) {
@@ -235,6 +240,9 @@ function fitFrameCandidate(
     if (box) {
       members.push(box);
     }
+  }
+  if (internalRoute) {
+    members.push(internalRoute);
   }
 
   const inner = unionOf(members);
@@ -253,6 +261,65 @@ function fitFrameCandidate(
     },
     needsPlacing: false,
   };
+}
+
+/**
+ * A frame owns the routes whose endpoints are both below it. Without this, a
+ * rounded U-turn may rightly move out from its nodes but then appear to cross the
+ * frame that is supposed to contain it. Include those route corridors in the fit;
+ * bridges between sibling frames deliberately have no shared owner and stay out.
+ */
+function internalRouteBounds(
+  model: SubgraphModel,
+  drawn: readonly Node[],
+  edges: readonly Edge[]
+): Map<string, Bounds> {
+  const nodes = new Map(drawn.map((node) => [node.id, node]));
+  const boundsByGroup = new Map<string, Bounds>();
+  for (const edge of edges) {
+    if (!edge.start || !edge.end || !edge.points || edge.points.length < 2) {
+      continue;
+    }
+    const route = unionOf(
+      edge.points.map((point) => ({
+        minX: point.x,
+        minY: point.y,
+        maxX: point.x,
+        maxY: point.y,
+      }))
+    );
+    if (!route) {
+      continue;
+    }
+    const startAncestors = containingGroups(edge.start, nodes, model.byId);
+    const endAncestors = new Set(containingGroups(edge.end, nodes, model.byId));
+    for (const groupId of startAncestors) {
+      if (!endAncestors.has(groupId)) {
+        continue;
+      }
+      const previous = boundsByGroup.get(groupId);
+      boundsByGroup.set(groupId, previous ? unionOf([previous, route])! : route);
+    }
+  }
+  return boundsByGroup;
+}
+
+function containingGroups(
+  id: string,
+  nodes: ReadonlyMap<string, Node>,
+  groups: ReadonlyMap<string, Subgraph>
+): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+  let current = nodes.get(id)?.parentId;
+  while (current !== undefined && !seen.has(current)) {
+    seen.add(current);
+    if (groups.has(current)) {
+      result.push(current);
+    }
+    current = nodes.get(current)?.parentId ?? groups.get(current)?.parentId;
+  }
+  return result;
 }
 
 function writeFrame(node: Node, bounds: Bounds): void {

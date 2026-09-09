@@ -45,7 +45,7 @@
  * just starts on the shape instead of on its box.
  */
 
-import type { Point } from '../../../../types.js';
+import type { Edge, Point } from '../../../../types.js';
 import type { Cardinal, Direction, HolaGraph, Rect, Side, Silhouette } from '../core/model.js';
 import { oppositeSide, sideOfCardinal } from '../core/model.js';
 import { silhouetteBand, silhouettePort } from '../core/adapter/silhouette.js';
@@ -55,6 +55,7 @@ import type { TreeLayout } from '../core/trees/symmetricTreeLayout.js';
 import type { DecomposedTree } from '../core/decomposition/peelCoreAndTrees.js';
 import { findTopologicalEdge } from '../core/decomposition/peelCoreAndTrees.js';
 import type { GridAttachedOptions } from './options.js';
+import { FULL_ROUNDED_CORNER_RUN } from './roundedCorners.js';
 
 /** A node rectangle, plus the outline of its shape when it is not a rectangle. */
 export interface ShapedRect extends Rect {
@@ -100,10 +101,16 @@ export interface TreeConnectorLabelSize {
 
 /** Smallest usable margin from a side's corners; a fan never reaches them. */
 const FAN_PORT_MARGIN = 8;
+/** Keep fan ports out of the visibly corner-adjacent part of long sides. */
+const FAN_PORT_CORNER_FRACTION = 0.16;
 
 const EPSILON = 1e-9;
 /** Two runs closer than this on the same line read as one line. */
 const SAME_LINE = 2;
+
+function fanPortMargin(sideLength: number): number {
+  return Math.min(Math.max(FAN_PORT_MARGIN, sideLength * FAN_PORT_CORNER_FRACTION), sideLength / 4);
+}
 
 /**
  * Route every tree edge of one connected component.
@@ -125,9 +132,16 @@ export function routeComponentTrees(
    * A label is painted on its edge, so two tracks closer than their label extents
    * would still overlap after the label-placement pass has done all it can.
    */
-  labels: ReadonlyMap<string, TreeConnectorLabelSize> = new Map()
+  labels: ReadonlyMap<string, TreeConnectorLabelSize> = new Map(),
+  /** Original directions let a target arrow retain a tree-facing final leg. */
+  originalEdges?: ReadonlyMap<
+    string,
+    Pick<Edge, 'start' | 'end' | 'arrowTypeStart' | 'arrowTypeEnd'>
+  >
 ): TreeConnector[] {
-  const legs = requests.flatMap((request) => collectLegs(request, reserved, labels));
+  const legs = requests.flatMap((request) =>
+    collectLegs(request, reserved, labels, options, originalEdges)
+  );
   if (legs.length === 0) {
     return [];
   }
@@ -207,6 +221,10 @@ interface Leg {
   redirectedRoot: boolean;
   /** A sparse two-child split leaves through this lateral side and turns once. */
   sideExit?: Side;
+  /** Minimum lateral runway needed to paint the sparse split's rounded turn. */
+  sideExitMinimumRun: number;
+  /** The original arrow ends at the logical tree parent. */
+  requiresTreeFacingTarget: boolean;
   rankGap: number;
   /** Which fan this leg belongs to: one parent, one side. */
   fan: string;
@@ -221,7 +239,12 @@ interface Leg {
 function collectLegs(
   request: TreeRouteRequest,
   reserved: Map<string, number[]>,
-  labels: ReadonlyMap<string, TreeConnectorLabelSize>
+  labels: ReadonlyMap<string, TreeConnectorLabelSize>,
+  options: GridAttachedOptions,
+  originalEdges?: ReadonlyMap<
+    string,
+    Pick<Edge, 'start' | 'end' | 'arrowTypeStart' | 'arrowTypeEnd'>
+  >
 ): Leg[] {
   const { tree, transformed, rootRect, growth, rankGap } = request;
   const rooted = rootTree(tree.graph, tree.rootCopyId);
@@ -259,7 +282,10 @@ function collectLegs(
       growth,
       fromRoot,
       parentId,
-      reserved
+      reserved,
+      // In the linear test/backend path there is no arc to accommodate, so
+      // retain the compact one-bend split exactly as before.
+      options.roundShortTerminalTurns ? FULL_ROUNDED_CORNER_RUN : 0
     );
 
     for (const childId of childIds) {
@@ -286,11 +312,23 @@ function collectLegs(
           : [`${parentId}-${childId}`];
       // Parallel originals need distinct ports and tracks, so they retain the
       // regular fan instead of sharing one lateral side port.
-      const sideExit =
+      const sideExitCandidate =
         originalEdgeIds.length === 1 && legGrowth === growth ? sideExits.get(childId) : undefined;
 
       for (const originalEdgeId of originalEdgeIds) {
         const label = labels.get(originalEdgeId);
+        // The logical tree parent can own an arrowhead at either endpoint of the
+        // parser edge.  Class inheritance (`Animal <|-- Fish`) is the important
+        // start-marked case: Animal is the original start, but it is still the
+        // visual arrow target.  A lateral sparse exit would make that arrowhead
+        // arrive sideways instead of through its tree-facing side.
+        const originalEdge = originalEdges?.get(originalEdgeId);
+        const requiresTreeFacingTarget =
+          originalEdge?.end === parentId ||
+          (originalEdge?.start === parentId &&
+            originalEdge.arrowTypeStart != null &&
+            originalEdge.arrowTypeStart !== 'none');
+        const sideExit = requiresTreeFacingTarget ? undefined : sideExitCandidate;
         legs.push({
           originalEdgeId,
           parentId,
@@ -302,6 +340,9 @@ function collectLegs(
           growth: legGrowth,
           redirectedRoot: fromRoot && legGrowth !== growth,
           sideExit,
+          sideExitMinimumRun:
+            sideExit && options.roundShortTerminalTurns ? FULL_ROUNDED_CORNER_RUN : 0,
+          requiresTreeFacingTarget,
           rankGap,
           fan: sideExit ? `${parentId}|${sideExit}` : `${parentId}|${legGrowth}`,
           parentPort: across(parent, legGrowth),
@@ -335,7 +376,8 @@ function sparseSplitSideExits(
   growth: Cardinal,
   fromRoot: boolean,
   parentId: string,
-  reserved: Map<string, number[]>
+  reserved: Map<string, number[]>,
+  minimumCornerRun: number
 ): Map<string, Side> {
   // A diamond or other tapered silhouette may meet a lateral bounding-box side
   // only at a vertex. Its normal fan has silhouette-aware offset ports; do not
@@ -385,6 +427,41 @@ function sparseSplitSideExits(
     lateralSides.some((side) => (reserved.get(`${parentId}|${side}`)?.length ?? 0) > 0)
   ) {
     return new Map();
+  }
+
+  // A one-bend split is only visually better when its lateral terminal run can
+  // actually hold the painted corner. If the child almost lines up with the
+  // side exit, move its *receiving* port a little along the facing side. That
+  // preserves the lateral departure and gives the renderer a real arc, rather
+  // than abandoning the side-exit policy for a bottom comb.
+  for (const [childId, side] of exits) {
+    const child = rectOf(childId)!;
+    const exitCoordinate =
+      side === 'left'
+        ? parent.x - parent.width / 2
+        : side === 'right'
+          ? parent.x + parent.width / 2
+          : side === 'top'
+            ? parent.y - parent.height / 2
+            : parent.y + parent.height / 2;
+    const childCoordinate = upright ? child.x : child.y;
+    const sideSign = side === 'right' || side === 'bottom' ? 1 : -1;
+    const desiredCoordinate =
+      Math.abs(childCoordinate - exitCoordinate) < minimumCornerRun
+        ? exitCoordinate + sideSign * minimumCornerRun
+        : childCoordinate;
+    const childSide = oppositeSide(sideOfCardinal(growth));
+    const childSideLength = acrossExtent(child, growth);
+    const childBand = child.silhouette
+      ? silhouetteBand(child.silhouette, child, childSide)
+      : { min: -childSideLength / 2, max: childSideLength / 2 };
+    const margin = Math.min(FAN_PORT_MARGIN, childSideLength / 4);
+    const low = Math.max(-childSideLength / 2 + margin, childBand.min);
+    const high = Math.min(childSideLength / 2 - margin, childBand.max);
+    const requiredOffset = desiredCoordinate - childCoordinate;
+    if (requiredOffset < low - EPSILON || requiredOffset > high + EPSILON) {
+      return new Map();
+    }
   }
   return exits;
 }
@@ -493,10 +570,26 @@ function routeRedirectedRoot(leg: Leg): Point[] {
 function routeSparseSplit(leg: Leg): Point[] {
   const start = sidePort(leg.parent, leg.sideExit!, 0);
   const childSide = oppositeSide(sideOfCardinal(leg.treeGrowth));
-  const end = sidePort(leg.child, childSide, 0);
-  return vertical(leg.treeGrowth)
-    ? [start, { x: end.x, y: start.y }, end]
-    : [start, { x: start.x, y: end.y }, end];
+  const upright = vertical(leg.treeGrowth);
+  const startCoordinate = upright ? start.x : start.y;
+  const childCoordinate = upright ? leg.child.x : leg.child.y;
+  const sideSign = leg.sideExit === 'right' || leg.sideExit === 'bottom' ? 1 : -1;
+  const desiredCoordinate =
+    Math.abs(childCoordinate - startCoordinate) < leg.sideExitMinimumRun
+      ? startCoordinate + sideSign * leg.sideExitMinimumRun
+      : childCoordinate;
+  const childSideLength = acrossExtent(leg.child, leg.treeGrowth);
+  const childBand = leg.child.silhouette
+    ? silhouetteBand(leg.child.silhouette, leg.child, childSide)
+    : { min: -childSideLength / 2, max: childSideLength / 2 };
+  const margin = Math.min(FAN_PORT_MARGIN, childSideLength / 4);
+  const childOffset = Math.max(
+    -childSideLength / 2 + margin,
+    childBand.min,
+    Math.min(childSideLength / 2 - margin, childBand.max, desiredCoordinate - childCoordinate)
+  );
+  const end = sidePort(leg.child, childSide, childOffset);
+  return upright ? [start, { x: end.x, y: start.y }, end] : [start, { x: start.x, y: end.y }, end];
 }
 
 /** Point on a rectangle's real silhouette, offset along the requested side. */
@@ -721,7 +814,7 @@ function spreadRedirectedRootExits(legs: Leg[]): void {
     const growth = fan[0].growth;
     const sideLength = acrossExtent(root, growth);
     const centre = across(root, growth);
-    const margin = Math.min(FAN_PORT_MARGIN, sideLength / 4);
+    const margin = fanPortMargin(sideLength);
     const band = root.silhouette
       ? silhouetteBand(root.silhouette, root, sideOfCardinal(growth))
       : { min: -sideLength / 2, max: sideLength / 2 };
@@ -771,7 +864,7 @@ function spreadGroups(
     const growth = group[0].growth;
     const sideLength = acrossExtent(rect, growth);
     const centre = across(rect, growth);
-    const margin = Math.min(FAN_PORT_MARGIN, sideLength / 4);
+    const margin = fanPortMargin(sideLength);
     // A shape that does not reach the corners of its box cannot take a port there,
     // so the fan spreads over what the shape actually offers.
     const band = rect.silhouette
@@ -1079,6 +1172,8 @@ interface TurnPlan {
   span: number;
   /** Redirected root edges keep their long straight run next to the core. */
   anchorAtChild: boolean;
+  /** Original arrowheads at the logical parent need a full terminal runway. */
+  requiresTreeFacingTarget: boolean;
   /** Turn coordinates to try, most preferred first. */
   candidates: number[];
 }
@@ -1147,6 +1242,7 @@ function planFan(fan: Leg[]): TurnPlan[] {
       shortest,
       span: Math.abs(alongOf(leg, 3) - start),
       anchorAtChild: leg.redirectedRoot,
+      requiresTreeFacingTarget: leg.requiresTreeFacingTarget,
       candidates: [],
     };
   });
@@ -1173,7 +1269,12 @@ function turnCandidates(plan: TurnPlan, lanePitch: number): number[] {
   const levels = [plan.level, ...others(plan.level, plan.levels)];
   const anchor = plan.anchorAtChild ? alongOf(plan.leg, 3) : plan.start;
   const direction = plan.anchorAtChild ? -plan.sign : plan.sign;
-  const lanes = levels.map((level) => anchor + direction * (level + 1) * lanePitch);
+  const lanes = levels.map((level) => {
+    const distance = plan.requiresTreeFacingTarget
+      ? FULL_ROUNDED_CORNER_RUN + level * lanePitch
+      : (level + 1) * lanePitch;
+    return anchor + direction * distance;
+  });
   const between = lanes.slice(1).map((lane) => (lanes[0] + lane) / 2);
 
   // A fan of one has only a single primary lane. These fallbacks trade local comb

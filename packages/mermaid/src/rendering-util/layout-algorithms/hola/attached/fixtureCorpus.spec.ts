@@ -619,6 +619,99 @@ describe('grid-attached over the hola-faithful fixture corpus', () => {
       });
     }
 
+    if (name === 'nested-sg-outgoing-2') {
+      it('keeps rounded-arrow terminal runs long enough for c1 → c2 and three → two', async () => {
+        const layout = await parseMmdFileToLayoutData(join(FIXTURE_DIR, `${name}.mmd`), {
+          stampFlowchartRendererFields: true,
+        });
+        const measured = loadSizesFixture(join(FIXTURE_DIR, sizes));
+        applyFixtureContentSizesStrict(layout, measured);
+        applyFixtureEdgeLabelSizes(layout, measured);
+        runGridAttachedSubgraphsLayoutCore(layout);
+
+        const terminalRun = (edgeId: string, terminal: 'start' | 'end' = 'end'): number => {
+          const points = layout.edges.find((edge) => edge.id === edgeId)?.points;
+          expect(points, `${edgeId} was not routed`).toBeDefined();
+          const [outer, inner] =
+            terminal === 'start' ? [points![0], points![1]] : [points!.at(-1)!, points!.at(-2)!];
+          return Math.max(Math.abs(outer.x - inner.x), Math.abs(outer.y - inner.y));
+        };
+
+        expect(terminalRun('L_c1_c2_0', 'start')).toBeGreaterThanOrEqual(34);
+        expect(terminalRun('L_c1_c2_0', 'end')).toBeGreaterThanOrEqual(34);
+        expect(terminalRun('L_three_two_0', 'start')).toBeGreaterThanOrEqual(34);
+        expect(terminalRun('L_three_two_0', 'end')).toBeGreaterThanOrEqual(34);
+
+        const oneToTwo = layout.edges.find((edge) => edge.id === 'L_one_two_0')!.points!;
+        const threeToTwo = layout.edges.find((edge) => edge.id === 'L_three_two_0')!.points!;
+
+        // The internal edge remains straight and the vertically aligned group
+        // bridge remains direct; neither can escape around a frame.
+        const c1ToC2 = layout.edges.find((edge) => edge.id === 'L_c1_c2_0')!.points!;
+        expect(c1ToC2).toHaveLength(2);
+        expect(c1ToC2[0].y).toBeCloseTo(c1ToC2[1].y, 6);
+        expect(threeToTwo).toHaveLength(2);
+        expect(threeToTwo[0].x).toBeCloseTo(threeToTwo[1].x, 6);
+
+        // The diagonal one → two bridge has exactly two local bends.  Its
+        // horizontal legs face the destination, which rules out a U-turn or
+        // an outer-perimeter detour.
+        expect(oneToTwo).toHaveLength(4);
+        expect(oneToTwo[1].x).toBeGreaterThan(oneToTwo[0].x);
+        expect(oneToTwo[2].y).toBeLessThan(oneToTwo[1].y);
+        expect(oneToTwo[3].x).toBeGreaterThan(oneToTwo[2].x);
+        expect(terminalRun('L_one_two_0', 'start')).toBeGreaterThanOrEqual(34);
+        expect(terminalRun('L_one_two_0', 'end')).toBeGreaterThanOrEqual(34);
+      });
+    }
+
+    if (name === 'Company') {
+      it('keeps Income’s sparse child split lateral with runway for rounded bends', async () => {
+        const layout = await parseMmdFileToLayoutData(join(FIXTURE_DIR, `${name}.mmd`), {
+          stampFlowchartRendererFields: true,
+        });
+        const measured = loadSizesFixture(join(FIXTURE_DIR, sizes));
+        applyFixtureContentSizesStrict(layout, measured);
+        applyFixtureEdgeLabelSizes(layout, measured);
+        runGridAttachedSubgraphsLayoutCore(layout);
+        const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
+        const income = nodes.get('Income')!;
+        const taxRoutes = ['L_Income_Tax1_0', 'L_Income_Tax_0'].map(
+          (edgeId) => layout.edges.find((edge) => edge.id === edgeId)!.points!
+        );
+        expect(taxRoutes.every((route) => route.length === 3)).toBe(true);
+        expect(taxRoutes.map((route) => route[0].y).every((y) => y === income.y)).toBe(true);
+        expect(taxRoutes.map((route) => route[0].x).sort((a, b) => a - b)).toEqual([
+          income.x! - income.width! / 2,
+          income.x! + income.width! / 2,
+        ]);
+        expect(
+          taxRoutes.every(
+            (route) => Math.abs(route[1].x - route[0].x) + Math.abs(route[1].y - route[0].y) >= 34
+          )
+        ).toBe(true);
+
+        for (const [edgeId, nodeId, terminal] of [
+          ['L_USCompany_HongKongCompany_0', 'USCompany', 'start'],
+          ['L_USCompany_Income_0', 'USCompany', 'start'],
+          ['L_HongKongCompany_USCompany_0', 'HongKongCompany', 'start'],
+          ['L_HongKongCompany_ExpensesHK_0', 'HongKongCompany', 'start'],
+          ['L_HongKongCompany_Incomehk_0', 'HongKongCompany', 'start'],
+        ] as const) {
+          const edge = layout.edges.find((candidate) => candidate.id === edgeId)!;
+          const point = terminal === 'start' ? edge.points![0] : edge.points!.at(-1)!;
+          const node = nodes.get(nodeId)!;
+          const horizontalSide =
+            Math.abs(point.y - (node.y! - node.height! / 2)) < 1e-6 ||
+            Math.abs(point.y - (node.y! + node.height! / 2)) < 1e-6;
+          const fraction = horizontalSide
+            ? (point.x - (node.x! - node.width! / 2)) / node.width!
+            : (point.y - (node.y! - node.height! / 2)) / node.height!;
+          expect(Math.min(fraction, 1 - fraction)).toBeGreaterThanOrEqual(0.15);
+        }
+      });
+    }
+
     if (name === 'project-sox2') {
       it('keeps D’s two lower branches out of each other’s corridors', async () => {
         const { layout } = await lay(name, sizes);

@@ -43,9 +43,9 @@ import { createCommonLayoutRenderer } from '../common/index.js';
 import { prepareGridAttachedLayout } from './attached/prepareLayout.js';
 import { runGridAttachedLayoutCore, type GridAttachedResult } from './attached/layoutCore.js';
 import { resolveGridAttachedOptions } from './attached/options.js';
+import { FULL_ROUNDED_CORNER_RUN, HOLA_ROUNDED_CORNER_RADIUS } from './attached/roundedCorners.js';
 
 const SYNTHETIC_EDGE_PREFIX = '__hola-subgraph__:';
-const ROUNDED_CORNER_RADIUS = 12;
 
 type SyntheticSubgraphEdge = Edge & {
   isGridAttachedSubgraphEdge?: true;
@@ -123,6 +123,17 @@ export function prepareGridAttachedSubgraphsLayout(
  * remove only this backend's edges before the shared painter sees the result.
  */
 export function runGridAttachedSubgraphsLayoutCore(data: LayoutData): GridAttachedResult {
+  const groupIds = new Set(
+    (data.nodes ?? []).filter((node) => node.isGroup === true).map((node) => node.id)
+  );
+  const hasInterFrameBridge = (data.edges ?? []).some(
+    (edge) =>
+      edge.start !== undefined &&
+      edge.end !== undefined &&
+      groupIds.has(edge.start) &&
+      groupIds.has(edge.end)
+  );
+  const horizontalFlow = data.direction === 'LR' || data.direction === 'RL';
   const syntheticEdgeIds = new Set(
     (data.edges ?? [])
       .filter((edge) => (edge as SyntheticSubgraphEdge).isGridAttachedSubgraphEdge === true)
@@ -156,6 +167,25 @@ export function runGridAttachedSubgraphsLayoutCore(data: LayoutData): GridAttach
         : largestTitleBand + 2 * (largestEdgeLabel + options.labelClearance);
     const result = runGridAttachedLayoutCore(data, {
       modelCoreGroups: true,
+      // A container-to-container bridge needs one complete curved terminal run
+      // at each frame. Reserving that span on the cross axis lets its original,
+      // local route stay direct instead of detouring around the outside of both
+      // frames to find longer side stubs.
+      ...(hasInterFrameBridge
+        ? horizontalFlow
+          ? {
+              nodeSpacing: Math.max(
+                options.nodeSpacing,
+                2 * FULL_ROUNDED_CORNER_RUN + 2 * options.groupPadding
+              ),
+            }
+          : {
+              rankSpacing: Math.max(
+                options.rankSpacing,
+                2 * FULL_ROUNDED_CORNER_RUN + 2 * options.groupPadding
+              ),
+            }
+        : {}),
       treeRankGap: options.treeRankGap + titleLabelRunway,
       roundShortTerminalTurns: true,
     });
@@ -166,9 +196,10 @@ export function runGridAttachedSubgraphsLayoutCore(data: LayoutData): GridAttach
     for (const edge of data.edges ?? []) {
       if (!syntheticEdgeIds.has(edge.id)) {
         edge.curve = 'rounded';
-        edge.roundedCornerRadius = ROUNDED_CORNER_RADIUS;
+        edge.roundedCornerRadius = HOLA_ROUNDED_CORNER_RADIUS;
       }
     }
+    orderParentFramesBeforeChildren(data.nodes);
     return result;
   } finally {
     data.edges = (data.edges ?? []).filter(
@@ -191,6 +222,44 @@ export const render = createCommonLayoutRenderer({
 
 function pairKey(first: string, second: string): string {
   return first < second ? `${first}\u0000${second}` : `${second}\u0000${first}`;
+}
+
+/**
+ * The common painter appends cluster SVG groups in `data.nodes` order. SVG later
+ * siblings paint on top, so a nested frame must follow its opaque parent or the
+ * parent fill hides it. Mermaid's parser is allowed to emit a child before its
+ * parent; normalise only the paint order here, after every layout decision has
+ * already used the parser's original order.
+ */
+function orderParentFramesBeforeChildren(nodes: Node[]): void {
+  const groups = nodes.filter((node) => node.isGroup === true);
+  if (groups.length < 2) {
+    return;
+  }
+
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const inputOrder = new Map(nodes.map((node, index) => [node.id, index]));
+  const depthOf = (node: Node): number => {
+    let depth = 0;
+    const seen = new Set<string>();
+    let parentId = node.parentId;
+    while (parentId !== undefined && !seen.has(parentId)) {
+      seen.add(parentId);
+      const parent = nodeById.get(parentId);
+      if (parent?.isGroup !== true) {
+        break;
+      }
+      depth++;
+      parentId = parent.parentId;
+    }
+    return depth;
+  };
+
+  groups.sort(
+    (first, second) =>
+      depthOf(first) - depthOf(second) || inputOrder.get(first.id)! - inputOrder.get(second.id)!
+  );
+  nodes.splice(0, nodes.length, ...groups, ...nodes.filter((node) => node.isGroup !== true));
 }
 
 function nextSyntheticId(groupId: string, index: number, existingIds: ReadonlySet<string>): string {

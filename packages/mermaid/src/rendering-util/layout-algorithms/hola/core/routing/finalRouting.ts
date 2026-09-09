@@ -88,6 +88,8 @@ export function finalRouterConfig(options: HolaOptions): RouterConfig {
 
 /** How close to a corner a port may sit. */
 const FAN_PORT_MARGIN = 8;
+/** Keep a visibly useful fraction of every side clear at both corners. */
+const FAN_PORT_CORNER_FRACTION = 0.16;
 /**
  * Continuous placement and subgraph constraints can leave two intended grid
  * neighbours a fraction of a pixel apart. Treat that numerical residue as an
@@ -759,7 +761,10 @@ function planPorts(
     const vertical = group.side === 'left' || group.side === 'right';
     const sideLength = vertical ? node.height : node.width;
     const centre = vertical ? node.y : node.x;
-    const margin = Math.min(FAN_PORT_MARGIN, sideLength / 4);
+    const margin = Math.min(
+      Math.max(FAN_PORT_MARGIN, sideLength * FAN_PORT_CORNER_FRACTION),
+      sideLength / 4
+    );
     // A non-rectangular shape does not reach its own corners, so the usable part
     // of the side is narrower than the box. Spreading over the box instead would
     // put ports where the boundary has receded and the approach only grazes it.

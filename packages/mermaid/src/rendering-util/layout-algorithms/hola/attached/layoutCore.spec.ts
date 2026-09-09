@@ -450,7 +450,7 @@ describe('grid-attached layout', () => {
     expect(ports.size).toBe(3);
   });
 
-  it('uses side exits and one bend for a two-child tree split across its parent', () => {
+  it('keeps a target arrow tree-facing while retaining a source side exit', () => {
     // This is the topology of class-diagram-3: the centre `User` has one child
     // on either side. A bottom fan gives both edges two turns; the readable route
     // is one horizontal run from the matching side, followed by one vertical run
@@ -471,14 +471,79 @@ describe('grid-attached layout', () => {
     const authToUser = data.edges.find((candidate) => candidate.id === 'AuthService-User')!.points!;
     const userToRole = data.edges.find((candidate) => candidate.id === 'User-Role')!.points!;
 
-    // `AuthService → User` is declared against the tree orientation, hence its
-    // route is reversed on write-back and its User port is the final point.
-    expect(authToUser).toHaveLength(3);
-    expect(authToUser.at(-1)!.x).toBeCloseTo(user.minX);
-    expect(authToUser.at(-1)!.y).toBeCloseTo(at.get('User')!.y!);
+    // `AuthService → User` is reversed relative to the logical tree. Its
+    // arrowhead must therefore receive a vertical terminal run into User's
+    // tree-facing bottom side, rather than a sideways sparse exit.
+    expect(authToUser).toHaveLength(4);
+    expect(authToUser.at(-1)!.y).toBeCloseTo(user.maxY);
+    expect(authToUser.at(-2)!.x).toBeCloseTo(authToUser.at(-1)!.x);
+    expect(authToUser.at(-2)!.y).toBeGreaterThan(authToUser.at(-1)!.y);
+    // The edge declared in the tree direction still gets the compact one-bend
+    // side exit; it is a source port, not an arrowhead port.
     expect(userToRole).toHaveLength(3);
     expect(userToRole[0].x).toBeCloseTo(user.maxX);
     expect(userToRole[0].y).toBeCloseTo(at.get('User')!.y!);
+  });
+
+  it('approaches reversed outer tree arrows through the parent’s tree-facing side', () => {
+    const data = layoutData(
+      [
+        node('Animal', { width: 200, height: 150 }),
+        node('Fish', { width: 120, height: 100 }),
+        node('Duck', { width: 140, height: 110 }),
+        node('Zebra', { width: 130, height: 100 }),
+      ],
+      [edge('Fish', 'Animal'), edge('Duck', 'Animal'), edge('Zebra', 'Animal')]
+    );
+
+    runGridAttachedLayoutCore(data);
+
+    const at = nodeById(data);
+    const animal = rectOf(at.get('Animal')!);
+    const outerRoutes = ['Fish-Animal', 'Zebra-Animal'].map(
+      (id) => data.edges.find((candidate) => candidate.id === id)!.points!
+    );
+
+    expect(outerRoutes.every((route) => route.at(-1)!.y === animal.maxY)).toBe(true);
+    expect(
+      outerRoutes.every(
+        (route) => route.at(-2)!.x === route.at(-1)!.x && route.at(-2)!.y > route.at(-1)!.y
+      )
+    ).toBe(true);
+    expect(outerRoutes.every((route) => Math.abs(route.at(-2)!.y - route.at(-1)!.y) >= 34)).toBe(
+      true
+    );
+  });
+
+  it('approaches start-marked inheritance arrows through the parent’s tree-facing side', () => {
+    const inheritance = { arrowTypeStart: 'extension', arrowTypeEnd: 'none' };
+    const data = layoutData(
+      [
+        node('Animal', { width: 200, height: 150 }),
+        node('Fish', { width: 120, height: 100 }),
+        node('Duck', { width: 140, height: 110 }),
+        node('Zebra', { width: 130, height: 100 }),
+      ],
+      [
+        edge('Animal', 'Fish', inheritance),
+        edge('Animal', 'Duck', inheritance),
+        edge('Animal', 'Zebra', inheritance),
+      ]
+    );
+
+    runGridAttachedLayoutCore(data);
+
+    const at = nodeById(data);
+    const animal = rectOf(at.get('Animal')!);
+    const outerRoutes = ['Animal-Fish', 'Animal-Zebra'].map(
+      (id) => data.edges.find((candidate) => candidate.id === id)!.points!
+    );
+
+    expect(outerRoutes.every((route) => route[0].y === animal.maxY)).toBe(true);
+    expect(outerRoutes.every((route) => route[1].x === route[0].x && route[1].y > route[0].y)).toBe(
+      true
+    );
+    expect(outerRoutes.every((route) => Math.abs(route[1].y - route[0].y) >= 34)).toBe(true);
   });
 
   it('keeps the middle child straight and sends a three-child split through lateral exits', () => {
