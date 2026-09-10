@@ -78,15 +78,28 @@ versions and in checking that the tree being promoted is actually good.
    what a second promotion against an unchanged base should say. Anything
    mentioning the alpha line means the refs are wrong.
 
-5. **Verify, and guard on the beta line.** `guard.sh` shells out to `version.mjs`
-   without forwarding argv, so the line must be passed by environment or it will
-   check the promotion against the alpha rule and fail:
+5. **Verify, and guard in promotion mode on the beta line.** Both environment
+   variables are required, for different reasons:
 
    ```bash
    bash .github/fork-sync/verify.sh --tier full
-   BASE_BEFORE=$(git rev-parse origin/main) FORK_SYNC_LINE=beta \
+   BASE_BEFORE=$(git rev-parse origin/main) \
+     FORK_SYNC_GUARD_MODE=promotion FORK_SYNC_LINE=beta \
      bash .github/fork-sync/guard.sh
    ```
+
+   `FORK_SYNC_LINE=beta` because `guard.sh` shells out to `version.mjs` without
+   forwarding argv, so without it the promotion is checked against the alpha
+   rule and every version reports as wrong.
+
+   `FORK_SYNC_GUARD_MODE=promotion` because the guard's checks 2-5 ask what a
+   _merge resolution_ introduced, and a promotion has no resolution. Left in
+   sync mode they fire on the whole of develop's history since the last
+   promotion — a moved spec, a `@ts-expect-error`, an eslint config edit, all
+   already reviewed on their own pull requests — and the guard fails with
+   findings that are not findings. Promotion mode keeps the checks that still
+   mean something: the merge is complete, the `e2e.yml` deltas survived, and the
+   versions are exactly what `version.mjs` computed.
 
    If the prettier step fails printing only a bare count of files with no paths,
    that is the stale generated-docs trap — GUIDE.md section 7 has it.
