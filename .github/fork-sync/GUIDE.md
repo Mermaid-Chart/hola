@@ -1,7 +1,7 @@
 # Syncing upstream OSS mermaid into this fork
 
-> Last verified against `os_repo/release/12.0.0` on 2026-09-09. Fork tip ~1012
-> commits ahead of upstream. Unit suite: ~7474 tests in ~356 files on `develop`.
+> Last verified against `os_repo/master` (v12.0.0) on 2026-09-10. Fork tip ~1021
+> commits ahead of upstream. Unit suite: ~7476 tests in ~356 files on `develop`.
 
 Two audiences read this: the CI resolver in
 [`sync-oss-develop.yml`](../workflows/sync-oss-develop.yml), which is pointed at it
@@ -17,10 +17,10 @@ expected to change.
 
 ## 1. Fork topology
 
-|           |                                                                   |
-| --------- | ----------------------------------------------------------------- |
-| `origin`  | `Mermaid-Chart/alana-mermaid` — private, default branch `develop` |
-| `os_repo` | `mermaid-js/mermaid` — upstream, we track its `develop`           |
+|           |                                                                            |
+| --------- | -------------------------------------------------------------------------- |
+| `origin`  | `Mermaid-Chart/alana-mermaid` — private, default branch `develop`          |
+| `os_repo` | `mermaid-js/mermaid` — upstream; `develop` normally, `master` at a release |
 
 Upstream moves 5–10 commits a day. A weekday sync pulls 5–50; a two-week gap pulls
 around 100 (the scale of `a24470c6f4`: 100 commits, 15 conflicted files).
@@ -357,6 +357,48 @@ alpha would become the default install ahead of the beta.
 The alpha counter is computed from `origin/develop`, never from the sync branch, so
 a rolling pull request open for five days stays at one version instead of drifting.
 
+### Release syncs, where upstream's active line moves to `master`
+
+At a major release upstream merges into `master`, deletes the release branch, and
+leaves `develop` behind. Before the 12.0.0 sync `os_repo/develop` sat at
+`fe0e23753` / `11.17.2`, months behind, fully contained in `master` — and
+`release/12.0.0`, the previous sync's source, no longer existed as a ref.
+
+That matters because **`version.mjs` defaults `UPSTREAM_REF` to
+`os_repo/develop`**, and against a stale ref it silently under-versions. On the
+12.0.0 sync the default answered `0.2.3-a.5` for `layout-elk` while the merged tree
+held upstream's `1.0.0` code — a published `0.2.x` carrying 1.0.0, and npm versions
+cannot be taken back. Pointed at `master` it answered `1.0.0-a.0`, correctly:
+
+```bash
+FORK_SYNC_UPSTREAM_REF=os_repo/master node .github/fork-sync/version.mjs --check
+```
+
+`sync-oss-develop.yml` already plumbs this (`FORK_SYNC_UPSTREAM_REF:
+os_repo/${{ env.UPSTREAM_BRANCH }}`), so a CI run given `upstream_ref: master` is
+correct without help. **Only a by-hand sync has to remember the override.** Always
+run `--check` before `--write` on a release sync and read the `reason` column:
+`adopted upstream <x>` is what a version-bump release should say, and
+`bumped alpha N -> N+1` on a package whose major just changed upstream means you are
+pointed at the wrong ref.
+
+Three more things a release merge does that a daily one does not:
+
+- **It deletes the changesets it consumed.** 12.0.0 removed 56 of them, all
+  upstream's, folded into the package `CHANGELOG.md` files. Fork-only changesets are
+  untouched and must survive — 38 did, including one added the same week. Check with
+  `git diff --name-status <base>..HEAD -- .changeset/`; a fork-only entry appearing
+  in that deletion list is a bug, not housekeeping.
+- **It rewrites the docs version markers.** `docs:release-version` turns
+  `<MERMAID_RELEASE_VERSION>` into the released number throughout
+  `packages/mermaid/src/docs/**`, so generated `docs/**` must be rebuilt or it keeps
+  the old one. 12.0.0 left `docs/intro/getting-started.md` pinned to `mermaid@11`.
+- **Packages outside `version.mjs`'s list take upstream's released version
+  verbatim** — `@mermaid-js/parser` went `1.2.1` → `2.0.0`, zenuml and examples to
+  `1.0.0` / `2.0.0`. That is correct: they keep upstream's names and the fork never
+  publishes them. `node .github/fork-sync/version.mjs --list-publishable` is the
+  check — it should return only the three `@mermaid-chart/*` packages.
+
 ## 9. When to stop and ask
 
 **Decidable** — resolve it and say what you did: a missing theme variable; a config
@@ -389,7 +431,8 @@ documentation.
 **Stable** — change only when the fork's architecture does: sections 2, 3, 4, 6, 7, 9.
 
 **Volatile** — expected to change, and a sync pull request may well touch them: the
-"last verified" header, section 1's counts, **section 5 in full**, and section 10.
+"last verified" header, section 1's counts, **section 5 in full**, section 8's
+release-sync subsection, and section 10.
 
 When adding to section 5, note the commit it came from. That is what lets a stale
 entry be retired later with confidence instead of accreting forever.
