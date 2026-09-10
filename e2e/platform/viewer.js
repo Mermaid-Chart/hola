@@ -287,7 +287,12 @@ const contentLoadedApi = async function () {
       console.warn('graphObj', graphObj);
       document.getElementsByTagName('body')[0].appendChild(div);
       mermaid.initialize(graphObj.mermaid);
-      const { svg, bindFunctions } = await mermaid.render('newid', graphObj.code, div);
+      const { svg, bindFunctions } = await mermaid.render(
+        'newid',
+        graphObj.code,
+        div,
+        graphObj.positions
+      );
       div.innerHTML = svg;
       console.log(div.innerHTML);
       bindFunctions?.(div);

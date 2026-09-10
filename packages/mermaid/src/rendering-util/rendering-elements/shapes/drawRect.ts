@@ -27,11 +27,17 @@ export async function drawRect<T extends SVGGraphicsElement>(
   // subtracts the padding itself. Passing the wrap width explicitly settles that, and
   // tells the helper to wrap even when the global `wrap` config is off - the box is a
   // fixed size, so an unwrapped label would overflow it.
+  //
+  // The diagram-level minimum label width (`minNodeWidth`) yields to an explicit width.
+  // The label helper only knows to skip it while `node.width` is set, and it is cleared
+  // here, so drop the minimum too: otherwise a node pinned narrower than the minimum gets
+  // a label box wider than its rect, and the label is centred on that box instead.
   let labelWidth: number | undefined;
   if (node.width) {
     labelWidth = Math.max(node.width - options.labelPaddingX * 2, 1);
     node.wrappingWidth = labelWidth;
     node.width = undefined;
+    node.minWidth = undefined;
   }
   if (node.height) {
     node.height = node.height - options.labelPaddingY * 2;
