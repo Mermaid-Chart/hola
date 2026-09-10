@@ -339,11 +339,22 @@ Two lines, and they must not be crossed:
 | `develop` | `<base>-a.N` (alpha) | `dev`        |
 | `main`    | `<base>-b.N` (beta)  | `latest`     |
 
-`version.mjs` owns this. Per package, it compares the base version against that
-package's own upstream counterpart on `os_repo/develop`:
+`version.mjs` owns both, and it is one rule with the refs and the prerelease
+letter swapped. Per package it reads the _current_ version from the line's own
+branch and compares it against the base of whatever is flowing in:
 
-- upstream base is **higher** → adopt it, suffix `-a.0`;
-- otherwise → keep our base and increment the alpha counter.
+| line              | current from     | incoming from     | letter |
+| ----------------- | ---------------- | ----------------- | ------ |
+| alpha (`develop`) | `origin/develop` | `os_repo/develop` | `a`    |
+| beta (`main`)     | `origin/main`    | `origin/develop`  | `b`    |
+
+- incoming base is **higher** → adopt it, restart the counter at `0`;
+- otherwise → keep our base and increment the counter.
+
+Select the line with `--line beta`, or `FORK_SYNC_LINE=beta` for a wrapper that
+does not forward argv — **`guard.sh` is exactly that**, so a promotion verified
+without the env var checks itself against the alpha rule and fails. Promotion is
+`/promote-develop-to-main`, which carries the whole recipe.
 
 Two things worth knowing. First, upstream's `develop` package.json **lags** its own
 releases, because changesets bumps on release — it read `11.17.0` while `11.17.1`
