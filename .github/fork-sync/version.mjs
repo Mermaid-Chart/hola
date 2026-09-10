@@ -1,33 +1,49 @@
 #!/usr/bin/env node
 /**
- * Computes the fork's alpha versions for the `develop` line.
+ * Computes the fork's prerelease versions for whichever release line is being
+ * cut.
  *
- * The fork publishes two release lines:
- *   develop -> <base>-a.N   (alpha)
- *   main    -> <base>-b.N   (beta)
+ * The fork publishes two lines, and they must not be crossed:
  *
- * Per package, the base version is compared against that package's own upstream
- * counterpart on os_repo/develop:
+ *   develop -> <base>-a.N   (alpha), dist tag `dev`
+ *   main    -> <base>-b.N   (beta),  dist tag `latest`
  *
- *   upstream base is higher  -> adopt upstream's base, suffix -a.0
- *   otherwise (equal/ahead)  -> keep our base, increment the alpha counter
+ * One rule serves both. Per package, the current version is read from the line's
+ * OWN branch and compared against the base of whatever is flowing into it:
+ *
+ *   alpha:  current from origin/develop, incoming from os_repo/develop (upstream)
+ *   beta:   current from origin/main,    incoming from origin/develop  (our alpha)
+ *
+ *   incoming base is higher  -> adopt it, restart the counter at 0
+ *   otherwise (equal/ahead)  -> keep our base, increment the counter
+ *
+ * So promoting develop to main after upstream's 12.0.0 lands takes main from
+ * `11.17.1-b.2` to `12.0.0-b.0`: develop's base is higher, so the base is
+ * adopted and the beta counter restarts. A second promotion against the same
+ * base gives `12.0.0-b.1`.
  *
  * Note `-a.N` sorts BELOW `-b.N` for the same base, because semver compares
  * prerelease identifiers alphabetically. That is intentional (an alpha precedes
  * the beta of the same base) and is why alphas must be published under a
  * non-`latest` dist tag.
  *
- * The current version is read from `origin/develop`, never from the working
- * tree: after a merge the tree may carry upstream's version, which would reset
- * the counter. Reading the branch also keeps a rolling PR from inflating N —
- * five runs before the PR merges all compute the same next version.
+ * The current version always comes from the branch, never from the working
+ * tree: after a merge the tree carries the OTHER line's version, which would
+ * reset or corrupt the counter. Reading the branch also keeps a rolling PR from
+ * inflating N — five runs before the PR merges all compute the same next
+ * version.
  *
  * Usage:
- *   node version.mjs --check              print the table, write nothing
- *   node version.mjs --write              write package.json files
- *   node version.mjs --write --json       ...and emit machine-readable JSON
- *   node version.mjs --list-publishable   emit the publishable packages with the
- *                                         versions currently in the working tree
+ *   node version.mjs --check                 print the table, write nothing
+ *   node version.mjs --write                 write package.json files
+ *   node version.mjs --write --json          ...and emit machine-readable JSON
+ *   node version.mjs --line beta --check     compute the beta line instead
+ *   node version.mjs --list-publishable      emit the publishable packages with
+ *                                            the versions in the working tree
+ *
+ * `--line` may also be given as FORK_SYNC_LINE, so that a wrapper which shells
+ * out to this script without forwarding argv — guard.sh does — still agrees
+ * with the line being cut.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -36,8 +52,45 @@ import { argv } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
-const FORK_REF = process.env.FORK_SYNC_FORK_REF ?? 'origin/develop';
-const UPSTREAM_REF = process.env.FORK_SYNC_UPSTREAM_REF ?? 'os_repo/develop';
+/**
+ * Per line: the prerelease letter, which branch holds the current version, and
+ * what flows into it. `incomingPath` differs because the alpha line compares
+ * against upstream's tree, where our packages sit under their original names,
+ * while the beta line compares against our own develop, where the paths are
+ * simply our own.
+ */
+const LINES = {
+  alpha: {
+    tag: 'a',
+    forkRef: 'origin/develop',
+    incomingRef: 'os_repo/develop',
+    incomingPath: (pkg) => pkg.upstream,
+    incomingLabel: 'upstream',
+  },
+  beta: {
+    tag: 'b',
+    forkRef: 'origin/main',
+    incomingRef: 'origin/develop',
+    incomingPath: (pkg) => pkg.dir,
+    incomingLabel: 'develop',
+  },
+};
+
+const readLine = () => {
+  const i = argv.indexOf('--line');
+  const name = (i === -1 ? process.env.FORK_SYNC_LINE : argv[i + 1]) ?? 'alpha';
+  if (!Object.hasOwn(LINES, name)) {
+    throw new Error(
+      `Unknown --line ${JSON.stringify(name)}. Expected one of: ${Object.keys(LINES).join(', ')}`
+    );
+  }
+  return name;
+};
+
+const LINE = readLine();
+const { tag: TAG, incomingPath, incomingLabel } = LINES[LINE];
+const FORK_REF = process.env.FORK_SYNC_FORK_REF ?? LINES[LINE].forkRef;
+const UPSTREAM_REF = process.env.FORK_SYNC_UPSTREAM_REF ?? LINES[LINE].incomingRef;
 
 /**
  * `upstream: null` means the package has no upstream counterpart to compare
@@ -93,31 +146,42 @@ export const compareBase = (a, b) => {
 };
 
 /**
- * The rule. `upstreamBase` is null for packages with no upstream counterpart,
- * which then simply advance their own alpha counter.
+ * The rule, shared by both lines. `incomingBase` is null for packages with no
+ * counterpart on the incoming side, which then simply advance their own
+ * counter.
+ *
+ * `tag` is the prerelease letter of the line being computed — 'a' for the
+ * develop alpha line, 'b' for the main beta line. It is deliberately the only
+ * thing that differs: a beta promotion and an upstream sync are the same
+ * operation pointed at different refs.
  */
-export const nextAlpha = (currentVersion, upstreamBase) => {
+export const nextVersion = (currentVersion, incomingBase, tag = 'a', label = 'upstream') => {
   const current = parseVersion(currentVersion);
+  const line = tag === 'b' ? 'beta' : 'alpha';
 
-  if (upstreamBase && compareBase(upstreamBase, current.base) > 0) {
-    // Upstream moved to a higher base (patch, minor or major) — adopt it and
-    // restart the counter.
-    return { version: `${upstreamBase}-a.0`, reason: `adopted upstream ${upstreamBase}` };
-  }
-
-  if (current.tag === 'a' && current.n !== null) {
+  if (incomingBase && compareBase(incomingBase, current.base) > 0) {
+    // The incoming side moved to a higher base (patch, minor or major) — adopt
+    // it and restart the counter. This is what turns main's 11.17.1-b.2 into
+    // 12.0.0-b.0 when develop has already reached 12.0.0.
     return {
-      version: `${current.base}-a.${current.n + 1}`,
-      reason: `bumped alpha ${current.n} -> ${current.n + 1}`,
+      version: `${incomingBase}-${tag}.0`,
+      reason: `adopted ${label} ${incomingBase}`,
     };
   }
 
-  // Coming from a `-b.N` beta or a bare release: start the alpha line at 0.
+  if (current.tag === tag && current.n !== null) {
+    return {
+      version: `${current.base}-${tag}.${current.n + 1}`,
+      reason: `bumped ${line} ${current.n} -> ${current.n + 1}`,
+    };
+  }
+
+  // Coming from the other line's suffix or a bare release: start this line at 0.
   return {
-    version: `${current.base}-a.0`,
+    version: `${current.base}-${tag}.0`,
     reason: current.tag
-      ? `started alpha line from -${current.tag}.${current.n}`
-      : 'started alpha line',
+      ? `started ${line} line from -${current.tag}.${current.n}`
+      : `started ${line} line`,
   };
 };
 
@@ -149,16 +213,18 @@ const main = () => {
       throw new Error(`Cannot read ${pkg.dir}/package.json at ${FORK_REF}`);
     }
 
+    const cmpPath = incomingPath(pkg);
     let upstreamBase = null;
     let upstreamVersion = null;
-    if (pkg.upstream) {
-      const upstreamPkg = readJsonAt(UPSTREAM_REF, pkg.upstream);
-      // Must not be soft. A missing read looks identical to "upstream is behind"
-      // and quietly keeps the fork base, so layout-tidy-tree would stay at 0.2.1
-      // while upstream shipped 0.2.2 — the exact drift this rule exists to fix.
+    if (cmpPath) {
+      const upstreamPkg = readJsonAt(UPSTREAM_REF, cmpPath);
+      // Must not be soft. A missing read looks identical to "the incoming side
+      // is behind" and quietly keeps the fork base, so layout-tidy-tree would
+      // stay at 0.2.1 while upstream shipped 0.2.2 — the exact drift this rule
+      // exists to fix.
       if (!upstreamPkg?.version) {
         throw new Error(
-          `Cannot read ${pkg.upstream}/package.json at ${UPSTREAM_REF}. ` +
+          `Cannot read ${cmpPath}/package.json at ${UPSTREAM_REF}. ` +
             `Fetch that ref, or set FORK_SYNC_UPSTREAM_REF to one that exists.`
         );
       }
@@ -175,14 +241,14 @@ const main = () => {
       }
       next = { version: tracked.next, reason: `tracks ${tracked.name}` };
     } else {
-      next = nextAlpha(forkPkg.version, upstreamBase);
+      next = nextVersion(forkPkg.version, upstreamBase, TAG, incomingLabel);
     }
 
     results.push({
       dir: pkg.dir,
       name: forkPkg.name,
       current: forkPkg.version,
-      upstreamName: pkg.upstream ? (readJsonAt(UPSTREAM_REF, pkg.upstream)?.name ?? null) : null,
+      upstreamName: cmpPath ? (readJsonAt(UPSTREAM_REF, cmpPath)?.name ?? null) : null,
       upstream: upstreamVersion,
       next: next.version,
       reason: next.reason,
@@ -211,12 +277,17 @@ const main = () => {
 
   if (asJson) {
     console.log(
-      JSON.stringify({ forkRef: FORK_REF, upstreamRef: UPSTREAM_REF, packages: results }, null, 2)
+      JSON.stringify(
+        { line: LINE, forkRef: FORK_REF, upstreamRef: UPSTREAM_REF, packages: results },
+        null,
+        2
+      )
     );
   } else {
     const pad = (s, n) => String(s).padEnd(n);
+    console.log(`line: ${LINE}   current from ${FORK_REF}   incoming from ${UPSTREAM_REF}`);
     console.log(
-      `${pad('package', 34)}${pad('current', 16)}${pad('upstream', 12)}${pad('next', 16)}reason`
+      `${pad('package', 34)}${pad('current', 16)}${pad(incomingLabel, 12)}${pad('next', 16)}reason`
     );
     for (const r of results) {
       console.log(
