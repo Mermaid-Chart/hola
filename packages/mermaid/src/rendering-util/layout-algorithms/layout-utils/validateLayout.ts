@@ -72,6 +72,12 @@ const EPS_MARKER_CLEARANCE_LENGTH = 10;
 const EPS_MARKER_CLEARANCE_HALF_WIDTH = 7;
 /** A parallel rail closer than this to an endpoint side is still a near-end bend/band. */
 const EPS_ENDPOINT_BAND = 18;
+/**
+ * Layout coordinates are floating point, while an SVG shape boundary is painted
+ * at sub-pixel precision. Treat this much inset as still being on a tapered or
+ * curved outline rather than in its interior.
+ */
+const EPS_SHAPE_BOUNDARY = 0.5;
 /** Two distinct edges sharing an attach point on a node within this distance trips `edge-shared-attachment-point`. */
 const EPS_SHARED_ATTACH = 3;
 /**
@@ -269,10 +275,124 @@ function countInteriorRuns(points: Point[], rect: Rect): number {
 
 /** Shapes whose outline is a diamond, where the vertices are the natural ports. */
 const DECISION_SHAPES = new Set(['diam', 'diamond', 'decision', 'question']);
+/** Rounded node outlines whose bounding rectangle is not their physical body. */
+const ELLIPTIC_SHAPES = new Set([
+  'circle',
+  'circ',
+  'ellipse',
+  'dbl-circ',
+  'double-circle',
+  'doublecircle',
+  'sm-circ',
+  'small-circle',
+  'fr-circ',
+  'framed-circle',
+  'f-circ',
+  'filled-circle',
+  'cross-circ',
+  'crossed-circle',
+]);
 
 function isDecisionShape(node: Node): boolean {
   const shape = (node as { shape?: string }).shape;
   return shape != null && DECISION_SHAPES.has(String(shape));
+}
+
+function isEllipticShape(node: Node): boolean {
+  const shape = (node as { shape?: string }).shape;
+  return shape != null && ELLIPTIC_SHAPES.has(String(shape));
+}
+
+/** The normalized inset which corresponds to {@link EPS_SHAPE_BOUNDARY} pixels. */
+function shapeBoundaryTolerance(rect: Rect): number {
+  const radius = Math.max(1, Math.min((rect.right - rect.left) / 2, (rect.bottom - rect.top) / 2));
+  return EPS_SHAPE_BOUNDARY / radius;
+}
+
+/**
+ * A node's actual outline is sometimes smaller than its layout bounding box.
+ * Return a normalized interior measure for those shapes: values below one are
+ * inside, one is on the outline, and values above one are outside. Rectangular
+ * shapes deliberately return undefined so their stricter border semantics remain unchanged.
+ */
+function shapeInteriorMeasure(point: Point, node: Node, rect: Rect): number | undefined {
+  const rx = (rect.right - rect.left) / 2;
+  const ry = (rect.bottom - rect.top) / 2;
+  if (rx <= 0 || ry <= 0) {
+    return undefined;
+  }
+  const dx = (point.x - rect.cx) / rx;
+  const dy = (point.y - rect.cy) / ry;
+  if (isEllipticShape(node)) {
+    return dx * dx + dy * dy;
+  }
+  if (isDecisionShape(node)) {
+    return Math.abs(dx) + Math.abs(dy);
+  }
+  return undefined;
+}
+
+/** Whether a point is materially inside the body that Mermaid will draw. */
+function pointInsideNodeInterior(point: Point, node: Node, rect: Rect): boolean {
+  const measure = shapeInteriorMeasure(point, node, rect);
+  if (measure != null) {
+    return measure < 1 - shapeBoundaryTolerance(rect);
+  }
+  return (
+    point.x > rect.left + EPS_SHAPE_BOUNDARY &&
+    point.x < rect.right - EPS_SHAPE_BOUNDARY &&
+    point.y > rect.top + EPS_SHAPE_BOUNDARY &&
+    point.y < rect.bottom - EPS_SHAPE_BOUNDARY
+  );
+}
+
+/** Whether the open segment reaches the material interior of a non-rectangular node. */
+function segmentIntersectsNodeInterior(a: Point, b: Point, node: Node, rect: Rect): boolean {
+  if (!isEllipticShape(node) && !isDecisionShape(node)) {
+    return segmentIntersectsRectInterior(a, b, rect);
+  }
+
+  const rx = (rect.right - rect.left) / 2;
+  const ry = (rect.bottom - rect.top) / 2;
+  if (rx <= 0 || ry <= 0) {
+    return false;
+  }
+  const ax = (a.x - rect.cx) / rx;
+  const ay = (a.y - rect.cy) / ry;
+  const dx = (b.x - a.x) / rx;
+  const dy = (b.y - a.y) / ry;
+  const candidates = [0, 1];
+
+  if (isEllipticShape(node)) {
+    const denominator = dx * dx + dy * dy;
+    if (denominator > EPS) {
+      candidates.push(Math.max(0, Math.min(1, -(ax * dx + ay * dy) / denominator)));
+    }
+  } else {
+    // The diamond measure is piecewise linear; its minimum can only occur at
+    // an endpoint or where the segment crosses one of the two centre axes.
+    if (Math.abs(dx) > EPS) {
+      const t = -ax / dx;
+      if (t > 0 && t < 1) {
+        candidates.push(t);
+      }
+    }
+    if (Math.abs(dy) > EPS) {
+      const t = -ay / dy;
+      if (t > 0 && t < 1) {
+        candidates.push(t);
+      }
+    }
+  }
+
+  const closest = Math.min(
+    ...candidates.map((t) => {
+      const x = ax + dx * t;
+      const y = ay + dy * t;
+      return isEllipticShape(node) ? x * x + y * y : Math.abs(x) + Math.abs(y);
+    })
+  );
+  return closest < 1 - shapeBoundaryTolerance(rect);
 }
 
 /**
@@ -827,6 +947,27 @@ function firstInteriorRectHit(
   return undefined;
 }
 
+/** Shape-aware counterpart for physical node obstacles. */
+function firstInteriorNodeHit(
+  points: Point[],
+  node: Node,
+  rect: Rect,
+  startAttach: Point,
+  endAttach: Point
+): SegmentHit | undefined {
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    if (segmentWithinSameAttachCorridor(a, b, startAttach, endAttach)) {
+      continue;
+    }
+    if (segmentIntersectsNodeInterior(a, b, node, rect)) {
+      return { segmentIndex: i, a, b };
+    }
+  }
+  return undefined;
+}
+
 function isAncestorGroup(ancestorId: string, node: Node, byId: Map<string, Node>): boolean {
   const seen = new Set<string>();
   let cur: Node | undefined = node;
@@ -1031,7 +1172,7 @@ function nearEndpointBandDistance(seg: Segment, side: PortSide, rect: Rect): num
     }
     const x = seg.a.x;
     const distanceToSide = side === 'W' ? rect.left - x : x - rect.right;
-    if (distanceToSide < -EPS || distanceToSide > EPS_ENDPOINT_BAND + EPS) {
+    if (distanceToSide < -EPS || distanceToSide >= EPS_ENDPOINT_BAND - EPS) {
       return null;
     }
     const overlap = rangeOverlap(seg.a.y, seg.b.y, rect.top, rect.bottom);
@@ -1043,7 +1184,7 @@ function nearEndpointBandDistance(seg: Segment, side: PortSide, rect: Rect): num
   }
   const y = seg.a.y;
   const distanceToSide = side === 'N' ? rect.top - y : y - rect.bottom;
-  if (distanceToSide < -EPS || distanceToSide > EPS_ENDPOINT_BAND + EPS) {
+  if (distanceToSide < -EPS || distanceToSide >= EPS_ENDPOINT_BAND - EPS) {
     return null;
   }
   const overlap = rangeOverlap(seg.a.x, seg.b.x, rect.left, rect.right);
@@ -1676,7 +1817,10 @@ export function validateLayout(
         continue;
       }
 
-      const hit = firstInteriorRectHit(points, obstacleRect, startAttach, endAttach);
+      const obstacle = byId.get(obstacleId);
+      const hit = obstacle
+        ? firstInteriorNodeHit(points, obstacle, obstacleRect, startAttach, endAttach)
+        : firstInteriorRectHit(points, obstacleRect, startAttach, endAttach);
       if (hit) {
         issues.push({
           type: 'edge-intersects-obstacle',
@@ -1920,12 +2064,6 @@ export function validateLayout(
     // the rect (not on its boundary) by more than EPS_INSIDE — this allows
     // ports that legitimately touch the boundary while catching ports that
     // the router left dangling inside an obstacle.
-    const EPS_INSIDE = 0.5;
-    const isStrictlyInside = (p: Point, r: Rect): boolean =>
-      p.x > r.left + EPS_INSIDE &&
-      p.x < r.right - EPS_INSIDE &&
-      p.y > r.top + EPS_INSIDE &&
-      p.y < r.bottom - EPS_INSIDE;
     const endpointLabel: [Point, 'start' | 'end'][] = [
       [points[0], 'start'],
       [points[points.length - 1], 'end'],
@@ -1943,7 +2081,7 @@ export function validateLayout(
         if (ownLabelId && nodeIdForRect === ownLabelId) {
           continue;
         }
-        if (isStrictlyInside(endpoint, r)) {
+        if (pointInsideNodeInterior(endpoint, n, r)) {
           issues.push({
             type: 'edge-endpoint-inside-node',
             message: diag

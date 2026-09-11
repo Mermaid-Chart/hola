@@ -1781,12 +1781,22 @@ function outerSideRoute(
   const start = points[0];
   const beforeEnd = points.at(-2)!;
   const end = points.at(-1)!;
-  // The target must already be entered horizontally; retain that side exactly.
-  if (!sameLayoutCoordinate(beforeEnd.y, end.y) || Math.abs(end.y - start.y) < clearance) {
-    return undefined;
-  }
   const halfWidth = (source.width ?? 0) / 2;
   if (halfWidth <= 0) {
+    return undefined;
+  }
+  // This local crossing cleanup may only move a route that already leaves its source
+  // through a lateral side. Replacing a top/bottom exit with a left/right one
+  // would make the first run slide along the source border, contradicting the
+  // side that the final router chose for its port.
+  const isLateralSourcePort =
+    sameLayoutCoordinate(start.x, (source.x ?? 0) - halfWidth) ||
+    sameLayoutCoordinate(start.x, (source.x ?? 0) + halfWidth);
+  if (!isLateralSourcePort || !sameLayoutCoordinate(start.y, points[1].y)) {
+    return undefined;
+  }
+  // The target must already be entered horizontally; retain that side exactly.
+  if (!sameLayoutCoordinate(beforeEnd.y, end.y) || Math.abs(end.y - start.y) < clearance) {
     return undefined;
   }
   const direction = side === 'left' ? -1 : 1;

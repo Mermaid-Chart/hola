@@ -125,6 +125,33 @@ export function routeFinalEdges(
     const second = routePass(nodes, edges, options, plan);
     if (second.failed.length <= first.failed.length) {
       chosen = second;
+    } else {
+      // A dense core can leave one locked route with no usable visibility path.
+      // Do not let that single failure discard the ports successfully planned for
+      // every other edge: retain the first pass only for the edge that the locked
+      // pass could not route. The first pass already proved that replacement route
+      // is drawable, while the remaining routes keep their distinct planned ports.
+      const firstById = new Map(first.edges.map((route) => [route.originalEdgeId, route]));
+      const firstFailures = new Set(first.failed);
+      const secondFailures = new Set(second.failed);
+      const recovered = new Set<string>();
+      const edges = second.edges.map((route) => {
+        if (!secondFailures.has(route.originalEdgeId) || firstFailures.has(route.originalEdgeId)) {
+          return route;
+        }
+        const original = firstById.get(route.originalEdgeId);
+        if (!original) {
+          return route;
+        }
+        recovered.add(route.originalEdgeId);
+        return original;
+      });
+      if (recovered.size > 0) {
+        chosen = {
+          edges,
+          failed: second.failed.filter((edgeId) => !recovered.has(edgeId)),
+        };
+      }
     }
   }
 

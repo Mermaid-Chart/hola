@@ -7,6 +7,8 @@ interface Point {
   y: number;
 }
 
+const EMPTY_CONFIG = {} as LayoutData['config'];
+
 function mkNode(id: string, x: number, y: number, width = 40, height = 40): Node {
   return { id, x, y, width, height, isGroup: false } as any;
 }
@@ -296,10 +298,25 @@ describe('validateLayout new hard-validation rules', () => {
       { x: 60, y: 10 },
       { x: 80, y: 10 },
     ]);
-    const layout: LayoutData = { nodes: [source, target], edges: [e], config: {} as any };
+    const layout: LayoutData = { nodes: [source, target], edges: [e], config: EMPTY_CONFIG };
 
     const types = getIssueTypes(layout);
     expect(types).not.toContain('edge-bend-near-endpoint');
+  });
+
+  it('does NOT flag edge-bend-near-endpoint for a parallel band exactly at its threshold', () => {
+    const source = mkNode('Source', 0, 0, 40, 40);
+    const target = mkNode('Target', 100, 0, 40, 40);
+    const e = mkEdge('e', 'Source', 'Target', [
+      { x: 20, y: 0 },
+      { x: 20, y: -30 },
+      { x: 62, y: -30 },
+      { x: 62, y: 0 }, // exactly 18px west of Target's left side (x = 80)
+      { x: 80, y: 0 },
+    ]);
+    const layout: LayoutData = { nodes: [source, target], edges: [e], config: EMPTY_CONFIG };
+
+    expect(getIssueTypes(layout)).not.toContain('edge-bend-near-endpoint');
   });
 
   it('does NOT flag edge-bend-near-endpoint for start-side parallel bands', () => {
@@ -311,7 +328,7 @@ describe('validateLayout new hard-validation rules', () => {
       { x: 35, y: 30 },
       { x: 80, y: 30 },
     ]);
-    const layout: LayoutData = { nodes: [source, target], edges: [e], config: {} as any };
+    const layout: LayoutData = { nodes: [source, target], edges: [e], config: EMPTY_CONFIG };
 
     const types = getIssueTypes(layout);
     expect(types).not.toContain('edge-bend-near-endpoint');
@@ -536,6 +553,76 @@ describe('validateLayout new geometric issues', () => {
       (i) => i.type === 'edge-intersects-obstacle'
     );
     expect(intersectObstacle).toEqual([]);
+  });
+
+  it('accepts a circle boundary port that lies inside its bounding box', () => {
+    const source = { ...mkNode('Source', 50, 50, 100, 100), shape: 'circle' };
+    const target = mkNode('Target', 20, 180, 40, 40);
+    // (20, 90) lies exactly on Source's circular outline, despite being inside
+    // its rectangular bounds. The vertical run immediately leaves the circle.
+    const e = mkEdge('e', 'Source', 'Target', [
+      { x: 20, y: 90 },
+      { x: 20, y: 160 },
+    ]);
+    const layout: LayoutData = { nodes: [source, target], edges: [e], config: {} as any };
+    const types = getIssueTypes(layout);
+
+    expect(types).not.toContain('edge-intersects-obstacle');
+    expect(types).not.toContain('edge-endpoint-inside-node');
+  });
+
+  it('accepts the circular ports emitted for complete_graph_k5', () => {
+    const a = {
+      ...mkNode('A', 160.32638931274414, 58.32638931274414, 64.65277862548828, 64.65277862548828),
+      shape: 'circle',
+    };
+    const c = {
+      ...mkNode('C', 40.32638931274414, 178.32638931274414, 64.65277862548828, 64.65277862548828),
+      shape: 'circle',
+    };
+    // Captured L_A_C_0 route: its diagonal circle ports sit inside the two
+    // layout bounding squares but exactly on their painted circular outlines.
+    const e = mkEdge('L_A_C_0', 'A', 'C', [
+      { x: 138.34444458007812, y: 81.98754675832379 },
+      { x: 138.34444458007812, y: 108.65277862548828 },
+      { x: 90.65277862548828, y: 108.65277862548828 },
+      { x: 90.65277862548828, y: 156.34444458007812 },
+      { x: 63.98754675832379, y: 156.34444458007812 },
+    ]);
+    const layout: LayoutData = { nodes: [a, c], edges: [e], config: EMPTY_CONFIG };
+
+    expect(validateLayout(layout).ok).toBe(true);
+  });
+
+  it('accepts a diamond vertex reached within layout precision', () => {
+    const source = mkNode('Source', 50, 20, 40, 40);
+    const target = { ...mkNode('Target', 50, 150, 100, 100), shape: 'diam' };
+    // The vertex is at (50, 100). The 0.1px residue is ordinary layout
+    // precision, not an edge crossing through the diamond's interior.
+    const e = mkEdge('e', 'Source', 'Target', [
+      { x: 50, y: 40 },
+      { x: 50, y: 100.1 },
+    ]);
+    const layout: LayoutData = { nodes: [source, target], edges: [e], config: {} as any };
+
+    expect(getIssueTypes(layout)).not.toContain('edge-intersects-obstacle');
+  });
+
+  it('still flags an edge that crosses the real interior of a circular obstacle', () => {
+    const source = mkNode('Source', -120, 0, 40, 40);
+    const target = mkNode('Target', 120, 0, 40, 40);
+    const obstacle = { ...mkNode('Obstacle', 0, 0, 80, 80), shape: 'circle' };
+    const e = mkEdge('e', 'Source', 'Target', [
+      { x: -100, y: 0 },
+      { x: 100, y: 0 },
+    ]);
+    const layout: LayoutData = {
+      nodes: [source, target, obstacle],
+      edges: [e],
+      config: EMPTY_CONFIG,
+    };
+
+    expect(getIssueTypes(layout)).toContain('edge-intersects-obstacle');
   });
 
   it('flags edge-same-port-departure when two edges depart very close with same direction', () => {

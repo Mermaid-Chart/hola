@@ -210,10 +210,17 @@ export function routeCoreEdges(
     const originals = edge.originalEdgeIds;
     originals.forEach((originalEdgeId, index) => {
       const label = flat.labels.get(originalEdgeId);
+      // The topological core is deliberately undirected: A → B and B → A share
+      // one adjacency while planarisation and placement are decided. Routing is
+      // written back to the original Mermaid edges, though, so it must recover
+      // each edge's own direction. Reusing `edge.source`/`edge.target` here gave
+      // every reverse edge the forward route and left both of its endpoints in
+      // thin air when the route was painted against the original edge.
+      const original = flat.originalEdges.get(originalEdgeId);
       finalEdges.push({
         originalEdgeId,
-        source: edge.source,
-        target: edge.target,
+        source: original?.start ?? edge.source,
+        target: original?.end ?? edge.target,
         mandatoryWaypoints: [],
         parallelIndex: index,
         parallelCount: originals.length,

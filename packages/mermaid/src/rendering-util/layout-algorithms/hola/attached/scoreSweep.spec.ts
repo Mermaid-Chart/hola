@@ -51,7 +51,8 @@ const KNOWN_INVALID: Record<string, string> = {
   domus1: 'edge-bend-near-endpoint',
   'edge-types': 'edge-bend-near-endpoint, and a label over a foreign edge',
   'GRAPH - Bipartite Graph k3,3': 'non-planar: shared ports and shared subpaths on a tiny core',
-  'GRAPH - complete_graph_k4': 'non-planar: detached endpoints, shared ports, shared subpaths',
+  'GRAPH - complete_graph_k4':
+    'dense bidirectional core: terminal bends, near-parallel lanes, and one shared subpath',
   'GRAPH - hola paper graph 8': 'edge-bend-near-endpoint',
   'incremental-editing': 'edge-bend-near-endpoint',
   'life-choices': 'edge-bend-near-endpoint',

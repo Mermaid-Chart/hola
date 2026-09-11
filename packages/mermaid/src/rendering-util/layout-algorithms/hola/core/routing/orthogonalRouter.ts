@@ -591,6 +591,15 @@ export function routeWithSides(
   if (!isOrthogonal(points)) {
     return null;
   }
+  // The visibility search starts one clearance beyond each terminal.  It may
+  // legally revisit an endpoint box boundary while avoiding another obstacle;
+  // after collinear simplification that detour can erase the stub and leave the
+  // port sideways along its own border.  Such a polyline is geometrically
+  // orthogonal but does not honour its selected port side (and makes an
+  // arrowhead point the wrong way), so reject it just like a too-short stub.
+  if (!terminalRunsLeaveThroughSides(points, sourceSide, targetSide)) {
+    return null;
+  }
   // The stubs are placed `minimumLeg` out from each port and `simplifyCollinear`
   // only ever merges interior points — which lengthens a terminal leg, never
   // shortens it — so this holds by construction. Checked rather than assumed: a
@@ -609,6 +618,37 @@ export function routeWithSides(
     crossings,
     cost: cost + countBends(points) * config.bendPenalty,
   };
+}
+
+/** Both terminal runs must follow the outward normal of their selected side. */
+function terminalRunsLeaveThroughSides(
+  points: Point[],
+  sourceSide: Side,
+  targetSide: Side
+): boolean {
+  if (points.length < 2) {
+    return false;
+  }
+  return (
+    runLeavesSide(points[0], points[1], sourceSide) &&
+    runLeavesSide(points.at(-1)!, points.at(-2)!, targetSide)
+  );
+}
+
+/** `outside` must lie in the outward normal direction from the boundary `port`. */
+function runLeavesSide(port: Point, outside: Point, side: Side): boolean {
+  const dx = outside.x - port.x;
+  const dy = outside.y - port.y;
+  switch (side) {
+    case 'top':
+      return Math.abs(dx) < EPSILON && dy < -EPSILON;
+    case 'right':
+      return dx > EPSILON && Math.abs(dy) < EPSILON;
+    case 'bottom':
+      return Math.abs(dx) < EPSILON && dy > EPSILON;
+    case 'left':
+      return dx < -EPSILON && Math.abs(dy) < EPSILON;
+  }
 }
 
 /** Every allowed side pair, cheapest first (guide §19.5). */

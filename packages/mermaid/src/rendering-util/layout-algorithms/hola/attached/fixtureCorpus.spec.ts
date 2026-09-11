@@ -110,10 +110,6 @@ const KNOWN_TREE_CONNECTOR_OVERLAPS: Record<string, string[]> = {
  */
 const KNOWN_SHARED_CORE_PORTS: Record<string, string[]> = {
   'GRAPH - Bipartite Graph k3,3': ['L_A1_B3_0 and L_A2_B3_0 share a port on B3'],
-  'GRAPH - complete_graph_k4': [
-    'L_A_D_0 and L_B_D_0 share a port on D',
-    'L_B_C_0 and L_B_D_0 share a port on B',
-  ],
   // A five-cycle whose every node also carries a tree: C2's side is spoken for by
   // two core edges before any tree asks for room, and the locked port pass cannot
   // route the second one elsewhere. No container is involved — the sibling branch
@@ -285,6 +281,55 @@ function pointLiesOnRoute(x: number, y: number, points: { x: number; y: number }
     ) {
       return true;
     }
+  }
+  return false;
+}
+
+/** A routed endpoint must lie on the boundary of the Mermaid node it names. */
+function pointTouchesNodeBoundary(
+  point: { x: number; y: number },
+  node: { x?: number; y?: number; width?: number; height?: number }
+): boolean {
+  const minX = (node.x ?? 0) - (node.width ?? 0) / 2;
+  const maxX = (node.x ?? 0) + (node.width ?? 0) / 2;
+  const minY = (node.y ?? 0) - (node.height ?? 0) / 2;
+  const maxY = (node.y ?? 0) + (node.height ?? 0) / 2;
+  const onHorizontalSide =
+    point.x >= minX - EPSILON &&
+    point.x <= maxX + EPSILON &&
+    (Math.abs(point.y - minY) <= EPSILON || Math.abs(point.y - maxY) <= EPSILON);
+  const onVerticalSide =
+    point.y >= minY - EPSILON &&
+    point.y <= maxY + EPSILON &&
+    (Math.abs(point.x - minX) <= EPSILON || Math.abs(point.x - maxX) <= EPSILON);
+  return onHorizontalSide || onVerticalSide;
+}
+
+/** An endpoint's adjacent segment must be perpendicular to its boundary side. */
+function terminalRunIsPerpendicular(
+  point: { x: number; y: number },
+  adjacent: { x: number; y: number },
+  node: { x?: number; y?: number; width?: number; height?: number }
+): boolean {
+  const minX = (node.x ?? 0) - (node.width ?? 0) / 2;
+  const maxX = (node.x ?? 0) + (node.width ?? 0) / 2;
+  const minY = (node.y ?? 0) - (node.height ?? 0) / 2;
+  const maxY = (node.y ?? 0) + (node.height ?? 0) / 2;
+  // At both terminals, the adjacent route point lies outside the node. Its
+  // direction from the boundary point therefore identifies the outward normal.
+  const dx = adjacent.x - point.x;
+  const dy = adjacent.y - point.y;
+  if (Math.abs(point.y - minY) <= EPSILON) {
+    return Math.abs(dx) <= EPSILON && dy < -EPSILON;
+  }
+  if (Math.abs(point.y - maxY) <= EPSILON) {
+    return Math.abs(dx) <= EPSILON && dy > EPSILON;
+  }
+  if (Math.abs(point.x - minX) <= EPSILON) {
+    return dx < -EPSILON && Math.abs(dy) <= EPSILON;
+  }
+  if (Math.abs(point.x - maxX) <= EPSILON) {
+    return dx > EPSILON && Math.abs(dy) <= EPSILON;
   }
   return false;
 }
@@ -709,6 +754,48 @@ describe('grid-attached over the hola-faithful fixture corpus', () => {
             : (point.y - (node.y! - node.height! / 2)) / node.height!;
           expect(Math.min(fraction, 1 - fraction)).toBeGreaterThanOrEqual(0.15);
         }
+      });
+    }
+
+    if (name === 'GRAPH - complete_graph_k4') {
+      it('keeps every directed edge attached to the endpoints it actually names', async () => {
+        const { layout } = await lay(name, sizes);
+        const nodes = new Map(layout.nodes.map((node) => [node.id, node]));
+        const ports = new Map<string, string[]>();
+        for (const edge of layout.edges) {
+          const points = edge.points ?? [];
+          const source = nodes.get(edge.start ?? '');
+          const target = nodes.get(edge.end ?? '');
+          expect(source, `${edge.id} source`).toBeDefined();
+          expect(target, `${edge.id} target`).toBeDefined();
+          expect(points.length, `${edge.id} route`).toBeGreaterThanOrEqual(2);
+          expect(pointTouchesNodeBoundary(points[0], source!), `${edge.id} start`).toBe(true);
+          expect(pointTouchesNodeBoundary(points.at(-1)!, target!), `${edge.id} end`).toBe(true);
+          expect(
+            terminalRunIsPerpendicular(points[0], points[1], source!),
+            `${edge.id} start direction`
+          ).toBe(true);
+          expect(
+            terminalRunIsPerpendicular(points.at(-1)!, points.at(-2)!, target!),
+            `${edge.id} end direction`
+          ).toBe(true);
+          for (const [nodeId, point] of [
+            [edge.start, points[0]],
+            [edge.end, points.at(-1)!],
+          ] as const) {
+            const key = `${nodeId}:${point.x.toFixed(3)}:${point.y.toFixed(3)}`;
+            const edgeIds = ports.get(key) ?? [];
+            edgeIds.push(edge.id);
+            ports.set(key, edgeIds);
+          }
+        }
+
+        expect(
+          [...ports.values()]
+            .filter((edgeIds) => edgeIds.length > 1)
+            .map((edgeIds) => edgeIds.sort().join(' ~ '))
+            .sort()
+        ).toEqual([]);
       });
     }
 
