@@ -87,6 +87,13 @@ const registerDefaultLayoutLoaders = () => {
       loader: async () => await import('./layout-algorithms/ipsep-cola/index.js'),
     },
     {
+      // Grid-like layout (Kieffer, Dwyer, Marriott & Wybrow 2013): IPSEP-COLA
+      // followed by HOLA's ACA and grid-snap beautification, without HOLA's
+      // core/tree decomposition or orthogonal routing stages.
+      name: 'stress-and-grid',
+      loader: async () => await import('./layout-algorithms/stress-and-grid/index.js'),
+    },
+    {
       // HOLA (Kieffer, Dwyer, Marriott & Wybrow 2015): the graph is decomposed
       // into a core plus the trees hanging off it, the core is drawn grid-like
       // and orthogonally routed, and every tree is hung back on the core node
