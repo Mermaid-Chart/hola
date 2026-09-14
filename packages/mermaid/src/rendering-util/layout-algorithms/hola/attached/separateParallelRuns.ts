@@ -32,7 +32,8 @@
  * Anything it cannot fix safely it leaves alone, so the worst case is the
  * drawing it was given.
  */
-import type { Edge } from '../../../types.js';
+import type { Point } from '../../../../types.js';
+import type { Edge, Node } from '../../../types.js';
 
 /**
  * Perpendicular distance below which two parallel runs stop reading as two
@@ -46,6 +47,18 @@ const MIN_OVERLAP = 8;
 
 /** A leg shorter than this is not a leg; refuse shifts that would create one. */
 const MIN_LEG = 2;
+
+/**
+ * Keep-out band around the side an edge attaches to, matching `EPS_ENDPOINT_BAND`
+ * in `validateLayout`.
+ *
+ * A run parallel to that side, closer than this AND overlapping the node's extent
+ * along its own axis, reads as a rail grazing the node — `edge-bend-near-endpoint`.
+ * Both halves matter. Rejecting on distance alone blocks separations the validator
+ * would never have penalised, and those turn out to be the ones the faithful-HOLA
+ * fixtures depend on.
+ */
+const ENDPOINT_BAND = 18;
 
 interface Run {
   edge: Edge;
@@ -93,6 +106,41 @@ function projectedOverlap(a: Run, b: Run): number {
   return Math.min(a.to, b.to) - Math.max(a.from, b.from);
 }
 
+/** Terminal points this run sits next to, paired with the node each attaches to. */
+function adjacentTerminals(
+  run: Run,
+  nodeById: ReadonlyMap<string, Node>
+): { point: Point; node: Node }[] {
+  const points = run.edge.points;
+  if (!points) {
+    return [];
+  }
+  const out: { point: Point; node: Node }[] = [];
+  const add = (point: Point, id?: string) => {
+    const node = id === undefined ? undefined : nodeById.get(id);
+    if (node?.x !== undefined && node.y !== undefined && node.width && node.height) {
+      out.push({ point, node });
+    }
+  };
+  if (run.index === 1) {
+    add(points[0], run.edge.start);
+  }
+  if (run.index === points.length - 3) {
+    add(points[points.length - 1], run.edge.end);
+  }
+  return out;
+}
+
+/**
+ * Does the run overlap the node's extent along the run's own axis? Only then can
+ * the band rule fire — a run that clears the node sideways is not grazing it.
+ */
+function overlapsNodeSpan(run: Run, node: Node): boolean {
+  const half = (run.horizontal ? node.width! : node.height!) / 2;
+  const centre = run.horizontal ? node.x! : node.y!;
+  return Math.min(run.to, centre + half) - Math.max(run.from, centre - half) > 0;
+}
+
 /**
  * Move a run to `target`, if the legs either side survive it.
  *
@@ -100,7 +148,7 @@ function projectedOverlap(a: Run, b: Run): number {
  * `index - 1` and `index + 1`; each is perpendicular to the run, so the run's
  * shift changes their length and nothing else.
  */
-function shiftRun(run: Run, target: number): boolean {
+function shiftRun(run: Run, target: number, nodeById: ReadonlyMap<string, Node>): boolean {
   const points = run.edge.points;
   if (!points) {
     return false;
@@ -115,6 +163,17 @@ function shiftRun(run: Run, target: number): boolean {
   const movingUp = target > current;
   if (movingUp ? target > upper - MIN_LEG : target < lower + MIN_LEG) {
     return false;
+  }
+  for (const { point, node } of adjacentTerminals(run, nodeById)) {
+    if (!overlapsNodeSpan(run, node)) {
+      continue;
+    }
+    const axis = run.horizontal ? point.y : point.x;
+    const wasClear = Math.abs(current - axis) >= ENDPOINT_BAND;
+    const isClear = Math.abs(target - axis) >= ENDPOINT_BAND;
+    if (!isClear && (wasClear || Math.abs(target - axis) <= Math.abs(current - axis))) {
+      return false;
+    }
   }
   if (run.horizontal) {
     points[run.index].y = target;
@@ -133,7 +192,8 @@ function shiftRun(run: Run, target: number): boolean {
  * Mutates `edge.points` in place. Safe to call on any set of edges: routes it
  * cannot separate without harming them are left exactly as they were.
  */
-export function separateParallelRuns(edges: readonly Edge[]): number {
+export function separateParallelRuns(edges: readonly Edge[], nodes: readonly Node[]): number {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const runs: Run[] = [];
   for (const edge of edges) {
     if (edge.isLayoutOnly) {
@@ -165,13 +225,13 @@ export function separateParallelRuns(edges: readonly Edge[]): number {
       const need = MIN_PARALLEL_GAP - gap;
       const [low, high] = a.at < b.at ? [a, b] : [b, a];
       const half = need / 2;
-      const lowOk = shiftRun(low, low.at - half);
-      const highOk = shiftRun(high, high.at + (lowOk ? half : need));
+      const lowOk = shiftRun(low, low.at - half, nodeById);
+      const highOk = shiftRun(high, high.at + (lowOk ? half : need), nodeById);
       if (!lowOk && !highOk) {
         continue;
       }
       if (lowOk && !highOk) {
-        shiftRun(low, low.at - half);
+        shiftRun(low, low.at - half, nodeById);
       }
       moved++;
     }

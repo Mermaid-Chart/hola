@@ -285,7 +285,7 @@ export function runGridAttachedLayoutCore(
   // (a terminal leg at `minTerminalLegLength`, a passing route at
   // `routingClearance`) read as one thick line. Nothing earlier compares them,
   // because neither step knows the other's number.
-  separateParallelRuns(data.edges);
+  separateParallelRuns(data.edges, data.nodes);
 
   const droppedEdgeIds = pruneToDrawn(data, laidOut, framed);
 
