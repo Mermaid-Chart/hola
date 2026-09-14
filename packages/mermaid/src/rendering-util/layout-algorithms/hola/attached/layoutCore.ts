@@ -103,7 +103,7 @@ import {
   restoreContainerEdges,
   straightenAlignedContainerBridges,
 } from './containerEdges.js';
-import { separateParallelRuns } from './separateParallelRuns.js';
+import { liftRunsOutOfEndpointBands, separateParallelRuns } from './separateParallelRuns.js';
 import { polylineHitsBounds, segmentsCross } from './geometry.js';
 import { combLevelsNeeded, routeComponentTrees, routeTreeSelfLoop } from './treeConnectors.js';
 import type { TreeConnector, TreeRouteRequest } from './treeConnectors.js';
@@ -285,6 +285,7 @@ export function runGridAttachedLayoutCore(
   // (a terminal leg at `minTerminalLegLength`, a passing route at
   // `routingClearance`) read as one thick line. Nothing earlier compares them,
   // because neither step knows the other's number.
+  liftRunsOutOfEndpointBands(data.edges, data.nodes);
   separateParallelRuns(data.edges, data.nodes);
 
   const droppedEdgeIds = pruneToDrawn(data, laidOut, framed);

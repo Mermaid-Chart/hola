@@ -238,3 +238,45 @@ export function separateParallelRuns(edges: readonly Edge[], nodes: readonly Nod
   }
   return moved;
 }
+
+/**
+ * Lift runs that graze an endpoint out of its keep-out band.
+ *
+ * The separation pass refuses to move a run *into* a band; this moves one that is
+ * already there *out*. They are the two halves of the same rule and they run in this
+ * order deliberately: lifting can bring a run alongside another, and the separation
+ * pass that follows is what pulls those apart again. Reversed, the lift would undo
+ * the separation's work.
+ *
+ * Only ever moves a run directly away from the node it grazes, so the terminal leg it
+ * shares a corner with can only get longer — the check this satisfies
+ * (`edge-bend-near-endpoint`) also fails on legs that are too short, and a lift that
+ * shortened one would be trading the same issue back.
+ */
+export function liftRunsOutOfEndpointBands(edges: readonly Edge[], nodes: readonly Node[]): number {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  let lifted = 0;
+  for (const edge of edges) {
+    if (edge.isLayoutOnly) {
+      continue;
+    }
+    for (const run of runsOf(edge)) {
+      for (const { point, node } of adjacentTerminals(run, nodeById)) {
+        if (!overlapsNodeSpan(run, node)) {
+          continue;
+        }
+        const axis = run.horizontal ? point.y : point.x;
+        const offset = run.at - axis;
+        if (Math.abs(offset) >= ENDPOINT_BAND || Math.abs(offset) < 1e-6) {
+          // Already clear, or sitting on the boundary line itself — the latter is a
+          // degenerate route this pass has no safe direction to resolve.
+          continue;
+        }
+        if (shiftRun(run, axis + Math.sign(offset) * ENDPOINT_BAND, nodeById)) {
+          lifted++;
+        }
+      }
+    }
+  }
+  return lifted;
+}
