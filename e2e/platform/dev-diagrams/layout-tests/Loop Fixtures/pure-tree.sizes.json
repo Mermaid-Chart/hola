@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "root",
+      "width": 89.734375,
+      "height": 54
+    },
+    {
+      "id": "a",
+      "width": 68.40625,
+      "height": 54
+    },
+    {
+      "id": "b",
+      "width": 68.921875,
+      "height": 54
+    },
+    {
+      "id": "c",
+      "width": 67.921875,
+      "height": 54
+    },
+    {
+      "id": "d",
+      "width": 68.921875,
+      "height": 54
+    },
+    {
+      "id": "e",
+      "width": 68.734375,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "85a87c188116786299809f248deee608424c22c87fcce35cbe70fc52db5682d5",
+    "capturedAt": "2026-09-14T10:59:25.568Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/pure-tree.mmd theme=default look=classic layout=dagre"
+  }
+}

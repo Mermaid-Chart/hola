@@ -1,0 +1,475 @@
+{
+  "nodes": [
+    {
+      "id": "R",
+      "width": 24.3125,
+      "height": 24.3125
+    },
+    {
+      "id": "N1",
+      "width": 78.609375,
+      "height": 54
+    },
+    {
+      "id": "N2",
+      "width": 78.609375,
+      "height": 54
+    },
+    {
+      "id": "N3",
+      "width": 78.609375,
+      "height": 54
+    },
+    {
+      "id": "N11",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N12",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N21",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N22",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N23",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N24",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N31",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N32",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N33",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N111",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N112",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N121",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N211",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N212",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N213",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N221",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N222",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N231",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N241",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N242",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N311",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N312",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N321",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N331",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N332",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N333",
+      "width": 95.390625,
+      "height": 54
+    },
+    {
+      "id": "N1111",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N1112",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N1121",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N1211",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N1212",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2111",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2121",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2122",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2131",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2211",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2212",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2221",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2311",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2312",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2411",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2421",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N2422",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3111",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3112",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3121",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3211",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3212",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3311",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3321",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3322",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N3331",
+      "width": 103.78125,
+      "height": 54
+    },
+    {
+      "id": "N11111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N11112",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N11121",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N11211",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N11212",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N12111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N12121",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N12122",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N21111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N21211",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N21212",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N21221",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N21311",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N21312",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N22111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N22121",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N22122",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N22211",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N23111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N23121",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N23122",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N24111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N24211",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N24221",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N24222",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N31111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N31121",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N31211",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N31212",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N32111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N32121",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N32122",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N33111",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N33211",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N33221",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N33222",
+      "width": 112.171875,
+      "height": 54
+    },
+    {
+      "id": "N33311",
+      "width": 112.171875,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "aed51f9710acaca50977a0c762772bcc74b183231aef17f256de896ffcefb858",
+    "capturedAt": "2026-09-14T10:59:26.240Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/tree.mmd theme=default look=classic layout=dagre"
+  }
+}
