@@ -103,6 +103,7 @@ import {
   restoreContainerEdges,
   straightenAlignedContainerBridges,
 } from './containerEdges.js';
+import { separateParallelRuns } from './separateParallelRuns.js';
 import { polylineHitsBounds, segmentsCross } from './geometry.js';
 import { combLevelsNeeded, routeComponentTrees, routeTreeSelfLoop } from './treeConnectors.js';
 import type { TreeConnector, TreeRouteRequest } from './treeConnectors.js';
@@ -279,6 +280,12 @@ export function runGridAttachedLayoutCore(
   // final coordinates. A label placed before that cut can be left on the tiny run
   // that meets a frame, which is exactly where the frame title is painted.
   repositionLabelsAwayFromFrameTitles(flat, data.edges, drawnNodes, frameBoxes, subgraphs, options);
+
+  // Last, on final geometry: two runs parked 6px apart by two different steps
+  // (a terminal leg at `minTerminalLegLength`, a passing route at
+  // `routingClearance`) read as one thick line. Nothing earlier compares them,
+  // because neither step knows the other's number.
+  separateParallelRuns(data.edges);
 
   const droppedEdgeIds = pruneToDrawn(data, laidOut, framed);
 
