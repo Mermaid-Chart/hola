@@ -211,9 +211,7 @@ export function separateParallelRuns(edges: readonly Edge[], nodes: readonly Nod
         continue;
       }
       const gap = Math.abs(a.at - b.at);
-      if (gap < 1e-6 || gap >= MIN_PARALLEL_GAP) {
-        // Collinear runs are a shared subpath, a different defect with a
-        // different fix; anything already clear needs nothing.
+      if (gap >= MIN_PARALLEL_GAP) {
         continue;
       }
       if (projectedOverlap(a, b) < MIN_OVERLAP) {
@@ -223,7 +221,20 @@ export function separateParallelRuns(edges: readonly Edge[], nodes: readonly Nod
       // correction on one where only one can. Splitting it keeps each route
       // closer to the position the router chose for it.
       const need = MIN_PARALLEL_GAP - gap;
-      const [low, high] = a.at < b.at ? [a, b] : [b, a];
+      // Exactly collinear runs are a shared subpath — the same defect one step
+      // further on, not a different one. Two edges drawn over each other read as
+      // one edge, and the reader loses a whole connection rather than merely
+      // mistaking two for a thick line. There is no gap to widen and so no side
+      // to preserve, so order them by edge id: any consistent choice draws both,
+      // and a stable one keeps the layout reproducible between runs.
+      const collinear = gap < 1e-6;
+      const [low, high] = collinear
+        ? a.edge.id < b.edge.id
+          ? [a, b]
+          : [b, a]
+        : a.at < b.at
+          ? [a, b]
+          : [b, a];
       const half = need / 2;
       const lowOk = shiftRun(low, low.at - half, nodeById);
       const highOk = shiftRun(high, high.at + (lowOk ? half : need), nodeById);
