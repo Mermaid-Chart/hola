@@ -156,13 +156,22 @@ function shiftRun(run: Run, target: number, nodeById: ReadonlyMap<string, Node>)
   const before = points[run.index - 1];
   const after = points[run.index + 2];
   const current = run.at;
-  // The neighbours anchor at `before` and `after`; the run may not cross either,
-  // or the leg that reached it would double back.
-  const lower = Math.min(run.horizontal ? before.y : before.x, run.horizontal ? after.y : after.x);
-  const upper = Math.max(run.horizontal ? before.y : before.x, run.horizontal ? after.y : after.x);
-  const movingUp = target > current;
-  if (movingUp ? target > upper - MIN_LEG : target < lower + MIN_LEG) {
-    return false;
+  // Each neighbouring leg must keep its direction and stay a real leg. Testing
+  // against the pair's min/max instead only works when the run sits BETWEEN its
+  // neighbours; on a U-shaped route both sit on the same side, and moving the run
+  // further away from them — which lengthens both legs — read as crossing past one.
+  // That is what stopped `life-choices` being repairable: its band sat 12 below two
+  // endpoints that were both above it.
+  for (const neighbour of [before, after]) {
+    const edgeOf = run.horizontal ? neighbour.y : neighbour.x;
+    const was = Math.sign(current - edgeOf);
+    const now = Math.sign(target - edgeOf);
+    if (was !== 0 && now !== was) {
+      return false;
+    }
+    if (Math.abs(target - edgeOf) < MIN_LEG) {
+      return false;
+    }
   }
   for (const { point, node } of adjacentTerminals(run, nodeById)) {
     if (!overlapsNodeSpan(run, node)) {
