@@ -104,7 +104,7 @@ import {
   straightenAlignedContainerBridges,
 } from './containerEdges.js';
 import { liftRunsOutOfEndpointBands, separateParallelRuns } from './separateParallelRuns.js';
-import { spreadSharedAttachmentPoints } from './spreadAttachmentPoints.js';
+import { nudgePortsOffCorners, spreadSharedAttachmentPoints } from './spreadAttachmentPoints.js';
 import { polylineHitsBounds, segmentsCross } from './geometry.js';
 import { combLevelsNeeded, routeComponentTrees, routeTreeSelfLoop } from './treeConnectors.js';
 import type { TreeConnector, TreeRouteRequest } from './treeConnectors.js';
@@ -289,6 +289,7 @@ export function runGridAttachedLayoutCore(
   // Ports first, then the band, then residual parallelism: each pass can create
   // work for the next, and only this order leaves nothing for an earlier one.
   spreadSharedAttachmentPoints(data.edges, data.nodes);
+  nudgePortsOffCorners(data.edges, data.nodes);
   liftRunsOutOfEndpointBands(data.edges, data.nodes);
   separateParallelRuns(data.edges, data.nodes);
 

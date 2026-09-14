@@ -248,3 +248,127 @@ export function spreadSharedAttachmentPoints(
   }
   return moved;
 }
+
+/**
+ * Minimum inset of an attachment point from the corners of its own side.
+ *
+ * `EPS_CORNER` in `validateLayout` is 3; this clears it with enough margin that a
+ * rounding difference cannot put the point back on the corner. An edge meeting a
+ * box exactly at its corner gives the reader no cue which side it belongs to, and
+ * the arrowhead renders over two borders at once.
+ */
+const CORNER_INSET = 6;
+
+/**
+ * Pull attachment points off the corners of the side they attach to.
+ *
+ * Runs after the spread, because spreading is what pushes a contested port out
+ * towards a corner in the first place; ordering it before would let the spread put
+ * back what this removed. Uses the same sliding rule — endpoint and bend together,
+ * along the side — so it inherits the same safety: a pinned endpoint is never
+ * moved, and a side too narrow to hold the inset on both ends is left alone.
+ */
+export function nudgePortsOffCorners(edges: readonly Edge[], nodes: readonly Node[]): number {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  let moved = 0;
+  for (const edge of edges) {
+    if (edge.isLayoutOnly) {
+      continue;
+    }
+    if (moveStraightEdgeOffCorners(edge, nodeById)) {
+      moved++;
+      continue;
+    }
+    for (const { attachment } of attachmentsOf(edge, nodeById)) {
+      if (attachment.pinned) {
+        continue;
+      }
+      const node = nodeById.get(attachment.terminal === 0 ? edge.start! : edge.end!);
+      if (!node) {
+        continue;
+      }
+      const axis = attachment.axis;
+      const half = (axis === 'x' ? node.width! : node.height!) / 2;
+      const centre = axis === 'x' ? node.x! : node.y!;
+      if (half <= CORNER_INSET) {
+        // Nowhere to put it: the whole side is inside the inset.
+        continue;
+      }
+      const target = Math.max(
+        centre - half + CORNER_INSET,
+        Math.min(centre + half - CORNER_INSET, attachment.at)
+      );
+      if (Math.abs(target - attachment.at) > FLAT) {
+        slide(attachment, target);
+        moved++;
+      }
+    }
+  }
+  return moved;
+}
+
+/** The band of a side that is clear of both its corners, or null if there is none. */
+function insetBand(node: Node, axis: SideAxis): { min: number; max: number } | null {
+  const half = (axis === 'x' ? node.width! : node.height!) / 2;
+  if (half <= CORNER_INSET) {
+    return null;
+  }
+  const centre = axis === 'x' ? node.x! : node.y!;
+  return { min: centre - half + CORNER_INSET, max: centre + half - CORNER_INSET };
+}
+
+/**
+ * Move a two-point straight edge off both its corners at once.
+ *
+ * Such an edge is pinned for every other purpose — its ends are on different
+ * nodes, so moving one alone tilts it off-axis. But when both ends sit on
+ * PARALLEL opposite sides, moving both by the same amount keeps it straight and
+ * axis-aligned, which is the one case where a pinned endpoint can be repaired.
+ *
+ * `nested-sg-outgoing-4` is exactly this: a single `a --> b` whose ends land 1px
+ * above the bottom-right and bottom-left corners of two boxes of equal height.
+ */
+function moveStraightEdgeOffCorners(edge: Edge, nodeById: ReadonlyMap<string, Node>): boolean {
+  const points = edge.points;
+  if (!points || points.length !== 2) {
+    return false;
+  }
+  const source = edge.start === undefined ? undefined : nodeById.get(edge.start);
+  const target = edge.end === undefined ? undefined : nodeById.get(edge.end);
+  if (!source?.width || !source.height || !target?.width || !target.height) {
+    return false;
+  }
+  const axis = sideAxisOf(points[0], source);
+  if (!axis || sideAxisOf(points[1], target) !== axis) {
+    return false;
+  }
+  const at = axis === 'x' ? points[0].x : points[0].y;
+  const other = axis === 'x' ? points[1].x : points[1].y;
+  if (Math.abs(at - other) > FLAT) {
+    // Not a straight run along the shared axis; moving both ends would not keep it so.
+    return false;
+  }
+  const a = insetBand(source, axis);
+  const b = insetBand(target, axis);
+  if (!a || !b) {
+    return false;
+  }
+  const min = Math.max(a.min, b.min);
+  const max = Math.min(a.max, b.max);
+  if (min > max) {
+    // The two clear bands do not overlap: no single position suits both ends.
+    return false;
+  }
+  const to = Math.max(min, Math.min(max, at));
+  if (Math.abs(to - at) <= FLAT) {
+    return false;
+  }
+  if (axis === 'x') {
+    points[0].x = to;
+    points[1].x = to;
+  } else {
+    points[0].y = to;
+    points[1].y = to;
+  }
+  return true;
+}
