@@ -40,8 +40,18 @@ import type { Edge, Node } from '../../../types.js';
  */
 const MIN_PORT_GAP = 8;
 
-/** Closer than this counts as the same point for grouping purposes. */
-const COINCIDENT = 0.5;
+/**
+ * Two ports closer than this on one side count as contested.
+ *
+ * Matches `EPS_SHARED_ATTACH` in `validateLayout`, which is the bar for
+ * `edge-shared-attachment-point`. An earlier version tested for exact coincidence
+ * (0.5) and so only ever caught ports the router had placed at *identical*
+ * offsets. `complete_graph_k4` puts three edges on one side of `A` at 176.36,
+ * 177.70 and 190.36: the first two are 1.34 apart — flagged by the validator,
+ * invisible to a coincidence test, and the reason that fixture survived the pass
+ * that was written for it.
+ */
+const SHARED_ATTACH = 3;
 
 /** Float slack for deciding a segment is axis-aligned. */
 const FLAT = 1e-6;
@@ -195,7 +205,9 @@ export function spreadSharedAttachmentPoints(
       continue;
     }
     group.sort((a, b) => a.at - b.at);
-    const collides = group.some((a, i) => i > 0 && Math.abs(a.at - group[i - 1].at) < COINCIDENT);
+    const collides = group.some(
+      (a, i) => i > 0 && Math.abs(a.at - group[i - 1].at) < SHARED_ATTACH
+    );
     if (!collides) {
       continue;
     }
