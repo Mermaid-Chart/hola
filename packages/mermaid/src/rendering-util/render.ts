@@ -2,6 +2,7 @@ import type { SVG } from '../diagram-api/types.js';
 import type { InternalHelpers } from '../internals.js';
 import { internalHelpers } from '../internals.js';
 import { log } from '../logger.js';
+import { insertLookDefs } from './insertLookDefs.js';
 import type { LayoutData } from './types.js';
 import { ELK_ALGORITHMS } from './layout-algorithms/elk/algorithms.js';
 
@@ -79,6 +80,28 @@ const registerDefaultLayoutLoaders = () => {
       name: 'swimlane',
       loader: async () => await import('./layout-algorithms/swimlanes/index.js'),
     },
+    {
+      // IPSEP-COLA (Dwyer, Koren & Marriott 2006): stress majorisation under
+      // separation constraints. HOLA's first stage, on its own — the placement
+      // everything below it starts from.
+      name: 'ipsep-cola',
+      loader: async () => await import('./layout-algorithms/ipsep-cola/index.js'),
+    },
+    {
+      // Grid-like layout (Kieffer, Dwyer, Marriott & Wybrow 2013): IPSEP-COLA
+      // followed by HOLA's ACA and grid-snap beautification, without HOLA's
+      // core/tree decomposition or orthogonal routing stages.
+      name: 'stress-and-grid',
+      loader: async () => await import('./layout-algorithms/stress-and-grid/index.js'),
+    },
+    {
+      // HOLA (Kieffer, Dwyer, Marriott & Wybrow 2015): the graph is decomposed
+      // into a core plus the trees hanging off it, the core is drawn grid-like
+      // and orthogonally routed, and every tree is hung back on the core node
+      // it was peeled from.
+      name: 'hola',
+      loader: async () => await import('./layout-algorithms/hola/index.js'),
+    },
     // elkjs is ~1.6 MB of source, so it is excluded from the tiny build along
     // with the other large features. `getRegisteredLayoutAlgorithm` then falls
     // back to dagre for diagrams that ask for an ELK layout there.
@@ -113,59 +136,7 @@ export const render = async (data4Layout: LayoutData, svg: SVG) => {
   const layoutDefinition = layoutAlgorithms[data4Layout.layoutAlgorithm];
   const layoutRenderer = await layoutDefinition.loader();
 
-  const { theme, themeVariables } = data4Layout.config;
-  const { useGradient, gradientStart, gradientStop } = themeVariables;
-
-  const svgId = svg.attr('id');
-
-  svg
-    .append('defs')
-    .append('filter')
-    .attr('id', `${svgId}-drop-shadow`)
-    .attr('height', '130%')
-    .attr('width', '130%')
-    .append('feDropShadow')
-    .attr('dx', '4')
-    .attr('dy', '4')
-    .attr('stdDeviation', 0)
-    .attr('flood-opacity', '0.06')
-    .attr('flood-color', `${theme?.includes('dark') ? '#FFFFFF' : '#000000'}`);
-
-  svg
-    .append('defs')
-    .append('filter')
-    .attr('id', `${svgId}-drop-shadow-small`)
-    .attr('height', '150%')
-    .attr('width', '150%')
-    .append('feDropShadow')
-    .attr('dx', '2')
-    .attr('dy', '2')
-    .attr('stdDeviation', 0)
-    .attr('flood-opacity', '0.06')
-    .attr('flood-color', `${theme?.includes('dark') ? '#FFFFFF' : '#000000'}`);
-
-  if (useGradient) {
-    const gradient = svg
-      .append('linearGradient')
-      .attr('id', svg.attr('id') + '-gradient')
-      .attr('gradientUnits', 'objectBoundingBox')
-      .attr('x1', '0%')
-      .attr('y1', '0%')
-      .attr('x2', '100%')
-      .attr('y2', '0%');
-
-    gradient
-      .append('svg:stop')
-      .attr('offset', '0%')
-      .attr('stop-color', gradientStart)
-      .attr('stop-opacity', 1);
-
-    gradient
-      .append('svg:stop')
-      .attr('offset', '100%')
-      .attr('stop-color', gradientStop)
-      .attr('stop-opacity', 1);
-  }
+  insertLookDefs(svg, data4Layout.config);
 
   return layoutRenderer.render(data4Layout, svg, internalHelpers, {
     algorithm: layoutDefinition.algorithm,

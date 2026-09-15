@@ -14,6 +14,8 @@ import '@shoelace-style/shoelace/dist/components/tooltip/tooltip.js';
 import './code-editor';
 import './console-panel';
 import type { LogEntry, LogLevel } from './console-panel';
+import './validation-panel';
+import type { DevValidationPanel, ValidationResult } from './validation-panel.js';
 
 type MermaidIife = {
   initialize: (config: Record<string, unknown>) => void | Promise<void>;
@@ -63,6 +65,11 @@ declare global {
     mermaidCaptureSizes?: boolean;
     mermaidCapturedSizes?: CapturedSizesEntry[];
     mermaidLastCapturedSizes?: CapturedSizesEntry;
+    // Installed by layout-algorithms/ddlt/validationCapture.ts, which the shared
+    // renderer imports only while `mermaidCaptureValidation` is set.
+    mermaidCaptureValidation?: boolean;
+    mermaidLastLayoutCapture?: { svgId: string; layoutAlgorithm?: string; capturedAt: number };
+    mermaidValidateLastLayout?: () => ValidationResult | undefined;
     __mermaidProfiler?: MermaidProfiler;
   }
 }
@@ -109,12 +116,12 @@ type MermaidTheme =
   | 'redux-dark'
   | 'redux-color'
   | 'redux-dark-color';
-type MermaidLayout = 'dagre' | 'elk' | 'domus' | 'hola' | 'swimlane';
+type MermaidLayout = 'dagre' | 'elk' | 'domus' | 'ipsep-cola' | 'hola' | 'swimlane';
 type MermaidLook = 'classic' | 'handDrawn' | 'neo';
 type MermaidLogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 type ViewerTab = 'diagram' | 'code' | 'profile';
 
-const ALL_LAYOUTS: MermaidLayout[] = ['dagre', 'elk', 'domus', 'hola', 'swimlane'];
+const ALL_LAYOUTS: MermaidLayout[] = ['dagre', 'elk', 'domus', 'ipsep-cola', 'hola', 'swimlane'];
 
 // mermaid's `maxTextSize` (default 50_000) and `maxEdges` (default 500) are
 // *secure* config keys, so they can't be raised from a diagram's frontmatter/
@@ -123,9 +130,31 @@ const ALL_LAYOUTS: MermaidLayout[] = ['dagre', 'elk', 'domus', 'hola', 'swimlane
 const DEV_MAX_TEXT_SIZE = 50_000_000;
 const DEV_MAX_EDGES = 1_000_000;
 
+// Diagram-pane zoom. The pane is a fixed-height canvas with no scrollbars, so a
+// plain wheel zooms; `1` is the diagram's own size and the fit-on-render never
+// scales a small diagram up past it.
+const ZOOM_MIN = 0.05;
+const ZOOM_MAX = 40;
+const ZOOM_STEP = 1.3;
+const ZOOM_FIT_MARGIN = 24;
+
 // Phases emitted by the profiler tree, in display order. "total" is taken from
 // the root `render` span. See packages/mermaid/src/profiler.ts.
 const PROFILE_PHASES = ['parse', 'prepare', 'measure', 'layout', 'paint', 'serialize'] as const;
+
+// HOLA reports its own stage timings as profiler buckets, because it owns its
+// routing and so spends almost the whole `layout` phase inside itself — one
+// number for all of it says nothing about where the time went. Labels and keys
+// mirror `layout-algorithms/hola/profile.ts`; order is pipeline order.
+const HOLA_STAGE_ROWS: readonly (readonly [label: string, key: string])[] = [
+  ['decompose (core + trees)', 'holaDecompose'],
+  ['core drawing', 'holaCore'],
+  ['tree layout', 'holaTrees'],
+  ['tree placement', 'holaPlace'],
+  ['orthogonal routing', 'holaRoute'],
+  ['subgraph frames', 'holaFrames'],
+  ['edge labels', 'holaLabels'],
+] as const;
 
 // One render's normalized per-phase durations + total.
 type RunSample = { total: number; phases: Record<string, number> };
@@ -245,6 +274,10 @@ function fmtMs(n: number): string {
   return Number.isFinite(n) ? n.toFixed(1) : '–';
 }
 
+function clampZoom(scale: number): number {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, scale));
+}
+
 function baseName(path: string): string {
   const i = path.lastIndexOf('/');
   return i === -1 ? path : path.slice(i + 1);
@@ -305,7 +338,14 @@ function isTheme(v: unknown): v is MermaidTheme {
 }
 
 function isLayout(v: unknown): v is MermaidLayout {
-  return v === 'dagre' || v === 'elk' || v === 'domus' || v === 'hola' || v === 'swimlane';
+  return (
+    v === 'dagre' ||
+    v === 'elk' ||
+    v === 'domus' ||
+    v === 'ipsep-cola' ||
+    v === 'hola' ||
+    v === 'swimlane'
+  );
 }
 
 function isLook(v: unknown): v is MermaidLook {
@@ -322,16 +362,9 @@ function normalizeLayout(v: unknown): MermaidLayout | null {
   // Back-compat:
   // - older UI used `renderer=dagre-d3|dagre-wrapper|elk`
   // - new UI uses `layout=dagre|elk|domus`
-  if (v === 'dagre' || v === 'elk' || v === 'domus' || v === 'hola' || v === 'swimlane') return v;
+  if (isLayout(v)) return v;
   if (v === 'dagre-d3' || v === 'dagre-wrapper') return 'dagre';
   return null;
-}
-
-function sizeCaptureUnavailableReason(layout: MermaidLayout) {
-  if (layout !== 'swimlane') {
-    return 'No size data is available for this layout. Select swimlanes to capture DDLT sizes.';
-  }
-  return '';
 }
 
 function parseBoolean(v: unknown): boolean | null {
@@ -359,7 +392,12 @@ export class DevDiagramViewer extends LitElement {
     savedSource: { state: true },
     editorSource: { state: true },
     svg: { state: true },
+    zoomScale: { state: true },
+    zoomX: { state: true },
+    zoomY: { state: true },
     splitPosition: { state: true },
+    sidePanelSplit: { state: true },
+    pathCopied: { state: true },
     activeTab: { state: true },
     dirty: { state: true },
     saving: { state: true },
@@ -392,7 +430,14 @@ export class DevDiagramViewer extends LitElement {
   declare savedSource: string;
   declare editorSource: string;
   declare svg: string;
+  declare zoomScale: number;
+  declare zoomX: number;
+  declare zoomY: number;
   declare splitPosition: number;
+  /** Vertical split of the side pane: validation above, logs below. */
+  declare sidePanelSplit: number;
+  /** Momentary tick on the header's copy-path button. */
+  declare pathCopied: boolean;
   declare activeTab: ViewerTab;
   declare dirty: boolean;
   declare saving: boolean;
@@ -410,6 +455,13 @@ export class DevDiagramViewer extends LitElement {
   declare profileCopyMsg: string;
 
   #renderSeq = 0;
+  /** Intrinsic size of the rendered svg, from its viewBox. */
+  #naturalSize = { width: 0, height: 0 };
+  /** True while the view is still showing an untouched fit, so a pane resize can refit. */
+  #zoomIsFitted = true;
+  #panPointerId: number | null = null;
+  #panFrom = { x: 0, y: 0 };
+  #paneResizeObserver?: ResizeObserver;
   #profileCancel = false;
   #consolePatched = false;
   #originalConsole?: {
@@ -445,6 +497,7 @@ export class DevDiagramViewer extends LitElement {
       'devExplorer.viewer.optimizeRanksByCrossings'
     );
     const storedSplitPosition = readStorage('devExplorer.viewer.splitPosition');
+    const storedSidePanelSplit = readStorage('devExplorer.viewer.sidePanelSplit');
 
     this.theme = isTheme(themeParam)
       ? themeParam
@@ -475,6 +528,10 @@ export class DevDiagramViewer extends LitElement {
         ? this.ignoreCrossLaneEdges
         : (parseBoolean(storedOptimizeRanksByCrossings) ?? this.ignoreCrossLaneEdges));
     this.splitPosition = storedSplitPosition ? Number(storedSplitPosition) : 75;
+    // Validation is the shorter of the two: a score, and a grouped issue list
+    // that is collapsed until asked. Logs get the rest.
+    this.sidePanelSplit = storedSidePanelSplit ? Number(storedSidePanelSplit) : 40;
+    this.pathCopied = false;
 
     this.filePath = '';
     this.sseToken = 0;
@@ -484,6 +541,9 @@ export class DevDiagramViewer extends LitElement {
     this.savedSource = '';
     this.editorSource = '';
     this.svg = '';
+    this.zoomScale = 1;
+    this.zoomX = 0;
+    this.zoomY = 0;
     this.activeTab = 'diagram';
     this.dirty = false;
     this.saving = false;
@@ -521,6 +581,159 @@ export class DevDiagramViewer extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.#restoreConsoleCapture();
+    this.#paneResizeObserver?.disconnect();
+    this.#paneResizeObserver = undefined;
+  }
+
+  // --- Diagram zoom / pan ----------------------------------------------------
+
+  get #zoomViewport(): HTMLElement | null {
+    return this.querySelector('.diagram-inner');
+  }
+
+  /**
+   * Measure the freshly rendered svg and show all of it. The svg is pinned to
+   * its intrinsic size so the transform below is the only thing scaling it —
+   * otherwise mermaid's own `max-width` would fight the zoom.
+   */
+  #fitRenderedSvg() {
+    const svgEl = this.querySelector<SVGSVGElement>('.diagram-canvas > svg');
+    if (!svgEl) return;
+    const box = svgEl.viewBox?.baseVal;
+    let width = box?.width ?? 0;
+    let height = box?.height ?? 0;
+    if (!(width > 0 && height > 0)) {
+      const rect = svgEl.getBoundingClientRect();
+      width = rect.width > 0 ? rect.width : 400;
+      height = rect.height > 0 ? rect.height : 300;
+    }
+    this.#naturalSize = { width, height };
+    svgEl.style.maxWidth = 'none';
+    svgEl.style.maxHeight = 'none';
+    svgEl.style.width = `${width}px`;
+    svgEl.style.height = `${height}px`;
+    this.#observePaneResize();
+    // Whole diagram visible, but never blown up past its own size.
+    this.#zoomFit(1);
+  }
+
+  /** Refit while the view is untouched, so dragging the log-panel split keeps it framed. */
+  #observePaneResize() {
+    if (this.#paneResizeObserver || typeof ResizeObserver === 'undefined') return;
+    const viewport = this.#zoomViewport;
+    if (!viewport) return;
+    this.#paneResizeObserver = new ResizeObserver(() => {
+      if (this.#zoomIsFitted) this.#zoomFit(1);
+    });
+    this.#paneResizeObserver.observe(viewport);
+  }
+
+  #zoomCenter(scale: number) {
+    const viewport = this.#zoomViewport;
+    const { width, height } = this.#naturalSize;
+    if (!viewport || !(width > 0)) return;
+    const rect = viewport.getBoundingClientRect();
+    this.zoomScale = clampZoom(scale);
+    this.zoomX = (rect.width - width * this.zoomScale) / 2;
+    this.zoomY = (rect.height - height * this.zoomScale) / 2;
+  }
+
+  #zoomFit(cap = ZOOM_MAX) {
+    const viewport = this.#zoomViewport;
+    const { width, height } = this.#naturalSize;
+    if (!viewport || !(width > 0 && height > 0)) return;
+    const rect = viewport.getBoundingClientRect();
+    this.#zoomCenter(
+      Math.min(
+        (rect.width - ZOOM_FIT_MARGIN) / width,
+        (rect.height - ZOOM_FIT_MARGIN) / height,
+        cap
+      )
+    );
+    this.#zoomIsFitted = true;
+  }
+
+  #zoomActualSize() {
+    this.#zoomCenter(1);
+    this.#zoomIsFitted = false;
+  }
+
+  /** Zoom keeping the point under the cursor (viewport coordinates) put. */
+  #zoomAt(scale: number, x: number, y: number) {
+    const next = clampZoom(scale);
+    const factor = next / this.zoomScale;
+    this.zoomX = x - factor * (x - this.zoomX);
+    this.zoomY = y - factor * (y - this.zoomY);
+    this.zoomScale = next;
+    this.#zoomIsFitted = false;
+  }
+
+  #zoomByStep(factor: number) {
+    const viewport = this.#zoomViewport;
+    if (!viewport) return;
+    const rect = viewport.getBoundingClientRect();
+    this.#zoomAt(this.zoomScale * factor, rect.width / 2, rect.height / 2);
+  }
+
+  #pointInViewport(event: MouseEvent | WheelEvent | PointerEvent) {
+    const rect = this.#zoomViewport?.getBoundingClientRect();
+    return { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
+  }
+
+  #onDiagramWheel(event: WheelEvent) {
+    // The pane never scrolls, so a bare wheel is free to mean zoom.
+    event.preventDefault();
+    const { x, y } = this.#pointInViewport(event);
+    this.#zoomAt(this.zoomScale * Math.exp(-event.deltaY * 0.0015), x, y);
+  }
+
+  #onDiagramPointerDown(event: PointerEvent) {
+    if (event.button !== 0) return;
+    if ((event.target as Element | null)?.closest('.diagram-zoom')) return;
+    // Keep the browser from starting its own drag of the svg under the cursor.
+    event.preventDefault();
+    this.#panPointerId = event.pointerId;
+    this.#panFrom = { x: event.clientX, y: event.clientY };
+    this.#zoomViewport?.setPointerCapture(event.pointerId);
+    this.#zoomViewport?.classList.add('is-panning');
+  }
+
+  #onDiagramPointerMove(event: PointerEvent) {
+    if (this.#panPointerId !== event.pointerId) return;
+    this.zoomX += event.clientX - this.#panFrom.x;
+    this.zoomY += event.clientY - this.#panFrom.y;
+    this.#panFrom = { x: event.clientX, y: event.clientY };
+    this.#zoomIsFitted = false;
+  }
+
+  #onDiagramPointerUp(event: PointerEvent) {
+    if (this.#panPointerId !== event.pointerId) return;
+    this.#panPointerId = null;
+    this.#zoomViewport?.classList.remove('is-panning');
+  }
+
+  #onDiagramDoubleClick(event: MouseEvent) {
+    if ((event.target as Element | null)?.closest('.diagram-zoom')) return;
+    event.preventDefault();
+    const { x, y } = this.#pointInViewport(event);
+    const factor =
+      event.altKey || event.shiftKey ? 1 / (ZOOM_STEP * ZOOM_STEP) : ZOOM_STEP * ZOOM_STEP;
+    this.#zoomAt(this.zoomScale * factor, x, y);
+  }
+
+  #onDiagramKeyDown(event: KeyboardEvent) {
+    const step = 40;
+    if (event.key === '+' || event.key === '=') this.#zoomByStep(ZOOM_STEP);
+    else if (event.key === '-' || event.key === '_') this.#zoomByStep(1 / ZOOM_STEP);
+    else if (event.key === '0') this.#zoomFit();
+    else if (event.key === '1') this.#zoomActualSize();
+    else if (event.key === 'ArrowLeft') this.zoomX += step;
+    else if (event.key === 'ArrowRight') this.zoomX -= step;
+    else if (event.key === 'ArrowUp') this.zoomY += step;
+    else if (event.key === 'ArrowDown') this.zoomY -= step;
+    else return;
+    if (event.key.startsWith('Arrow')) this.#zoomIsFitted = false;
+    event.preventDefault();
   }
 
   updated(changed: Map<string, unknown>) {
@@ -620,6 +833,88 @@ export class DevDiagramViewer extends LitElement {
 
   #persistSplitPosition() {
     writeStorage('devExplorer.viewer.splitPosition', String(this.splitPosition));
+  }
+
+  #persistSidePanelSplit() {
+    writeStorage('devExplorer.viewer.sidePanelSplit', String(this.sidePanelSplit));
+  }
+
+  /**
+   * Copy the open diagram's path. Ticks the button for a moment rather than
+   * showing a message — the header has no room for one, and the path is short
+   * enough that you can see for yourself what landed on the clipboard.
+   */
+  async #copyPath() {
+    if (!this.filePath) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(this.filePath);
+      this.pathCopied = true;
+      setTimeout(() => {
+        this.pathCopied = false;
+      }, 1500);
+    } catch {
+      // Clipboard can be blocked (focus/permissions). No tick, since nothing
+      // was copied; the path goes to the console so it is still reachable.
+      console.log('[dev-explorer] diagram path: ' + this.filePath);
+    }
+  }
+
+  get #validationPanel(): DevValidationPanel | null {
+    return this.querySelector('dev-validation-panel');
+  }
+
+  /**
+   * Grade the layout the render just produced, and show it in the side panel.
+   *
+   * Runs only after the browser has painted the SVG. Validation is several
+   * quadratic passes over nodes and edges — on a large diagram it is clearly
+   * visible — and doing it inline would hold the picture off the screen for
+   * that whole time. Waiting two animation frames is the standard "after the
+   * next paint" idiom: the first callback runs before the paint that includes
+   * our DOM change, the second after it.
+   *
+   * `sinceCapturedAt` is the capture timestamp from *before* this render. If it
+   * has not moved, this render captured nothing and the global still holds the
+   * previous diagram's layout — reporting that as this diagram's score would be
+   * worse than reporting nothing.
+   */
+  async #runValidation(sinceCapturedAt: number | undefined) {
+    const panel = this.#validationPanel;
+    if (!panel) {
+      return;
+    }
+    panel.state = 'running';
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    );
+
+    const captured = window.mermaidLastLayoutCapture;
+    const run = window.mermaidValidateLastLayout;
+    if (!run || !captured || captured.capturedAt === sinceCapturedAt) {
+      panel.state = 'unavailable';
+      return;
+    }
+
+    try {
+      const t0 = performance.now();
+      const result = run();
+      const elapsed = performance.now() - t0;
+      if (!result) {
+        panel.state = 'unavailable';
+        return;
+      }
+      panel.result = result;
+      panel.durationMs = elapsed;
+      // Context for the copied JSON, so a pasted score says what produced it.
+      panel.diagram = this.filePath;
+      panel.layout = this.layout;
+      panel.state = 'done';
+    } catch (err) {
+      panel.error = err instanceof Error ? err.message : String(err);
+      panel.state = 'error';
+    }
   }
 
   #setActiveTab(tab: ViewerTab) {
@@ -774,13 +1069,6 @@ export class DevDiagramViewer extends LitElement {
   async #saveSizes() {
     if (!this.filePath || this.sizesSaving) return;
 
-    const unavailableReason = sizeCaptureUnavailableReason(this.layout);
-    if (unavailableReason) {
-      this.sizesMessage = 'size data unavailable';
-      this.error = unavailableReason;
-      return;
-    }
-
     this.sizesSaving = true;
     this.error = '';
     this.sizesMessage = this.dirty ? 'saving diagram...' : 'capturing sizes...';
@@ -809,7 +1097,10 @@ export class DevDiagramViewer extends LitElement {
       const captured = window.mermaidLastCapturedSizes;
       const nodes = captured?.sizes.nodes ?? [];
       if (nodes.length === 0) {
-        throw new Error('Mermaid did not capture any node sizes; select a capture-enabled layout');
+        throw new Error(
+          `Mermaid captured no node sizes for layout "${this.layout}". Layouts that measure through ` +
+            'createGraphWithElements (domus, swimlane) support capture; others do not yet.'
+        );
       }
 
       this.sizesMessage = 'saving sizes...';
@@ -1163,6 +1454,14 @@ export class DevDiagramViewer extends LitElement {
     // Keep it deterministic-ish between reloads.
     await m.initialize(initConfig);
 
+    // Ask the shared renderer to hold on to the finished LayoutData. Only a
+    // reference is stored, so this costs nothing per render; the grading itself
+    // happens below, once the diagram is on screen. See
+    // layout-algorithms/ddlt/validationCapture.ts.
+    window.mermaidCaptureValidation = true;
+    const captureBefore = window.mermaidLastLayoutCapture?.capturedAt;
+    this.#validationPanel?.reset();
+
     const id = `dev-explorer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const { svg, bindFunctions } = await m.render(id, text);
     this.svg = svg;
@@ -1177,6 +1476,29 @@ export class DevDiagramViewer extends LitElement {
     }
     const container = this.querySelector('.diagram-inner');
     if (container && bindFunctions) bindFunctions(container);
+    this.#fitRenderedSvg();
+
+    // Diagram first, score second — deliberately not awaited, so the render
+    // call returns as soon as the picture is up.
+    void this.#runValidation(captureBefore);
+  }
+
+  #renderZoomControls() {
+    return html`
+      <div class="diagram-zoom" title="scroll to zoom · drag to pan · double-click to zoom in">
+        <button type="button" title="Zoom out (−)" @click=${() => this.#zoomByStep(1 / ZOOM_STEP)}>
+          −
+        </button>
+        <span class="zoom-level">${Math.round(this.zoomScale * 100)}%</span>
+        <button type="button" title="Zoom in (+)" @click=${() => this.#zoomByStep(ZOOM_STEP)}>
+          +
+        </button>
+        <button type="button" title="Fit in pane (0)" @click=${() => this.#zoomFit()}>Fit</button>
+        <button type="button" title="Actual size (1)" @click=${() => this.#zoomActualSize()}>
+          1:1
+        </button>
+      </div>
+    `;
   }
 
   render() {
@@ -1188,9 +1510,10 @@ export class DevDiagramViewer extends LitElement {
     const sizesStatus = this.sizesSaving
       ? this.sizesMessage || 'saving sizes...'
       : this.sizesMessage;
-    const sizesUnavailableReason = sizeCaptureUnavailableReason(this.layout);
-    const saveSizesDisabled =
-      this.loading || this.saving || this.sizesSaving || Boolean(sizesUnavailableReason);
+    // Whether a layout can produce capture data is decided at render time by
+    // `createGraphWithElements`, not by a list here: `#saveSizes` reports it if
+    // nothing was captured and posts nothing.
+    const saveSizesDisabled = this.loading || this.saving || this.sizesSaving;
 
     return html`
       <div class="header">
@@ -1229,7 +1552,19 @@ export class DevDiagramViewer extends LitElement {
                 >`
               : nothing}
           </div>
-          <div class="path">${this.filePath}</div>
+          <div class="path-row">
+            <div class="path">${this.filePath}</div>
+            <button
+              type="button"
+              class="icon-btn"
+              title="Copy diagram path"
+              aria-label="Copy diagram path"
+              ?disabled=${!this.filePath}
+              @click=${() => void this.#copyPath()}
+            >
+              <sl-icon name=${this.pathCopied ? 'check2' : 'clipboard'}></sl-icon>
+            </button>
+          </div>
         </div>
         <div class="spacer"></div>
         <div class="viewer-controls">
@@ -1276,6 +1611,7 @@ export class DevDiagramViewer extends LitElement {
               <sl-option value="dagre">dagre</sl-option>
               <sl-option value="elk">elk</sl-option>
               <sl-option value="domus">domus</sl-option>
+              <sl-option value="ipsep-cola">ipsep-cola</sl-option>
               <sl-option value="hola">hola</sl-option>
               <sl-option value="swimlane">swimlane</sl-option>
             </sl-select>
@@ -1364,10 +1700,43 @@ export class DevDiagramViewer extends LitElement {
               }}
             >
               <div slot="start" class="diagram">
-                <div class="diagram-inner" data-theme=${this.theme} .innerHTML=${this.svg}></div>
+                <div
+                  class="diagram-inner"
+                  data-theme=${this.theme}
+                  tabindex="0"
+                  @wheel=${(e: WheelEvent) => this.#onDiagramWheel(e)}
+                  @pointerdown=${(e: PointerEvent) => this.#onDiagramPointerDown(e)}
+                  @pointermove=${(e: PointerEvent) => this.#onDiagramPointerMove(e)}
+                  @pointerup=${(e: PointerEvent) => this.#onDiagramPointerUp(e)}
+                  @pointercancel=${(e: PointerEvent) => this.#onDiagramPointerUp(e)}
+                  @dblclick=${(e: MouseEvent) => this.#onDiagramDoubleClick(e)}
+                  @keydown=${(e: KeyboardEvent) => this.#onDiagramKeyDown(e)}
+                >
+                  <div
+                    class="diagram-canvas"
+                    style=${`transform: translate(${this.zoomX}px, ${this.zoomY}px) scale(${this.zoomScale})`}
+                    .innerHTML=${this.svg}
+                  ></div>
+                  ${this.#renderZoomControls()}
+                </div>
               </div>
               <div slot="end" style="height: 100%;">
-                <dev-console-panel></dev-console-panel>
+                <sl-split-panel
+                  vertical
+                  position=${this.sidePanelSplit}
+                  style="height: 100%;"
+                  @sl-reposition=${(e: any) => {
+                    this.sidePanelSplit = e.target?.position ?? 40;
+                    this.#persistSidePanelSplit();
+                  }}
+                >
+                  <div slot="start" style="height: 100%; overflow: hidden;">
+                    <dev-validation-panel></dev-validation-panel>
+                  </div>
+                  <div slot="end" style="height: 100%; overflow: hidden;">
+                    <dev-console-panel></dev-console-panel>
+                  </div>
+                </sl-split-panel>
               </div>
             </sl-split-panel>
           </sl-tab-panel>
@@ -1388,23 +1757,15 @@ export class DevDiagramViewer extends LitElement {
                   <sl-icon slot="prefix" name="floppy"></sl-icon>
                   Save
                 </sl-button>
-                <sl-tooltip
-                  content=${sizesUnavailableReason}
-                  ?disabled=${!sizesUnavailableReason}
-                  hoist
+                <sl-button
+                  size="small"
+                  variant="default"
+                  ?disabled=${saveSizesDisabled}
+                  @click=${() => void this.#saveSizes()}
                 >
-                  <span class="tooltip-target">
-                    <sl-button
-                      size="small"
-                      variant="default"
-                      ?disabled=${saveSizesDisabled}
-                      @click=${() => void this.#saveSizes()}
-                    >
-                      <sl-icon slot="prefix" name="rulers"></sl-icon>
-                      Save sizes
-                    </sl-button>
-                  </span>
-                </sl-tooltip>
+                  <sl-icon slot="prefix" name="rulers"></sl-icon>
+                  Save sizes
+                </sl-button>
               </div>
               <dev-code-editor
                 .value=${this.editorSource}
@@ -1657,10 +2018,16 @@ export class DevDiagramViewer extends LitElement {
             // Break "layout" into the external library call vs. our wrapper, and
             // "measure" into the DOM reflow queries (getBBox / getBoundingClientRect).
             if (phase === 'layout') {
+              // Only layouts that report stage buckets get the HOLA breakdown;
+              // for everything else those rows would be a column of dashes.
+              const holaRows = HOLA_STAGE_ROWS.filter(([, key]) =>
+                results.some((r) => r.phaseTotals[key] > 0)
+              ).map(([label, key]) => subRow(`↳ ${label}`, key));
               return [
                 row,
                 subRow('↳ lib (external)', 'layoutLib'),
                 subRow('↳ ours (wrapper)', 'layoutOurs'),
+                ...holaRows,
               ];
             }
             if (phase === 'measure') {
