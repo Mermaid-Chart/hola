@@ -384,3 +384,102 @@ function moveStraightEdgeOffCorners(edge: Edge, nodeById: ReadonlyMap<string, No
   }
   return true;
 }
+
+/**
+ * Clearance to leave when lifting a leg off a border it hugs.
+ *
+ * `EPS_BORDER` in `validateLayout` is 2, and `L_MIN_BORDER` is the 12 units of
+ * shared extent that make it a hug rather than a crossing. 4 clears the proximity
+ * test with margin without moving the route far enough to disturb anything else.
+ */
+const BORDER_CLEAR = 4;
+
+/** Half-extents of a node, as a rect. */
+function boundsOf(node: Node) {
+  return {
+    left: node.x! - node.width! / 2,
+    right: node.x! + node.width! / 2,
+    top: node.y! - node.height! / 2,
+    bottom: node.y! + node.height! / 2,
+  };
+}
+
+/**
+ * Lift terminal legs off borders they run along.
+ *
+ * An edge may cross a group border; running ALONG it for a distance is what reads
+ * wrong, because the route and the frame become one line and the reader cannot see
+ * where the edge enters. `validateLayout` calls that `edge-border-hugging`.
+ *
+ * This handles the terminal leg specifically, which the interior-run passes cannot
+ * reach: a three-point edge has no interior run at all — both its segments carry a
+ * node-attached point — yet its middle leg is exactly the one that ends up skimming
+ * a frame. `nested-subgraphs-reverse-order` is that shape: `b --> c` leaves `b`,
+ * turns, and runs 43.9 units 1px above the top of group `A` before reaching `c`.
+ *
+ * The lift always moves the leg AWAY from the rect it hugs. Moving it the other way
+ * would clear the border by putting the route through the group's interior, trading
+ * `edge-border-hugging` for `edge-intersects-obstacle`.
+ */
+export function nudgeAttachmentsOffBorders(edges: readonly Edge[], nodes: readonly Node[]): number {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const rects = nodes
+    .filter((node) => node.width && node.height && node.x !== undefined && node.y !== undefined)
+    .map((node) => ({ id: node.id, rect: boundsOf(node) }));
+
+  let moved = 0;
+  for (const edge of edges) {
+    if (edge.isLayoutOnly) {
+      continue;
+    }
+    for (const { attachment } of attachmentsOf(edge, nodeById)) {
+      if (attachment.pinned) {
+        continue;
+      }
+      const points = edge.points!;
+      const terminal = points[attachment.terminal];
+      const bend = points[attachment.bend];
+      const own = new Set([edge.start, edge.end]);
+      // The leg runs perpendicular to the side, so it is constant on the side's
+      // own axis and spans the other one.
+      const axis = attachment.axis;
+      const legAt = axis === 'x' ? terminal.x : terminal.y;
+      const from = Math.min(axis === 'x' ? terminal.y : terminal.x, axis === 'x' ? bend.y : bend.x);
+      const to = Math.max(axis === 'x' ? terminal.y : terminal.x, axis === 'x' ? bend.y : bend.x);
+
+      for (const { id, rect } of rects) {
+        if (own.has(id)) {
+          continue;
+        }
+        const near = axis === 'x' ? [rect.left, rect.right] : [rect.top, rect.bottom];
+        const spanLow = axis === 'x' ? rect.top : rect.left;
+        const spanHigh = axis === 'x' ? rect.bottom : rect.right;
+        const overlap = Math.min(to, spanHigh) - Math.max(from, spanLow);
+        if (overlap < 12) {
+          continue;
+        }
+        const border = near.find((b) => Math.abs(legAt - b) <= 2);
+        if (border === undefined) {
+          continue;
+        }
+        const centre = axis === 'x' ? (rect.left + rect.right) / 2 : (rect.top + rect.bottom) / 2;
+        const outward = Math.sign(legAt - centre) || 1;
+        const target = border + outward * BORDER_CLEAR;
+
+        const node = nodeById.get(attachment.terminal === 0 ? edge.start! : edge.end!);
+        if (!node) {
+          continue;
+        }
+        const band = insetBand(node, axis);
+        if (!band || target < band.min || target > band.max) {
+          // The port cannot reach the clear position without leaving its own side.
+          continue;
+        }
+        slide(attachment, target);
+        moved++;
+        break;
+      }
+    }
+  }
+  return moved;
+}
