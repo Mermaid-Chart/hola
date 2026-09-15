@@ -104,6 +104,7 @@ import {
   straightenAlignedContainerBridges,
 } from './containerEdges.js';
 import { liftRunsOutOfEndpointBands, separateParallelRuns } from './separateParallelRuns.js';
+import { pushNodesOffForeignFrames } from './pushNodesOffFrames.js';
 import {
   nudgeAttachmentsOffBorders,
   nudgePortsOffCorners,
@@ -292,6 +293,7 @@ export function runGridAttachedLayoutCore(
   // because neither step knows the other's number.
   // Ports first, then the band, then residual parallelism: each pass can create
   // work for the next, and only this order leaves nothing for an earlier one.
+  pushNodesOffForeignFrames(data);
   spreadSharedAttachmentPoints(data.edges, data.nodes);
   nudgePortsOffCorners(data.edges, data.nodes);
   nudgeAttachmentsOffBorders(data.edges, data.nodes);
