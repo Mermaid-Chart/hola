@@ -16,6 +16,7 @@ import './console-panel';
 import type { LogEntry, LogLevel } from './console-panel';
 import './validation-panel';
 import type { DevValidationPanel, ValidationResult } from './validation-panel.js';
+import { DEV_EXPLORER_LAYOUTS, isDevExplorerLayout, type MermaidLayout } from './layouts.js';
 
 type MermaidIife = {
   initialize: (config: Record<string, unknown>) => void | Promise<void>;
@@ -116,12 +117,9 @@ type MermaidTheme =
   | 'redux-dark'
   | 'redux-color'
   | 'redux-dark-color';
-type MermaidLayout = 'dagre' | 'elk' | 'domus' | 'ipsep-cola' | 'hola' | 'swimlane';
 type MermaidLook = 'classic' | 'handDrawn' | 'neo';
 type MermaidLogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 type ViewerTab = 'diagram' | 'code' | 'profile';
-
-const ALL_LAYOUTS: MermaidLayout[] = ['dagre', 'elk', 'domus', 'ipsep-cola', 'hola', 'swimlane'];
 
 // mermaid's `maxTextSize` (default 50_000) and `maxEdges` (default 500) are
 // *secure* config keys, so they can't be raised from a diagram's frontmatter/
@@ -337,17 +335,6 @@ function isTheme(v: unknown): v is MermaidTheme {
   );
 }
 
-function isLayout(v: unknown): v is MermaidLayout {
-  return (
-    v === 'dagre' ||
-    v === 'elk' ||
-    v === 'domus' ||
-    v === 'ipsep-cola' ||
-    v === 'hola' ||
-    v === 'swimlane'
-  );
-}
-
 function isLook(v: unknown): v is MermaidLook {
   return v === 'classic' || v === 'handDrawn' || v === 'neo';
 }
@@ -362,7 +349,7 @@ function normalizeLayout(v: unknown): MermaidLayout | null {
   // Back-compat:
   // - older UI used `renderer=dagre-d3|dagre-wrapper|elk`
   // - new UI uses `layout=dagre|elk|domus`
-  if (isLayout(v)) return v;
+  if (isDevExplorerLayout(v)) return v;
   if (v === 'dagre-d3' || v === 'dagre-wrapper') return 'dagre';
   return null;
 }
@@ -554,7 +541,7 @@ export class DevDiagramViewer extends LitElement {
 
     const storedProfileLayouts = readStorage('devExplorer.viewer.profileLayouts');
     const parsedProfileLayouts = (storedProfileLayouts?.split(',') ?? []).filter(
-      (v): v is MermaidLayout => isLayout(v)
+      (v): v is MermaidLayout => isDevExplorerLayout(v)
     );
     this.profileLayouts = parsedProfileLayouts.length ? parsedProfileLayouts : ['dagre', 'elk'];
     this.profileScope =
@@ -1192,7 +1179,7 @@ export class DevDiagramViewer extends LitElement {
       ? [...new Set([...this.profileLayouts, layout])]
       : this.profileLayouts.filter((l) => l !== layout);
     // Keep canonical order so the comparison columns are stable.
-    this.profileLayouts = ALL_LAYOUTS.filter((l) => next.includes(l));
+    this.profileLayouts = DEV_EXPLORER_LAYOUTS.filter((layout) => next.includes(layout));
     writeStorage('devExplorer.viewer.profileLayouts', this.profileLayouts.join(','));
   }
 
@@ -1602,18 +1589,15 @@ export class DevDiagramViewer extends LitElement {
               value=${this.layout}
               @sl-change=${(e: any) => {
                 const v = e.target?.value;
-                if (isLayout(v)) {
+                if (isDevExplorerLayout(v)) {
                   this.layout = v;
                   this.#persistSettings();
                 }
               }}
             >
-              <sl-option value="dagre">dagre</sl-option>
-              <sl-option value="elk">elk</sl-option>
-              <sl-option value="domus">domus</sl-option>
-              <sl-option value="ipsep-cola">ipsep-cola</sl-option>
-              <sl-option value="hola">hola</sl-option>
-              <sl-option value="swimlane">swimlane</sl-option>
+              ${DEV_EXPLORER_LAYOUTS.map(
+                (layout) => html`<sl-option value=${layout}>${layout}</sl-option>`
+              )}
             </sl-select>
           </div>
 
@@ -1887,7 +1871,7 @@ export class DevDiagramViewer extends LitElement {
           </div>
           <div class="profile-layouts">
             <span class="label">Layouts</span>
-            ${ALL_LAYOUTS.map(
+            ${DEV_EXPLORER_LAYOUTS.map(
               (layout) => html`
                 <sl-checkbox
                   size="small"

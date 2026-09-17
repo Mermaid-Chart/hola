@@ -32,6 +32,7 @@ import { applyFixtureContentSizesStrict, loadSizesFixture } from '../../ddlt/fix
 import { layoutTestsDir } from '../../ddlt/paths.js';
 import { parseMmdFileToLayoutData } from '../../ddlt/parseToLayoutData.js';
 import { applyFixtureEdgeLabelSizes } from '../../ddlt/backends.js';
+import { validateLayout } from '../../layout-utils/validateLayout.js';
 import { countBentEdges } from './coreCandidates.js';
 import { runGridAttachedLayoutCore } from './layoutCore.js';
 import type { GridAttachedResult } from './layoutCore.js';
@@ -841,6 +842,33 @@ describe('grid-attached over the hola-faithful fixture corpus', () => {
     }
 
     if (name === 'subgraph-variation') {
+      it('draws the aligned P1 entry straight to the P1.5 frame', async () => {
+        const layout = await parseMmdFileToLayoutData(join(FIXTURE_DIR, `${name}.mmd`), {
+          stampFlowchartRendererFields: true,
+        });
+        const measured = loadSizesFixture(join(FIXTURE_DIR, sizes));
+        applyFixtureContentSizesStrict(layout, measured);
+        applyFixtureEdgeLabelSizes(layout, measured);
+        runGridAttachedSubgraphsLayoutCore(layout);
+
+        // `P1 --> P1.5` names the subgraph itself. Once the finished frame is
+        // directly below P1 and its top side has a clear corridor, a route via
+        // P1.5's representative child adds two bends without buying clearance.
+        const entry = layout.edges.find((edge) => edge.id === 'L_P1_P1.5_0');
+        expect(entry?.points).toHaveLength(2);
+        expect(entry!.points![0].x).toBeCloseTo(entry!.points![1].x, 6);
+        const validation = validateLayout(layout);
+        expect(validation.ok).toBe(true);
+        expect(
+          validation.issues.some(
+            (issue) => issue.edgeId === entry!.id && issue.type === 'edge-bend-near-endpoint'
+          )
+        ).toBe(false);
+        expect(validation.breakdown.edges).toContainEqual(
+          expect.objectContaining({ id: entry!.id, points: 2, bendPenalty: 0 })
+        );
+      });
+
       it('leaves a real terminal run before an arrow enters P1.5', async () => {
         const layout = await parseMmdFileToLayoutData(join(FIXTURE_DIR, `${name}.mmd`), {
           stampFlowchartRendererFields: true,

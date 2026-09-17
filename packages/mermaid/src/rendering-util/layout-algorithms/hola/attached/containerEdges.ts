@@ -183,16 +183,16 @@ export function preserveContainerTerminalRuns(redirected: readonly ContainerEdge
 }
 
 /**
- * Prefer a straight bridge between two subgraph frames when their border spans
- * overlap on one axis and the gap between them is genuinely unobstructed.
+ * Prefer a straight bridge for a container edge when the endpoint boxes overlap
+ * on one axis and the gap between them is genuinely unobstructed.
  *
  * A container endpoint is temporarily represented by one of its leaves while
  * the topology is laid out. Its restored route consequently inherits that
- * leaf's port, even when the two completed frames have a much clearer shared
- * corridor. Frame-to-frame edges are semantic connections between boxes, so
- * after the frames exist the cleanest representation is a single segment from
- * one border to the other. We only take it when it avoids every leaf, foreign
- * frame and existing route; otherwise the original rounded dogleg is retained.
+ * leaf's port, even when the finished frame has a much clearer shared corridor
+ * with the other endpoint. After the frame exists the cleanest representation is
+ * a single segment from one endpoint border to the other. We only take it when
+ * it avoids every leaf, foreign frame and existing route; otherwise the original
+ * rounded dogleg is retained.
  */
 export function straightenAlignedContainerBridges(
   redirected: readonly ContainerEdge[],
@@ -202,12 +202,13 @@ export function straightenAlignedContainerBridges(
   options: GridAttachedOptions
 ): void {
   const clearance = Math.max(PORT_SEPARATION, options.routingClearance);
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
   for (const { edge, startContainer, endContainer } of redirected) {
-    if (startContainer === undefined || endContainer === undefined) {
+    if (startContainer === undefined && endContainer === undefined) {
       continue;
     }
-    const source = frames.get(startContainer);
-    const target = frames.get(endContainer);
+    const source = endpointBounds(edge.start, startContainer, frames, nodeById);
+    const target = endpointBounds(edge.end, endContainer, frames, nodeById);
     if (!source || !target) {
       continue;
     }
@@ -215,8 +216,8 @@ export function straightenAlignedContainerBridges(
     const route = clearStraightBridge(
       source,
       target,
-      startContainer,
-      endContainer,
+      edge.start!,
+      edge.end!,
       edge,
       frames,
       nodes,
@@ -232,6 +233,22 @@ export function straightenAlignedContainerBridges(
       edge.y = (route[0].y + route[1].y) / 2;
     }
   }
+}
+
+/** The visible box an original container edge starts or ends on. */
+function endpointBounds(
+  id: string | undefined,
+  containerId: string | undefined,
+  frames: ReadonlyMap<string, Bounds>,
+  nodes: ReadonlyMap<string, Node>
+): Bounds | undefined {
+  if (containerId !== undefined) {
+    return frames.get(containerId);
+  }
+  const node = id !== undefined ? nodes.get(id) : undefined;
+  return node && node.isGroup !== true && isMeasurable(node)
+    ? nodeBounds(rectOfNode(node))
+    : undefined;
 }
 
 interface StraightBridge {
@@ -364,7 +381,12 @@ function bridgeCoordinates(
 
   const candidates = new Set<number>([(low + high) / 2, low, high]);
   for (const node of nodes) {
-    if (node.isGroup === true || !isMeasurable(node)) {
+    if (
+      node.id === sourceId ||
+      node.id === targetId ||
+      node.isGroup === true ||
+      !isMeasurable(node)
+    ) {
       continue;
     }
     addBridgeObstacleCandidates(candidates, bridge, nodeBounds(rectOfNode(node)), clearance);
@@ -433,7 +455,12 @@ function straightBridgeIsClear(
   clearance: number
 ): boolean {
   for (const node of nodes) {
-    if (node.isGroup === true || !isMeasurable(node)) {
+    if (
+      node.id === sourceId ||
+      node.id === targetId ||
+      node.isGroup === true ||
+      !isMeasurable(node)
+    ) {
       continue;
     }
     if (polylineHitsBounds(route, expand(nodeBounds(rectOfNode(node)), clearance))) {

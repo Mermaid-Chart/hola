@@ -107,6 +107,7 @@ import { polylineHitsBounds, segmentsCross } from './geometry.js';
 import { combLevelsNeeded, routeComponentTrees, routeTreeSelfLoop } from './treeConnectors.js';
 import type { TreeConnector, TreeRouteRequest } from './treeConnectors.js';
 import { FULL_ROUNDED_CORNER_RUN } from './roundedCorners.js';
+import { clearStraightLabelsFromFrameBorders } from './frameLabelClearance.js';
 
 /** One tree, as attached. */
 export interface GridAttachedTreeResult {
@@ -279,6 +280,14 @@ export function runGridAttachedLayoutCore(
   // final coordinates. A label placed before that cut can be left on the tiny run
   // that meets a frame, which is exactly where the frame title is painted.
   repositionLabelsAwayFromFrameTitles(flat, data.edges, drawnNodes, frameBoxes, subgraphs, options);
+  clearStraightLabelsFromFrameBorders(
+    data.edges,
+    data.nodes,
+    flat.labels,
+    frameBoxes,
+    subgraphs,
+    options
+  );
 
   const droppedEdgeIds = pruneToDrawn(data, laidOut, framed);
 
