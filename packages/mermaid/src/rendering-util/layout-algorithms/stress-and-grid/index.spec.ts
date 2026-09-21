@@ -47,4 +47,14 @@ describe('stress-and-grid layout', () => {
       )
     ).toBe(true);
   });
+
+  it.each(['TB', 'BT', 'LR', 'RL'])('renders %s flow with rounded grid routes', (direction) => {
+    const data = treeLayout();
+    data.direction = direction;
+
+    runStressAndGridLayoutCore(data);
+
+    expect(data.edges.map((edge) => edge.curve)).toEqual(['rounded', 'rounded', 'rounded']);
+    expect(data.edges.every((edge) => edge.hasIntersectionPoints === true)).toBe(true);
+  });
 });
