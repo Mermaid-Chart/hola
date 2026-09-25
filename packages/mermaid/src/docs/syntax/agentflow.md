@@ -3,7 +3,7 @@
 > An agentflow diagram describes an agentic workflow: the agents that do the work, the flows they run, the tasks and tools inside those flows, and how control and data move between them.
 >
 > **Warning**
-> Agentflow is in **beta**. The diagram type is selected with the `agentflow-beta` keyword, and the syntax may still change in a backwards-incompatible way before it is declared stable.
+> Agentflow is in **beta**. The diagram type is selected with the `agentflow-beta` keyword, and the syntax may still change in a backwards-incompatible way before it is declared stable. The plain `agentflow` keyword is accepted as well and parses identically.
 
 ## Introduction
 
@@ -101,6 +101,12 @@ Every diagram starts with the `agentflow-beta` keyword, optionally followed by a
 
 ```txt
 agentflow-beta LR
+```
+
+The plain `agentflow` keyword selects the same diagram type and is parsed exactly the same way. `agentflow-beta` is the documented form: the `-beta` suffix signals that the syntax may still change.
+
+```txt
+agentflow LR
 ```
 
 ## Nodes and shapes

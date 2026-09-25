@@ -6,8 +6,11 @@ import type {
 
 const id = 'agentflow';
 
+// `agentflow-beta` is the documented header; plain `agentflow` is accepted too
+// because every document from the 11.15 line starts that way (issue #159).
+// The `\b` keeps longer words that merely start with `agentflow` out.
 const detector: DiagramDetector = (txt) => {
-  return /^\s*agentflow-beta\b/.test(txt);
+  return /^\s*agentflow(-beta)?\b/.test(txt);
 };
 
 const loader: DiagramLoader = async () => {
