@@ -43,6 +43,7 @@ scope a setting to that diagram, which is not always the keyword the diagram sta
 | Config key    | Diagram              |
 | ------------- | -------------------- |
 | `agentflow`   | `agentflow-beta`     |
+|               | `agentflow`          |
 | `flowchart`   | `flowchart`          |
 | `swimlane`    | `swimlane-beta`      |
 | `class`       | `classDiagram`       |

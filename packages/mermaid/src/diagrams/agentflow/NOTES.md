@@ -3,6 +3,13 @@
 Implementation of the `agentflow-beta` diagram type. User-facing documentation
 lives in [`src/docs/syntax/agentflow.md`](../../docs/syntax/agentflow.md).
 
+The diagram is selected by either header keyword, `agentflow-beta` or plain
+`agentflow`, and both parse identically (issue #159). `agentflow-beta` is the
+documented keyword: it signals that the syntax may still change. Plain
+`agentflow` is kept because every document written against the 11.15 line
+starts with it, and the detector's `\b` keeps look-alikes such as
+`agentflowchart` out.
+
 (This file is `NOTES.md` rather than `README.md` because `packages/mermaid/.gitignore`
 ignores `README.*` — the package README is generated.)
 
@@ -30,14 +37,14 @@ diff <(sed -n '/%lex/,/\/lex/p' packages/mermaid/src/diagrams/flowchart/parser/f
      <(sed -n '/%lex/,/\/lex/p' packages/mermaid/src/diagrams/agentflow/parser/agentflow.jison)
 ```
 
-| Divergence                                                                                                                                  | Why                                                                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Keywords: `agentflow-beta` / `flow` / `connector` / `global` instead of `graph`\|`flowchart`\|`flowchart-elk`\|`swimlane-beta` / `subgraph` | Different diagram type and container vocabulary.                                                                                                                                                                                         |
-| `--`-family operators narrowed to `-->`, `--x`, `--` + label; no `[xo<]` marker prefixes                                                    | §5.1 removed the marker variants (`<-->`, `o--o`, `--o`, `-->>`).                                                                                                                                                                        |
-| Thick (`==>`) and dotted-arrow (`-.->`) edge families removed, along with the `thickEdgeText` / `dottedEdgeText` states                     | §5.1 removed those operators. `-.-` (reference) is kept as a single `LINK` token that takes no parameters.                                                                                                                               |
-| `~~` (invisible link) removed                                                                                                               | §5.1.                                                                                                                                                                                                                                    |
-| `%%` comment rules added inside `<text>`, `<ellipseText>`, `<trapText>`, plus a top-level `COMMENT` token                                   | Agentflow parses the comment-preserving source (`preserveCommentsWhenParsing`) so reported positions line up with the author's file; the lexer therefore has to swallow comments itself. Covered by `parser/agentflow-comments.spec.ts`. |
-| `TEXT` rules exclude `%` unless doubled — `(?:[^…%]+\|%(?!%))+`                                                                             | Same reason: a lone `%` stays label text, `%%` starts a comment.                                                                                                                                                                         |
+| Divergence                                                                                                                                               | Why                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keywords: `agentflow-beta`\|`agentflow` / `flow` / `connector` / `global` instead of `graph`\|`flowchart`\|`flowchart-elk`\|`swimlane-beta` / `subgraph` | Different diagram type and container vocabulary. Both headers select the diagram (#159).                                                                                                                                                 |
+| `--`-family operators narrowed to `-->`, `--x`, `--` + label; no `[xo<]` marker prefixes                                                                 | §5.1 removed the marker variants (`<-->`, `o--o`, `--o`, `-->>`).                                                                                                                                                                        |
+| Thick (`==>`) and dotted-arrow (`-.->`) edge families removed, along with the `thickEdgeText` / `dottedEdgeText` states                                  | §5.1 removed those operators. `-.-` (reference) is kept as a single `LINK` token that takes no parameters.                                                                                                                               |
+| `~~` (invisible link) removed                                                                                                                            | §5.1.                                                                                                                                                                                                                                    |
+| `%%` comment rules added inside `<text>`, `<ellipseText>`, `<trapText>`, plus a top-level `COMMENT` token                                                | Agentflow parses the comment-preserving source (`preserveCommentsWhenParsing`) so reported positions line up with the author's file; the lexer therefore has to swallow comments itself. Covered by `parser/agentflow-comments.spec.ts`. |
+| `TEXT` rules exclude `%` unless doubled — `(?:[^…%]+\|%(?!%))+`                                                                                          | Same reason: a lone `%` stays label text, `%%` starts a comment.                                                                                                                                                                         |
 
 Parity on everything else is pinned by
 [`parser/agentflow-flowchart-parity.spec.ts`](./parser/agentflow-flowchart-parity.spec.ts).
