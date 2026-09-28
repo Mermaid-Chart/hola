@@ -55,6 +55,85 @@ describe('stress-and-grid DDLT — deploy-pipeline.mmd', () => {
     expect(uniqueY).toBeGreaterThanOrEqual(3);
   });
 
+  it('pads a group around its title and places a lone exit beside its source', async () => {
+    const layout = await runDeployPipeline();
+    const node = new Map(layout.nodes.map((candidate) => [candidate.id, candidate]));
+    const group = node.get('subGraph0')!;
+    const children = layout.nodes.filter((candidate) => candidate.parentId === group.id);
+    const left = group.x! - group.width! / 2;
+    const right = group.x! + group.width! / 2;
+    const top = group.y! - group.height! / 2;
+    const bottom = group.y! + group.height! / 2;
+    const minimumFrameMargin = Math.min(
+      ...children.flatMap((child) => [
+        child.x! - child.width! / 2 - left,
+        right - (child.x! + child.width! / 2),
+        child.y! - child.height! / 2 - top,
+        bottom - (child.y! + child.height! / 2),
+      ])
+    );
+    expect(minimumFrameMargin).toBeGreaterThanOrEqual(35.9);
+
+    const production = node.get('K')!;
+    const success = node.get('L')!;
+    const successEdge = layout.edges.find((edge) => edge.id === 'L_K_L_0')!;
+    expect(success.y).toBeCloseTo(production.y!, 5);
+    expect(success.x).toBeGreaterThan(right + success.width! / 2);
+    expect(successEdge.points).toHaveLength(2);
+  });
+
+  it('uses compact vertical lanes inside a group without moving its entry row', async () => {
+    const layout = await runDeployPipeline();
+    const node = new Map(layout.nodes.map((candidate) => [candidate.id, candidate]));
+    const verticalGap = (upperId: string, lowerId: string) => {
+      const upper = node.get(upperId)!;
+      const lower = node.get(lowerId)!;
+      return lower.y! - lower.height! / 2 - (upper.y! + upper.height! / 2);
+    };
+
+    expect(verticalGap('G', 'H')).toBeLessThanOrEqual(100);
+    expect(verticalGap('I', 'K')).toBeLessThanOrEqual(100);
+    expect(verticalGap('B', 'C')).toBeLessThanOrEqual(100);
+    expect(verticalGap('C', 'D')).toBeLessThanOrEqual(100);
+
+    const noBranch = layout.edges.find((edge) => edge.id === 'L_D_E_0')!;
+    const feedback = layout.edges.find((edge) => edge.id === 'L_E_A_0')!;
+    expect(Math.abs(noBranch.points!.at(-1)!.x - feedback.points![0].x)).toBeGreaterThanOrEqual(20);
+
+    for (const edgeId of ['L_D_E_0', 'L_D_F_0', 'L_I_J_0', 'L_I_K_0']) {
+      const edge = layout.edges.find((candidate) => candidate.id === edgeId)!;
+      const finalSegmentStart = edge.points!.at(-2)!;
+      const finalSegmentEnd = edge.points!.at(-1)!;
+      expect(edge.y).toBeCloseTo((finalSegmentStart.y + finalSegmentEnd.y) / 2, 5);
+    }
+  });
+
+  it('makes both test decisions symmetric and keeps the deployment stages straight', async () => {
+    const layout = await runDeployPipeline();
+    const node = new Map(layout.nodes.map((candidate) => [candidate.id, candidate]));
+    const edge = new Map(layout.edges.map((candidate) => [candidate.id, candidate]));
+
+    for (const [decisionId, leftId, rightId] of [
+      ['D', 'F', 'E'],
+      ['I', 'J', 'K'],
+    ]) {
+      const decision = node.get(decisionId)!;
+      const left = node.get(leftId)!;
+      const right = node.get(rightId)!;
+      expect(left.y).toBeCloseTo(right.y!, 5);
+      expect((left.x! + right.x!) / 2).toBeCloseTo(decision.x!, 5);
+      expect(left.x).toBeLessThan(decision.x!);
+      expect(right.x).toBeGreaterThan(decision.x!);
+    }
+
+    expect(node.get('F')!.y).toBeCloseTo(node.get('G')!.y!, 5);
+    expect(node.get('G')!.x).toBeCloseTo(node.get('H')!.x!, 5);
+    expect(node.get('H')!.y).toBeCloseTo(node.get('I')!.y!, 5);
+    for (const edgeId of ['L_F_G_0', 'L_G_H_0', 'L_H_I_0']) {
+      expect(edge.get(edgeId)!.points).toHaveLength(2);
+    }
+  });
+
   it('attaches decision edges at the middle of a sloped diamond side', async () => {
     const layout = await runDeployPipeline();
     const nodeById = new Map(layout.nodes.map((node) => [node.id, node]));

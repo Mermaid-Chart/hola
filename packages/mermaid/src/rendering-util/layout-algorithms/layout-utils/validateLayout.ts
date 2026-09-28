@@ -2927,11 +2927,11 @@ export function validateLayout(
     }
 
     // ── Port placement. Rectangles want their ports near the middle of a side;
-    // a port crowded into a corner reads as an accident. Decision shapes invert
-    // that: the vertex IS the natural attachment, and a port part-way along a
-    // slanted face reads as a miss. The rectangle rule is waived when the
-    // corner buys a straight line, because removing a bend is worth more than
-    // the tidier attachment.
+    // a port crowded into a corner reads as an accident. Incoming decision
+    // flow naturally resolves at a vertex. Outgoing decision branches may use
+    // the lower sloped sides instead, which produces a clearer split fan. The
+    // rectangle rule is waived when the corner buys a straight line, because
+    // removing a bend is worth more than the tidier attachment.
     for (const em of edgeMetas) {
       const pts = em.points;
       if (!Array.isArray(pts) || pts.length < 2) {
@@ -2947,7 +2947,7 @@ export function validateLayout(
         }
         const port = terminal === 'start' ? pts[0] : pts[pts.length - 1];
 
-        if (isDecisionShape(node)) {
+        if (isDecisionShape(node) && terminal === 'end') {
           const offset = decisionVertexOffset(port, rect);
           if (offset != null && offset > DECISION_VERTEX_TOLERANCE) {
             issues.push({
