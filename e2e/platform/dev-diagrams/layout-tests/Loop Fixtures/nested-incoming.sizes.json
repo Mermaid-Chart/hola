@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "_sub_one",
+      "width": 126.96875,
+      "height": 54
+    },
+    {
+      "id": "_sub_two",
+      "width": 127.75,
+      "height": 54
+    },
+    {
+      "id": "_one",
+      "width": 94.453125,
+      "height": 54
+    },
+    {
+      "id": "b",
+      "width": 68.921875,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "9d1ff0c7d654f74db7ab473f87ff518e264c1dc57da7a405b6cb92a057214cf8",
+    "capturedAt": "2026-09-14T10:59:25.409Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/nested-incoming.mmd theme=default look=classic layout=dagre"
+  }
+}

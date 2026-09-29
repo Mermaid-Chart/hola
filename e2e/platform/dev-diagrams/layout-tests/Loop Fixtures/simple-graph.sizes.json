@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "a",
+      "width": 68.40625,
+      "height": 54
+    },
+    {
+      "id": "b",
+      "width": 68.921875,
+      "height": 54
+    },
+    {
+      "id": "c",
+      "width": 67.921875,
+      "height": 54
+    },
+    {
+      "id": "d",
+      "width": 68.921875,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "d4550fb772a4a405a180063c5c17754facd0d5927a051b02247201dd117d7194",
+    "capturedAt": "2026-09-14T10:59:19.734Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/simple-graph.mmd theme=default look=classic layout=dagre"
+  }
+}

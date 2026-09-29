@@ -1,0 +1,90 @@
+{
+  "nodes": [
+    {
+      "id": "A",
+      "width": 118.109375,
+      "height": 54
+    },
+    {
+      "id": "B",
+      "width": 95.359375,
+      "height": 54
+    },
+    {
+      "id": "C",
+      "width": 82.83934020996094,
+      "height": 39
+    },
+    {
+      "id": "D",
+      "width": 96.359375,
+      "height": 39
+    },
+    {
+      "id": "E",
+      "width": 73.109375,
+      "height": 66.67765045166016
+    },
+    {
+      "id": "F",
+      "width": 80.359375,
+      "height": 80.359375
+    },
+    {
+      "id": "G",
+      "width": 82.859375,
+      "height": 39
+    },
+    {
+      "id": "H",
+      "width": 119.359375,
+      "height": 119.359375
+    },
+    {
+      "id": "I",
+      "width": 92.609375,
+      "height": 39
+    },
+    {
+      "id": "J",
+      "width": 119.359375,
+      "height": 39
+    },
+    {
+      "id": "K",
+      "width": 128.3125,
+      "height": 39
+    },
+    {
+      "id": "L",
+      "width": 125.046875,
+      "height": 39
+    },
+    {
+      "id": "M",
+      "width": 152.625,
+      "height": 54
+    },
+    {
+      "id": "N",
+      "width": 125.359375,
+      "height": 54
+    },
+    {
+      "id": "O",
+      "width": 88.109375,
+      "height": 88.109375
+    },
+    {
+      "id": "P",
+      "width": 95.359375,
+      "height": 95.359375
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "343a0278711efa69262bc03cdc968b3619e78d288f944ccf64d60d0c4f20037e",
+    "capturedAt": "2026-09-14T10:59:25.814Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/shapes.mmd theme=default look=classic layout=dagre"
+  }
+}

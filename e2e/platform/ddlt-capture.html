@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>DDLT size capture</title>
+  </head>
+  <body>
+    <script>
+      // Must be set before any render: createGraphWithElements reads this flag and
+      // only then dynamically imports the size-capture module.
+      window.mermaidCaptureSizes = true;
+      window.__captureDone = false;
+      window.__captureError = null;
+    </script>
+    <div id="out"></div>
+    <script type="module">
+      import mermaid from './mermaid.esm.mjs';
+      try {
+        const f = new URLSearchParams(location.search).get('f');
+        if (!f) {
+          throw new Error('missing ?f= fixture path');
+        }
+        const res = await fetch(f);
+        if (!res.ok) {
+          throw new Error(`fetch ${res.status} for ${f}`);
+        }
+        const text = await res.text();
+        mermaid.initialize({ startOnLoad: false, theme: 'default', look: 'classic' });
+        const { svg } = await mermaid.render('ddltCapture', text);
+        document.getElementById('out').innerHTML = svg;
+      } catch (e) {
+        window.__captureError = String((e && e.stack) || e);
+      }
+      window.__captureDone = true;
+    </script>
+  </body>
+</html>
