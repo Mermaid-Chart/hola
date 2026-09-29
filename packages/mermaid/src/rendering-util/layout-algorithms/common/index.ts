@@ -147,6 +147,20 @@ export function createCommonLayoutRenderer<
     );
     clearLayoutRenderState();
 
+    // Structure capture (dev / test tooling only), loaded by the same guarded
+    // dynamic import as the validation capture below — in published builds
+    // `window.mermaidCaptureValidation` is unset, so this is a single property
+    // read. It has to run *here*, before `prepareLayout`, because a layout may
+    // rewrite `data4Layout` on its way through: dagre replaces `edges` with the
+    // top-level edges only, so intra-cluster edges are gone by the time the
+    // post-layout capture runs. See ddlt/validationCapture.ts.
+    if (
+      (globalThis as unknown as { mermaidCaptureValidation?: boolean }).mermaidCaptureValidation
+    ) {
+      const { captureStructureBeforeLayout } = await import('../ddlt/validationCapture.js');
+      captureStructureBeforeLayout(data4Layout);
+    }
+
     // Convenience struct containing everything you need to render
     // the root element and helper function from core mermaid
     const renderContext: CommonLayoutRenderContext<PreparedLayout> = {

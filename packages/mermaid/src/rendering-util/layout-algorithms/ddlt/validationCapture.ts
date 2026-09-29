@@ -112,3 +112,89 @@ export function captureLayoutForValidation(element: D3Selection, data4Layout: La
     return captured ? validateLayout(captured.layout) : undefined;
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Structure capture (dev / test tooling — NOT part of production rendering)
+//
+// `captureLayoutForValidation` above runs *after* layout, which is what a
+// validator wants: it grades the drawing. A tool that wants to describe the
+// *graph* cannot use it, because a layout is free to rewrite `data4Layout` on
+// its way through. Dagre does exactly that — `applyDagreLayoutResult` replaces
+// `data4Layout.edges` with the edges rendered at the top level, so every
+// intra-cluster edge is missing from the post-layout capture (the limitation is
+// documented on that function). A diagram whose edges all live inside a
+// subgraph therefore looks edgeless afterwards.
+//
+// So this second hook snapshots the structure *before* any layout touches it,
+// under the same `window.mermaidCaptureValidation` flag. Only ids, parentage
+// and edge endpoints are copied — never the node objects, which carry DOM
+// handles — so the snapshot stays small and cannot be invalidated by later
+// mutation.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CapturedStructureNode {
+  id: string;
+  parentId?: string;
+  isGroup?: boolean;
+  isEdgeLabel?: boolean;
+  isLabelNode?: boolean;
+  isDummy?: boolean;
+}
+
+export interface CapturedStructureEdge {
+  id?: string;
+  start?: string;
+  end?: string;
+  source?: string;
+  target?: string;
+  label?: string;
+  isLayoutOnly?: boolean;
+  labelNodeId?: string;
+}
+
+export interface CapturedStructure {
+  /** `Date.now()` at capture. */
+  capturedAt: number;
+  /** Diagram type stamped by the renderer, when there is one. */
+  diagramType?: string;
+  nodes: CapturedStructureNode[];
+  edges: CapturedStructureEdge[];
+}
+
+interface StructureCaptureGlobal {
+  mermaidLastStructureCapture?: CapturedStructure;
+}
+
+/**
+ * Record the parsed graph before any layout runs.
+ *
+ * @param data4Layout - The layout data as handed to the renderer, untouched.
+ */
+export function captureStructureBeforeLayout(data4Layout: LayoutData): void {
+  if (typeof globalThis === 'undefined') {
+    return;
+  }
+  const g = globalThis as unknown as StructureCaptureGlobal;
+  g.mermaidLastStructureCapture = {
+    capturedAt: Date.now(),
+    diagramType: (data4Layout as { type?: string }).type,
+    nodes: (data4Layout.nodes ?? []).map((node) => ({
+      id: node.id,
+      parentId: node.parentId,
+      isGroup: node.isGroup,
+      isEdgeLabel: node.isEdgeLabel,
+      isLabelNode: (node as { isLabelNode?: boolean }).isLabelNode,
+      isDummy: (node as { isDummy?: boolean }).isDummy,
+    })),
+    edges: (data4Layout.edges ?? []).map((edge) => ({
+      id: edge.id,
+      start: edge.start,
+      end: edge.end,
+      source: edge.source,
+      target: edge.target,
+      label: edge.label,
+      isLayoutOnly: edge.isLayoutOnly,
+      labelNodeId: edge.labelNodeId,
+    })),
+  };
+}

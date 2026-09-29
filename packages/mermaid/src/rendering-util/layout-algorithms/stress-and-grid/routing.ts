@@ -50,9 +50,9 @@ const EPSILON = 1e-6;
 export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): void {
   const nodes = new Map(data.nodes.map((node) => [node.id, node]));
   const obstacles = [...nodes.values()]
-    .filter((node) => node.isGroup !== true)
     .map(rectFor)
     .filter((rect): rect is Rect => rect !== undefined);
+  const groupFrames = obstacles.filter((obstacle) => obstacle.node.isGroup === true);
   const symmetricDiamondFans = new Set(
     [...nodes.values()]
       .filter((node) => isSymmetricDiamondFan(node, data.edges, nodes))
@@ -60,6 +60,10 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
   );
   const ports = allocatePorts(data.edges, nodes);
   const routedPaths: Point[][] = [];
+  // Labels need the same clearance as nodes. In particular, a short labelled
+  // branch is commonly routed before a longer incoming edge; reserving its
+  // measured area prevents that later edge from threading through the label.
+  const labelObstacles: Rect[] = [];
 
   for (const edge of [...data.edges].sort((a, b) => edgeSpan(a, nodes) - edgeSpan(b, nodes))) {
     const source = edge.start ? nodes.get(edge.start) : undefined;
@@ -69,7 +73,19 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
     if (!source || !target || !sourceRect || !targetRect) {
       continue;
     }
-    const points =
+    // A frame is an obstacle to an unrelated edge, but it must remain open
+    // for an edge leaving or entering one of its descendants. Otherwise a
+    // cross-container edge can cut through a sibling subgraph simply because
+    // group frames were omitted from the visibility graph.
+    const routingObstacles = [
+      ...obstacles.filter(
+        (obstacle) =>
+          !obstacle.node.isGroup || !isEndpointContainer(obstacle.node, source, target, nodes)
+      ),
+      ...labelObstacles,
+    ];
+    const hasGroupEndpoint = source.isGroup === true || target.isGroup === true;
+    let points =
       source === target
         ? selfLoop(sourceRect, gridSpacing)
         : (routeStraightReciprocalOfLabeledEdge(
@@ -77,17 +93,25 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             sourceRect,
             targetRect,
             data.edges,
-            obstacles,
+            routingObstacles,
             routedPaths
           ) ??
-          routeWithLabelClearance(edge, sourceRect, targetRect, obstacles, routedPaths) ??
+          routeLabelledLowerRightFan(
+            edge,
+            sourceRect,
+            targetRect,
+            data.edges,
+            routingObstacles,
+            routedPaths
+          ) ??
+          routeWithLabelClearance(edge, sourceRect, targetRect, routingObstacles, routedPaths) ??
           routeSymmetricDiamondFan(
             source,
             target,
             ports.get(`${edge.id}:start`)!,
             ports.get(`${edge.id}:end`)!,
             symmetricDiamondFans.has(source.id),
-            obstacles,
+            routingObstacles,
             routedPaths
           ) ??
           routeAvoidingEndpoints(
@@ -104,23 +128,443 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             data.edges.filter(
               (candidate) => candidate.start === target.id || candidate.end === target.id
             ).length,
-            obstacles,
+            routingObstacles,
             gridSpacing,
             routedPaths
           ));
+    points = separateSharedRouteLane(points, routingObstacles, routedPaths);
+    const label = (edge.label ?? edge.text ?? '').trim();
+    const dominantLabelPoint = label ? pointAtDominantSegment(points) : undefined;
+    const dimensions = label ? labelDimensions(label) : undefined;
+    const dominantLabelStraddlesGroupBorder = Boolean(
+      label &&
+        dominantLabelPoint &&
+        dimensions &&
+        labelStraddlesGroupBorder(
+          dominantLabelPoint,
+          dimensions.width,
+          dimensions.height,
+          groupFrames
+        )
+    );
+    const groupLabelRoute =
+      // Moving a label to a different segment of the existing route is not
+      // enough here: renderer-side text measurement can make that segment
+      // unsafe again. For cross-frame edges, reserve an explicit lane outside
+      // both frame hierarchies so the route and label stay coupled.
+      label && dominantLabelStraddlesGroupBorder
+        ? routeWithGroupSafeLabelLane(
+            sourceRect,
+            targetRect,
+            source,
+            target,
+            nodes,
+            groupFrames,
+            routingObstacles,
+            routedPaths,
+            label
+          )
+        : undefined;
+    const safeLabelPoint = groupLabelRoute
+      ? undefined
+      : !dominantLabelStraddlesGroupBorder
+        ? dominantLabelPoint
+        : pointOnGroupSafeSegment(points, label, groupFrames);
+    if (groupLabelRoute) {
+      points = groupLabelRoute.points;
+    }
+    let labelPoint = label
+      ? (safeLabelPoint ??
+        groupLabelRoute?.labelPoint ??
+        pointOnGroupSafeSegment(points, label, groupFrames) ??
+        pointAtDominantSegment(points))
+      : pointAtHalfLength(points);
+    if (
+      label &&
+      !hasGroupEndpoint &&
+      !groupLabelRoute &&
+      labelOverlapsRoutedPath(labelPoint, label, routedPaths)
+    ) {
+      const dedicatedLabelRoute = routeWithDedicatedLabelCorridor(
+        sourceRect,
+        targetRect,
+        routingObstacles,
+        routedPaths,
+        label
+      );
+      if (dedicatedLabelRoute) {
+        points = dedicatedLabelRoute.points;
+        labelPoint = dedicatedLabelRoute.labelPoint;
+      }
+    }
     edge.points = points;
     routedPaths.push(points);
-    const labelPoint = (edge.label ?? edge.text ?? '').trim()
-      ? pointAtDominantSegment(points)
-      : pointAtHalfLength(points);
     edge.x = labelPoint.x;
     edge.y = labelPoint.y;
+    if (label) {
+      labelObstacles.push(labelObstacle(labelPoint, label));
+    }
     // Rounded corners retain the exact obstacle-avoiding polyline while
     // matching ELK's polished edge treatment.
     edge.curve = 'rounded';
     edge.roundedCornerRadius = Math.min(16, gridSpacing / 8);
     edge.hasIntersectionPoints = true;
   }
+}
+
+/**
+ * When two disjoint frame hierarchies leave no label-sized gap between their
+ * borders, run the edge through an outside lane. The label remains centered
+ * on that horizontal lane instead of straddling either frame.
+ */
+function routeWithGroupSafeLabelLane(
+  source: Rect,
+  target: Rect,
+  sourceNode: Node,
+  targetNode: Node,
+  nodes: Map<string, Node>,
+  groupFrames: Rect[],
+  obstacles: Rect[],
+  routedPaths: Point[][],
+  label: string
+): { points: Point[]; labelPoint: Point } | undefined {
+  const sourceFrames = ancestorFrames(sourceNode, groupFrames, nodes);
+  const targetFrames = ancestorFrames(targetNode, groupFrames, nodes);
+  if (
+    sourceFrames.length === 0 ||
+    targetFrames.length === 0 ||
+    sourceFrames.some((frame) => targetFrames.includes(frame)) ||
+    source.node.x! >= target.node.x!
+  ) {
+    return undefined;
+  }
+
+  const { width, height } = labelDimensions(label);
+  const sourceRight = Math.max(source.right, ...sourceFrames.map((frame) => frame.right));
+  const top = Math.min(
+    source.top,
+    target.top,
+    ...sourceFrames.map((frame) => frame.top),
+    ...targetFrames.map((frame) => frame.top)
+  );
+  const laneY = top - height / 2 - LABEL_CLEARANCE;
+  const sourceEscapeX = sourceRight + CLEARANCE;
+  const points = simplify([
+    { x: source.right, y: source.node.y! },
+    { x: sourceEscapeX, y: source.node.y! },
+    { x: sourceEscapeX, y: laneY },
+    { x: target.node.x!, y: laneY },
+    { x: target.node.x!, y: target.top },
+  ]);
+  const labelPoint = { x: (sourceEscapeX + target.node.x!) / 2, y: laneY };
+  return routeIsClear(points, obstacles, routedPaths) &&
+    !labelStraddlesGroupBorder(labelPoint, width, height, groupFrames)
+    ? { points, labelPoint }
+    : undefined;
+}
+
+function ancestorFrames(node: Node, frames: Rect[], nodes: Map<string, Node>): Rect[] {
+  return frames.filter((frame) => frame.node === node || isAncestorOf(frame.node, node, nodes));
+}
+
+/**
+ * A label belongs on a real route segment, but the longest segment may be the
+ * one which crosses a frame boundary. Prefer another point on the polyline
+ * whose measured label box clears every group border.
+ */
+function pointOnGroupSafeSegment(
+  points: Point[],
+  label: string,
+  groupFrames: Rect[]
+): Point | undefined {
+  const { width, height } = labelDimensions(label);
+  const candidates: { point: Point; distanceFromCenter: number }[] = [];
+
+  for (let index = 1; index < points.length; index++) {
+    const start = points[index - 1];
+    const end = points[index];
+    const horizontal = Math.abs(start.y - end.y) <= EPSILON;
+    const minimum = horizontal ? Math.min(start.x, end.x) : Math.min(start.y, end.y);
+    const maximum = horizontal ? Math.max(start.x, end.x) : Math.max(start.y, end.y);
+    const halfLabelSpan = (horizontal ? width : height) / 2 + LABEL_CLEARANCE;
+    if (maximum - minimum < halfLabelSpan * 2) {
+      continue;
+    }
+    const middle = (minimum + maximum) / 2;
+    const coordinates = new Set<number>([middle, minimum + halfLabelSpan, maximum - halfLabelSpan]);
+    for (const frame of groupFrames) {
+      const borders = horizontal ? [frame.left, frame.right] : [frame.top, frame.bottom];
+      for (const border of borders) {
+        coordinates.add(border - halfLabelSpan);
+        coordinates.add(border + halfLabelSpan);
+      }
+    }
+
+    for (const coordinate of coordinates) {
+      if (
+        coordinate < minimum + halfLabelSpan - EPSILON ||
+        coordinate > maximum - halfLabelSpan + EPSILON
+      ) {
+        continue;
+      }
+      const point = horizontal ? { x: coordinate, y: start.y } : { x: start.x, y: coordinate };
+      if (labelStraddlesGroupBorder(point, width, height, groupFrames)) {
+        continue;
+      }
+      candidates.push({ point, distanceFromCenter: Math.abs(coordinate - middle) });
+    }
+  }
+
+  return candidates.sort((left, right) => left.distanceFromCenter - right.distanceFromCenter)[0]
+    ?.point;
+}
+
+function labelStraddlesGroupBorder(
+  point: Point,
+  width: number,
+  height: number,
+  groupFrames: Rect[]
+): boolean {
+  const bounds: Bounds = {
+    left: point.x - width / 2,
+    right: point.x + width / 2,
+    top: point.y - height / 2,
+    bottom: point.y + height / 2,
+  };
+  return groupFrames.some(
+    (frame) =>
+      (((bounds.left < frame.left - EPSILON && bounds.right > frame.left + EPSILON) ||
+        (bounds.left < frame.right - EPSILON && bounds.right > frame.right + EPSILON)) &&
+        bounds.bottom > frame.top + EPSILON &&
+        bounds.top < frame.bottom - EPSILON) ||
+      (((bounds.top < frame.top - EPSILON && bounds.bottom > frame.top + EPSILON) ||
+        (bounds.top < frame.bottom - EPSILON && bounds.bottom > frame.bottom + EPSILON)) &&
+        bounds.right > frame.left + EPSILON &&
+        bounds.left < frame.right - EPSILON)
+  );
+}
+
+function isEndpointContainer(
+  group: Node,
+  source: Node,
+  target: Node,
+  nodes: Map<string, Node>
+): boolean {
+  return (
+    group === source ||
+    group === target ||
+    isAncestorOf(group, source, nodes) ||
+    isAncestorOf(group, target, nodes)
+  );
+}
+
+function isAncestorOf(group: Node, node: Node, nodes: Map<string, Node>): boolean {
+  let parentId = node.parentId;
+  while (parentId) {
+    if (parentId === group.id) {
+      return true;
+    }
+    parentId = nodes.get(parentId)?.parentId;
+  }
+  return false;
+}
+
+/**
+ * The visibility graph normally rejects an occupied lane. Its endpoint
+ * fallback can still return one when a dense fan has no other graph route.
+ * Replace that shared interior run with a small perpendicular dogleg, keeping
+ * the assigned endpoint ports intact.
+ */
+function separateSharedRouteLane(
+  points: Point[],
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): Point[] {
+  // The first and last segments are port stubs. Moving one of them to avoid
+  // a shared lane violates the port direction and can make a frame-anchored
+  // edge run along its own border. Only separate genuine interior runs.
+  for (let index = 2; index < points.length - 1; index++) {
+    const start = points[index - 1];
+    const end = points[index];
+    const horizontal = Math.abs(start.y - end.y) <= EPSILON;
+    for (const path of routedPaths) {
+      for (let otherIndex = 1; otherIndex < path.length; otherIndex++) {
+        const otherStart = path[otherIndex - 1];
+        const otherEnd = path[otherIndex];
+        const otherHorizontal = Math.abs(otherStart.y - otherEnd.y) <= EPSILON;
+        if (horizontal !== otherHorizontal || !segmentsOverlap(start, end, otherStart, otherEnd)) {
+          continue;
+        }
+        for (const offset of [-PORT_SPACING, PORT_SPACING]) {
+          const shiftedStart = horizontal
+            ? { x: start.x, y: start.y + offset }
+            : { x: start.x + offset, y: start.y };
+          const shiftedEnd = horizontal
+            ? { x: end.x, y: end.y + offset }
+            : { x: end.x + offset, y: end.y };
+          const candidate = simplify([
+            ...points.slice(0, index),
+            shiftedStart,
+            shiftedEnd,
+            ...points.slice(index),
+          ]);
+          if (routeIsClear(candidate, obstacles, routedPaths)) {
+            return candidate;
+          }
+        }
+      }
+    }
+  }
+  return points;
+}
+
+function segmentsOverlap(a: Point, b: Point, c: Point, d: Point): boolean {
+  if (Math.abs(a.y - b.y) <= EPSILON) {
+    return (
+      Math.abs(a.y - c.y) <= EPSILON &&
+      Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) -
+        Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x)) >=
+        ROUTE_LANE_CLEARANCE
+    );
+  }
+  return (
+    Math.abs(a.x - c.x) <= EPSILON &&
+    Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y)) -
+      Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y)) >=
+      ROUTE_LANE_CLEARANCE
+  );
+}
+
+function routeIsClear(points: Point[], obstacles: Rect[], routedPaths: Point[][]): boolean {
+  return points.slice(1).every((point, index) => {
+    const start = points[index];
+    return (
+      segmentClear(start, point, obstacles) &&
+      routeInteractionPenalty(start, point, routedPaths) === 0
+    );
+  });
+}
+
+/**
+ * A lower-right labelled branch that has been given its own row gets a short
+ * central vertical corridor. This is clearer than wrapping its label around a
+ * horizontal sibling, and keeps the label on the edge.
+ */
+function routeLabelledLowerRightFan(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  edges: Edge[],
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): Point[] | undefined {
+  const label = (edge.label ?? edge.text ?? '').trim();
+  if (
+    !label ||
+    /diamond|rhombus/.test(String(source.node.shape)) ||
+    edges.filter((candidate) => candidate.start === source.node.id && candidate.end).length < 4 ||
+    target.node.x! <= source.node.x! ||
+    target.node.y! - source.node.y! < (source.node.height! + target.node.height!) / 2 + 120
+  ) {
+    return undefined;
+  }
+  const start = {
+    x: source.right,
+    y: source.node.y! + verticalPortOffset(source),
+  };
+  const escapeX = source.right + CLEARANCE;
+  const targetPort = { x: target.node.x!, y: target.top };
+  const left = Math.min(escapeX, targetPort.x);
+  const right = Math.max(escapeX, targetPort.x);
+  const laneY = Math.max(
+    source.bottom + CLEARANCE,
+    ...obstacles
+      .filter(
+        (obstacle) =>
+          obstacle.node !== source.node &&
+          obstacle.node !== target.node &&
+          obstacle.right > left + EPSILON &&
+          obstacle.left < right - EPSILON &&
+          obstacle.bottom > start.y + EPSILON &&
+          obstacle.top < target.top - EPSILON
+      )
+      .map((obstacle) => obstacle.bottom + CLEARANCE)
+  );
+  if (laneY >= targetPort.y - LABEL_HEIGHT - LABEL_CLEARANCE) {
+    return undefined;
+  }
+  const points = simplify([
+    start,
+    { x: escapeX, y: start.y },
+    { x: escapeX, y: laneY },
+    { x: targetPort.x, y: laneY },
+    targetPort,
+  ]);
+  const labelPoint = { x: targetPort.x, y: (laneY + targetPort.y) / 2 };
+  return labelCorridorIsClear(points, labelPoint, source, target, obstacles, routedPaths, label)
+    ? points
+    : undefined;
+}
+
+function labelObstacle(point: Point, label: string): Rect {
+  const { width, height } = labelDimensions(label);
+  return {
+    // Routing only needs the bounds; this sentinel distinguishes a reserved
+    // label from real node obstacles without changing the shared Node type.
+    node: {} as Node,
+    left: point.x - width / 2 - LABEL_CLEARANCE,
+    right: point.x + width / 2 + LABEL_CLEARANCE,
+    top: point.y - height / 2 - LABEL_CLEARANCE,
+    bottom: point.y + height / 2 + LABEL_CLEARANCE,
+  };
+}
+
+function labelDimensions(label: string): { width: number; height: number } {
+  const lines = label
+    .replace(/<br\s*\/?\s*>/giu, '\n')
+    .replace(/<[^>]+>/gu, '')
+    .split('\n');
+  return {
+    width: Math.max(40, ...lines.map((line) => line.trim().length * 8)),
+    height: Math.max(LABEL_HEIGHT, lines.length * LABEL_HEIGHT),
+  };
+}
+
+function labelOverlapsRoutedPath(point: Point, label: string, routedPaths: Point[][]): boolean {
+  return boundsOverlapRoutedPath(labelBounds(point, label), routedPaths);
+}
+
+function labelBounds(point: Point, label: string): Bounds {
+  const { width, height } = labelDimensions(label);
+  return {
+    left: point.x - width / 2,
+    right: point.x + width / 2,
+    top: point.y - height / 2,
+    bottom: point.y + height / 2,
+  };
+}
+
+function boundsOverlapRoutedPath(bounds: Bounds, routedPaths: Point[][]): boolean {
+  return routedPaths.some((path) =>
+    path.slice(1).some((point, index) => segmentIntersectsBounds(path[index], point, bounds))
+  );
+}
+
+function segmentIntersectsBounds(a: Point, b: Point, bounds: Bounds): boolean {
+  if (Math.abs(a.x - b.x) <= EPSILON) {
+    return (
+      a.x > bounds.left + EPSILON &&
+      a.x < bounds.right - EPSILON &&
+      Math.max(a.y, b.y) > bounds.top + EPSILON &&
+      Math.min(a.y, b.y) < bounds.bottom - EPSILON
+    );
+  }
+  return (
+    a.y > bounds.top + EPSILON &&
+    a.y < bounds.bottom - EPSILON &&
+    Math.max(a.x, b.x) > bounds.left + EPSILON &&
+    Math.min(a.x, b.x) < bounds.right - EPSILON
+  );
 }
 
 function routeSymmetricDiamondFan(
@@ -219,7 +663,7 @@ function routeWithLabelClearance(
   if (!label) {
     return undefined;
   }
-  const labelWidth = Math.max(40, label.length * 8);
+  const { width: labelWidth, height: labelHeight } = labelDimensions(label);
   const horizontal = Math.abs(source.node.y! - target.node.y!) <= EPSILON;
   const vertical = Math.abs(source.node.x! - target.node.x!) <= EPSILON;
 
@@ -229,14 +673,15 @@ function routeWithLabelClearance(
     if (gap < labelWidth + LABEL_CLEARANCE * 2) {
       return chooseLabelLane(
         [
-          labelLaneForHorizontalPair(source, target, 'top'),
-          labelLaneForHorizontalPair(source, target, 'bottom'),
+          labelLaneForHorizontalPair(source, target, 'top', labelHeight),
+          labelLaneForHorizontalPair(source, target, 'bottom', labelHeight),
         ],
         source,
         target,
         obstacles,
         routedPaths,
-        labelWidth
+        labelWidth,
+        labelHeight
       );
     }
   }
@@ -244,7 +689,7 @@ function routeWithLabelClearance(
   if (vertical) {
     const gap =
       Math.abs(source.node.y! - target.node.y!) - (source.node.height! + target.node.height!) / 2;
-    if (gap < LABEL_HEIGHT + LABEL_CLEARANCE * 2) {
+    if (gap < labelHeight + LABEL_CLEARANCE * 2) {
       return chooseLabelLane(
         [
           labelLaneForVerticalPair(source, target, 'left', labelWidth),
@@ -254,7 +699,8 @@ function routeWithLabelClearance(
         target,
         obstacles,
         routedPaths,
-        labelWidth
+        labelWidth,
+        labelHeight
       );
     }
   }
@@ -262,7 +708,121 @@ function routeWithLabelClearance(
   return undefined;
 }
 
-function labelLaneForHorizontalPair(source: Rect, target: Rect, side: 'top' | 'bottom'): Point[] {
+/**
+ * Used only after the normal route has placed a label on an existing edge.
+ * Unlike ordinary label clearance, this may use an outside lane for diagonal
+ * pairs as well: the central segment becomes a dedicated label corridor.
+ */
+function routeWithDedicatedLabelCorridor(
+  source: Rect,
+  target: Rect,
+  obstacles: Rect[],
+  routedPaths: Point[][],
+  label: string
+): { points: Point[]; labelPoint: Point } | undefined {
+  const { width, height } = labelDimensions(label);
+  const points = chooseLabelLane(
+    [
+      labelLaneForHorizontalPair(source, target, 'top', height),
+      labelLaneForHorizontalPair(source, target, 'bottom', height),
+      labelLaneForVerticalPair(source, target, 'left', width),
+      labelLaneForVerticalPair(source, target, 'right', width),
+    ],
+    source,
+    target,
+    obstacles,
+    routedPaths,
+    width,
+    height
+  );
+  if (points) {
+    return { points, labelPoint: pointAtLabelLaneBridge(points) };
+  }
+  return routeWithOuterVerticalLabelCorridor(source, target, obstacles, routedPaths, label);
+}
+
+/**
+ * A diagonal labelled edge can be boxed in by siblings on both sides. Route
+ * around the source's near horizontal boundary, then use an outside vertical
+ * run as the label's actual (rather than merely visual) corridor.
+ */
+function routeWithOuterVerticalLabelCorridor(
+  source: Rect,
+  target: Rect,
+  obstacles: Rect[],
+  routedPaths: Point[][],
+  label: string
+): { points: Point[]; labelPoint: Point } | undefined {
+  const { width } = labelDimensions(label);
+  const downwards = target.node.y! >= source.node.y!;
+  const crossY = downwards ? source.bottom + CLEARANCE : source.top - CLEARANCE;
+  const sourcePortY =
+    source.node.y! + (downwards ? verticalPortOffset(source) : -verticalPortOffset(source));
+  const targetPortY =
+    target.node.y! + (downwards ? -verticalPortOffset(target) : verticalPortOffset(target));
+  const candidates = (['left', 'right'] as const)
+    .map((side) => {
+      const sourcePort = {
+        x: side === 'left' ? source.left : source.right,
+        y: sourcePortY,
+      };
+      const targetPort = {
+        x: side === 'left' ? target.left : target.right,
+        y: targetPortY,
+      };
+      const escapeX = sourcePort.x + (side === 'left' ? -CLEARANCE : CLEARANCE);
+      const laneX =
+        side === 'left'
+          ? Math.min(source.left, target.left) - width / 2 - LABEL_CLEARANCE
+          : Math.max(source.right, target.right) + width / 2 + LABEL_CLEARANCE;
+      const points = simplify([
+        sourcePort,
+        { x: escapeX, y: sourcePort.y },
+        { x: escapeX, y: crossY },
+        { x: laneX, y: crossY },
+        { x: laneX, y: targetPort.y },
+        targetPort,
+      ]);
+      return { points, labelPoint: { x: laneX, y: (crossY + targetPort.y) / 2 } };
+    })
+    .filter(({ points, labelPoint }) =>
+      labelCorridorIsClear(points, labelPoint, source, target, obstacles, routedPaths, label)
+    )
+    .sort((a, b) => pathLength(a.points) - pathLength(b.points));
+  return candidates[0];
+}
+
+function labelCorridorIsClear(
+  points: Point[],
+  labelPoint: Point,
+  source: Rect,
+  target: Rect,
+  obstacles: Rect[],
+  routedPaths: Point[][],
+  label: string
+): boolean {
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+  return (
+    points.length >= 4 &&
+    points.slice(1).every((point, index) => segmentClear(points[index], point, otherObstacles)) &&
+    points
+      .slice(1)
+      .every((point, index) => routeInteractionPenalty(points[index], point, routedPaths) === 0) &&
+    otherObstacles.every(
+      (obstacle) => !rectanglesOverlap(labelBounds(labelPoint, label), obstacle)
+    ) &&
+    !boundsOverlapRoutedPath(labelBounds(labelPoint, label), routedPaths)
+  );
+}
+
+function labelLaneForHorizontalPair(
+  source: Rect,
+  target: Rect,
+  side: 'top' | 'bottom',
+  labelHeight = LABEL_HEIGHT
+): Point[] {
   const sourceOffset = horizontalPortOffset(source);
   const targetOffset = horizontalPortOffset(target);
   const sourceTowardTarget = target.node.x! < source.node.x! ? -sourceOffset : sourceOffset;
@@ -277,8 +837,8 @@ function labelLaneForHorizontalPair(source: Rect, target: Rect, side: 'top' | 'b
   };
   const laneY =
     side === 'top'
-      ? Math.min(source.top, target.top) - LABEL_HEIGHT / 2 - LABEL_CLEARANCE
-      : Math.max(source.bottom, target.bottom) + LABEL_HEIGHT / 2 + LABEL_CLEARANCE;
+      ? Math.min(source.top, target.top) - labelHeight / 2 - LABEL_CLEARANCE
+      : Math.max(source.bottom, target.bottom) + labelHeight / 2 + LABEL_CLEARANCE;
   return [start, { x: start.x, y: laneY }, { x: end.x, y: laneY }, end];
 }
 
@@ -321,14 +881,17 @@ function chooseLabelLane(
   target: Rect,
   obstacles: Rect[],
   routedPaths: Point[][],
-  labelWidth: number
+  labelWidth: number,
+  labelHeight: number
 ): Point[] | undefined {
   const otherObstacles = obstacles.filter(
     (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
   );
   const candidatesWithScores = candidates
     .map(simplify)
-    .filter((candidate) => labelLaneIsClear(candidate, otherObstacles, routedPaths, labelWidth))
+    .filter((candidate) =>
+      labelLaneIsClear(candidate, otherObstacles, routedPaths, labelWidth, labelHeight)
+    )
     .map((candidate) => ({ candidate, length: pathLength(candidate) }))
     .sort((a, b) => a.length - b.length);
   return candidatesWithScores[0]?.candidate;
@@ -338,7 +901,8 @@ function labelLaneIsClear(
   candidate: Point[],
   obstacles: Rect[],
   routedPaths: Point[][],
-  labelWidth: number
+  labelWidth: number,
+  labelHeight: number
 ): boolean {
   if (candidate.length !== 4) {
     return false;
@@ -351,21 +915,32 @@ function labelLaneIsClear(
   ) {
     return false;
   }
-  const midpoint = pointAtHalfLength(candidate);
+  const midpoint = pointAtLabelLaneBridge(candidate);
   const bridge =
     candidate[1].x === candidate[2].x
       ? Math.abs(candidate[2].y - candidate[1].y)
       : Math.abs(candidate[2].x - candidate[1].x);
-  if (bridge < labelWidth + LABEL_CLEARANCE * 2) {
+  const bridgeRequirement = candidate[1].x === candidate[2].x ? labelHeight : labelWidth;
+  if (bridge < bridgeRequirement + LABEL_CLEARANCE * 2) {
     return false;
   }
   const labelRect: Bounds = {
     left: midpoint.x - labelWidth / 2,
     right: midpoint.x + labelWidth / 2,
-    top: midpoint.y - LABEL_HEIGHT / 2,
-    bottom: midpoint.y + LABEL_HEIGHT / 2,
+    top: midpoint.y - labelHeight / 2,
+    bottom: midpoint.y + labelHeight / 2,
   };
-  return obstacles.every((obstacle) => !rectanglesOverlap(labelRect, obstacle));
+  return (
+    obstacles.every((obstacle) => !rectanglesOverlap(labelRect, obstacle)) &&
+    !boundsOverlapRoutedPath(labelRect, routedPaths)
+  );
+}
+
+function pointAtLabelLaneBridge(points: Point[]): Point {
+  return {
+    x: (points[1].x + points[2].x) / 2,
+    y: (points[1].y + points[2].y) / 2,
+  };
 }
 
 function rectanglesOverlap(a: Bounds, b: Bounds): boolean {
@@ -583,24 +1158,67 @@ function allocatePorts(edges: Edge[], nodes: Map<string, Node>): Map<string, Poi
     const forceDiamondExitVertices =
       diamondFanVertices.has(node.id) && !symmetricDiamondFans.has(node.id);
     values.forEach((value, index) => {
+      const port = portOnSide(
+        node,
+        side,
+        value.endpoint,
+        index,
+        values.length,
+        supportsCenteredPort(node) && alignedCount === 1 && isAxisAligned(node, value.edge, nodes),
+        forceDiamondExitVertices,
+        symmetricDiamondFans.has(node.id) && value.endpoint === 'start'
+      );
       ports.set(
         `${value.edge.id}:${value.endpoint}`,
-        portOnSide(
-          node,
-          side,
-          value.endpoint,
-          index,
-          values.length,
-          supportsCenteredPort(node) &&
-            alignedCount === 1 &&
-            isAxisAligned(node, value.edge, nodes),
-          forceDiamondExitVertices,
-          symmetricDiamondFans.has(node.id) && value.endpoint === 'start'
-        )
+        offsetGroupPortTowardCounterpart(node, port, side, value.edge, value.endpoint, nodes)
       );
     });
   }
   return ports;
+}
+
+/**
+ * A frame-level connection competes with the routes of its contents at the
+ * frame boundary. Give a lone, non-axis-aligned group port a modest lead in
+ * the direction of its counterpart, rather than placing it exactly on the
+ * internal child's centre line.
+ */
+function offsetGroupPortTowardCounterpart(
+  node: Node,
+  port: Point,
+  side: Side,
+  edge: Edge,
+  endpoint: 'start' | 'end',
+  nodes: Map<string, Node>
+): Point {
+  if (!node.isGroup || isAxisAligned(node, edge, nodes)) {
+    return port;
+  }
+  const otherId = endpoint === 'start' ? edge.end : edge.start;
+  const other = otherId ? nodes.get(otherId) : undefined;
+  if (!other) {
+    return port;
+  }
+  const rect = rectFor(node)!;
+  const offset = PORT_SPACING;
+  if (side === 'left' || side === 'right') {
+    const direction = Math.sign(other.y! - node.y!);
+    if (direction === 0) {
+      return port;
+    }
+    return {
+      ...port,
+      y: Math.max(rect.top + 2, Math.min(rect.bottom - 2, port.y + direction * offset)),
+    };
+  }
+  const direction = Math.sign(other.x! - node.x!);
+  if (direction === 0) {
+    return port;
+  }
+  return {
+    ...port,
+    x: Math.max(rect.left + 2, Math.min(rect.right - 2, port.x + direction * offset)),
+  };
 }
 
 function isSymmetricDiamondFan(node: Node, edges: Edge[], nodes: Map<string, Node>): boolean {

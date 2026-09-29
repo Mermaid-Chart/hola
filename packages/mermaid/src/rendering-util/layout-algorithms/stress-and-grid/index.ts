@@ -11,6 +11,8 @@ const GROUP_FRAME_PADDING = 36;
 const GROUP_ROW_GAP = 96;
 const CYCLE_NODE_GAP = 32;
 const FRAMED_CYCLE_BRIDGE_GAP = 96;
+const SIDE_FRAME_CORRIDOR = 36;
+const LABELLED_FAN_ROW_GAP = 96;
 
 interface ConnectedComponent {
   nodes: Node[];
@@ -50,8 +52,11 @@ export function runStressAndGridLayoutCore(
     compactOuterVerticalLanes(data4Layout);
     compactGroupedRows(data4Layout);
     compactFramedFiveNodeCycles(data4Layout);
+    compactSideFrameLadder(data4Layout);
     fitStressAndGridGroups(data4Layout, GROUP_FRAME_PADDING);
+    separateBridgedGroupFrames(data4Layout);
     alignSingleGroupExits(data4Layout);
+    reserveLabelledFanRows(data4Layout);
     routeStressAndGridEdges(data4Layout, result.options.gridSpacing);
     return result;
   }
@@ -66,8 +71,11 @@ export function runStressAndGridLayoutCore(
     compactOuterVerticalLanes(componentData);
     compactGroupedRows(componentData);
     compactFramedFiveNodeCycles(componentData);
+    compactSideFrameLadder(componentData);
     fitStressAndGridGroups(componentData, GROUP_FRAME_PADDING);
+    separateBridgedGroupFrames(componentData);
     alignSingleGroupExits(componentData);
+    reserveLabelledFanRows(componentData);
     return { componentData, result };
   });
 
@@ -77,6 +85,115 @@ export function runStressAndGridLayoutCore(
   }
 
   return combineResults(results.map(({ result }) => result));
+}
+
+/**
+ * A labelled diagonal branch needs a real corridor, not a label parked beside
+ * its route. When an unlabelled child already occupies the source's lower
+ * column, place the labelled lower-right child on the next row so its label
+ * can remain centered on a vertical run between the two leaves.
+ */
+function reserveLabelledFanRows(data: LayoutData): void {
+  const nodes = new Map(data.nodes.map((node) => [node.id, node]));
+  const outgoingCount = new Map<string, number>();
+  for (const edge of data.edges) {
+    if (edge.start && edge.end) {
+      outgoingCount.set(edge.start, (outgoingCount.get(edge.start) ?? 0) + 1);
+    }
+  }
+  arrangeDenseFanIngress(data, nodes, outgoingCount);
+  for (const edge of data.edges) {
+    const label = (edge.label ?? edge.text ?? '').trim();
+    const source = edge.start ? nodes.get(edge.start) : undefined;
+    const target = edge.end ? nodes.get(edge.end) : undefined;
+    if (
+      !label ||
+      !source ||
+      !target ||
+      source.isGroup === true ||
+      target.isGroup === true ||
+      (outgoingCount.get(source.id) ?? 0) < 4 ||
+      target.x! <= source.x! ||
+      target.y! < source.y!
+    ) {
+      continue;
+    }
+    const lowerSibling = data.edges
+      .filter((candidate) => candidate.start === source.id && candidate.end !== target.id)
+      .map((candidate) => (candidate.end ? nodes.get(candidate.end) : undefined))
+      .find(
+        (candidate): candidate is Node =>
+          candidate !== undefined &&
+          !(candidate.parentId ?? '') &&
+          !(candidate.isGroup === true) &&
+          Math.abs(candidate.x! - source.x!) <= 1e-6 &&
+          candidate.y! >= source.y!
+      );
+    if (!lowerSibling) {
+      continue;
+    }
+    const targetY =
+      lowerSibling.y! + (lowerSibling.height! + target.height!) / 2 + LABELLED_FAN_ROW_GAP;
+    if (target.y! >= targetY) {
+      continue;
+    }
+    const previousY = target.y!;
+    target.y = targetY;
+    if (overlapsAnyLeaf(target, data.nodes)) {
+      target.y = previousY;
+    }
+  }
+}
+
+/**
+ * A dense fan can leave an incoming leaf stranded in the same row as the
+ * hub's left-hand output.  Swapping those two rows makes the inbound edge a
+ * direct horizontal connection and keeps the left/right fan symmetric.  Do
+ * the moves atomically: checking either move on its own would see the other
+ * leaf in its old position and incorrectly reject this valid exchange.
+ */
+function arrangeDenseFanIngress(
+  data: LayoutData,
+  nodes: Map<string, Node>,
+  outgoingCount: Map<string, number>
+): void {
+  const isDirectLeaf = (node: Node | undefined): node is Node =>
+    node !== undefined && node.isGroup !== true && !(node.parentId ?? '');
+
+  for (const hub of data.nodes) {
+    if (hub.isGroup === true || !isDirectLeaf(hub) || (outgoingCount.get(hub.id) ?? 0) < 4) {
+      continue;
+    }
+
+    const outputs = data.edges
+      .filter((edge) => edge.start === hub.id)
+      .map((edge) => (edge.end ? nodes.get(edge.end) : undefined))
+      .filter(isDirectLeaf);
+    const leftOutput = outputs.find(
+      (node) => node.x! < hub.x! && Math.abs(node.y! - hub.y!) <= 1e-6
+    );
+    const upperRightOutput = outputs
+      .filter((node) => node.x! > hub.x! && node.y! < hub.y!)
+      .sort((left, right) => left.y! - right.y!)[0];
+    const upperLeftInput = data.edges
+      .filter((edge) => edge.end === hub.id)
+      .map((edge) => (edge.start ? nodes.get(edge.start) : undefined))
+      .filter(isDirectLeaf)
+      .find((node) => node.x! < hub.x! && node.y! < hub.y!);
+
+    if (!leftOutput || !upperRightOutput || !upperLeftInput) {
+      continue;
+    }
+
+    const previousLeftOutputY = leftOutput.y!;
+    const previousUpperLeftInputY = upperLeftInput.y!;
+    leftOutput.y = upperRightOutput.y;
+    upperLeftInput.y = hub.y;
+    if (overlapsAnyLeaf(leftOutput, data.nodes) || overlapsAnyLeaf(upperLeftInput, data.nodes)) {
+      leftOutput.y = previousLeftOutputY;
+      upperLeftInput.y = previousUpperLeftInputY;
+    }
+  }
 }
 
 function alignSymmetricDecisionBranches(data: LayoutData): void {
@@ -585,15 +702,191 @@ function translateNodes(nodes: Node[], offsetX: number, offsetY: number): void {
   }
 }
 
+interface SideFrameLadder {
+  leftGroup: Node;
+  rightGroup: Node;
+  source: Node;
+  target: Node;
+  leftSource: Node;
+  leftTarget: Node;
+  rightSource: Node;
+  rightTarget: Node;
+  leftOuterSource: Node;
+  leftOuterTarget: Node;
+  rightOuterSource: Node;
+  rightOuterTarget: Node;
+}
+
+/**
+ * Compact a pair of four-node side frames around a two-node central bridge.
+ * This is the natural grid for a framed ladder: four horizontal rungs and
+ * two vertical rails. Leaving this pattern to the unconstrained stress solve
+ * can stretch a central-to-rail edge along the side of a frame.
+ */
+function compactSideFrameLadder(data: LayoutData): void {
+  const ladder = sideFrameLadder(data);
+  if (!ladder) {
+    return;
+  }
+
+  const nodes = [
+    ladder.source,
+    ladder.target,
+    ladder.leftSource,
+    ladder.leftTarget,
+    ladder.rightSource,
+    ladder.rightTarget,
+    ladder.leftOuterSource,
+    ladder.leftOuterTarget,
+    ladder.rightOuterSource,
+    ladder.rightOuterTarget,
+  ];
+  const rowGap = Math.max(...nodes.map((node) => node.height!)) + CYCLE_NODE_GAP;
+  const centralX = (ladder.leftGroup.x! + ladder.rightGroup.x!) / 2;
+  const horizontalDistance =
+    Math.max(...nodes.map((node) => node.width!)) + GROUP_FRAME_PADDING + SIDE_FRAME_CORRIDOR;
+  const sourceY = Math.min(ladder.source.y!, ladder.target.y!);
+  const targetY = sourceY + rowGap;
+  const outerSourceY = sourceY - rowGap;
+  const outerTargetY = targetY + rowGap;
+  const leftX = centralX - horizontalDistance;
+  const rightX = centralX + horizontalDistance;
+
+  ladder.source.x = centralX;
+  ladder.source.y = sourceY;
+  ladder.target.x = centralX;
+  ladder.target.y = targetY;
+
+  for (const node of [
+    ladder.leftSource,
+    ladder.leftTarget,
+    ladder.leftOuterSource,
+    ladder.leftOuterTarget,
+  ]) {
+    node.x = leftX;
+  }
+  for (const node of [
+    ladder.rightSource,
+    ladder.rightTarget,
+    ladder.rightOuterSource,
+    ladder.rightOuterTarget,
+  ]) {
+    node.x = rightX;
+  }
+  ladder.leftSource.y = sourceY;
+  ladder.rightSource.y = sourceY;
+  ladder.leftTarget.y = targetY;
+  ladder.rightTarget.y = targetY;
+  ladder.leftOuterSource.y = outerSourceY;
+  ladder.rightOuterSource.y = outerSourceY;
+  ladder.leftOuterTarget.y = outerTargetY;
+  ladder.rightOuterTarget.y = outerTargetY;
+}
+
+function sideFrameLadder(data: LayoutData): SideFrameLadder | undefined {
+  const nodes = new Map(data.nodes.map((node) => [node.id, node]));
+  const groups = data.nodes.filter((node) => node.isGroup === true && !node.parentId);
+  const loose = data.nodes.filter((node) => node.isGroup !== true && !node.parentId);
+  if (
+    groups.length !== 2 ||
+    loose.length !== 2 ||
+    groups.some((group) => groupMembers(group, nodes).length !== 4)
+  ) {
+    return undefined;
+  }
+
+  const bridge = data.edges.find(
+    (edge) =>
+      edge.start &&
+      edge.end &&
+      loose.some((node) => node.id === edge.start) &&
+      loose.some((node) => node.id === edge.end)
+  );
+  const source = bridge?.start ? nodes.get(bridge.start) : undefined;
+  const target = bridge?.end ? nodes.get(bridge.end) : undefined;
+  if (!source || !target) {
+    return undefined;
+  }
+
+  const [leftGroup, rightGroup] = [...groups].sort(
+    (left, right) => left.x! - right.x! || left.id.localeCompare(right.id)
+  );
+  const leftSource = groupNeighbour(source, leftGroup, data.edges, nodes);
+  const leftTarget = groupNeighbour(target, leftGroup, data.edges, nodes);
+  const rightSource = groupNeighbour(source, rightGroup, data.edges, nodes);
+  const rightTarget = groupNeighbour(target, rightGroup, data.edges, nodes);
+  if (!leftSource || !leftTarget || !rightSource || !rightTarget) {
+    return undefined;
+  }
+
+  const leftOuterSource = internalGroupNeighbour(leftSource, leftGroup, data.edges, nodes);
+  const leftOuterTarget = internalGroupNeighbour(leftTarget, leftGroup, data.edges, nodes);
+  const rightOuterSource = internalGroupNeighbour(rightSource, rightGroup, data.edges, nodes);
+  const rightOuterTarget = internalGroupNeighbour(rightTarget, rightGroup, data.edges, nodes);
+  if (!leftOuterSource || !leftOuterTarget || !rightOuterSource || !rightOuterTarget) {
+    return undefined;
+  }
+
+  return {
+    leftGroup,
+    rightGroup,
+    source,
+    target,
+    leftSource,
+    leftTarget,
+    rightSource,
+    rightTarget,
+    leftOuterSource,
+    leftOuterTarget,
+    rightOuterSource,
+    rightOuterTarget,
+  };
+}
+
+function groupMembers(group: Node, nodes: Map<string, Node>): Node[] {
+  return [...nodes.values()].filter((node) => node.isGroup !== true && node.parentId === group.id);
+}
+
+function groupNeighbour(
+  node: Node,
+  group: Node,
+  edges: Edge[],
+  nodes: Map<string, Node>
+): Node | undefined {
+  const members = new Set(groupMembers(group, nodes).map((member) => member.id));
+  const matches = edges
+    .filter((edge) => edge.start === node.id || edge.end === node.id)
+    .map((edge) => nodes.get(edge.start === node.id ? edge.end! : edge.start!))
+    .filter((candidate): candidate is Node => candidate !== undefined && members.has(candidate.id));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function internalGroupNeighbour(
+  node: Node,
+  group: Node,
+  edges: Edge[],
+  nodes: Map<string, Node>
+): Node | undefined {
+  const members = new Set(groupMembers(group, nodes).map((member) => member.id));
+  const matches = edges
+    .filter((edge) => edge.start === node.id || edge.end === node.id)
+    .map((edge) => nodes.get(edge.start === node.id ? edge.end! : edge.start!))
+    .filter((candidate): candidate is Node => candidate !== undefined && members.has(candidate.id));
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 /** Refit group frames after the local grid-alignment pass moves their children. */
 function fitStressAndGridGroups(data: LayoutData, padding: number): void {
   const nodesById = new Map(data.nodes.map((node) => [node.id, node]));
-  const groups = data.nodes.filter((node) => node.isGroup === true);
+  // Frames must be fitted from the leaves of the containment tree upwards.
+  // Measuring every descendant directly makes an inner frame flush with every
+  // ancestor and leaves no visible nesting inset.
+  const groups = data.nodes
+    .filter((node) => node.isGroup === true)
+    .sort((left, right) => groupDepth(right, nodesById) - groupDepth(left, nodesById));
 
   for (const group of groups) {
-    const children = data.nodes.filter(
-      (node) => node.isGroup !== true && isDescendantOf(node, group.id, nodesById)
-    );
+    const children = data.nodes.filter((node) => node.parentId === group.id);
     if (children.length === 0) {
       continue;
     }
@@ -609,13 +902,53 @@ function fitStressAndGridGroups(data: LayoutData, padding: number): void {
   }
 }
 
+/**
+ * Group labels are measured before layout and can change a fitted frame's
+ * final height. Preserve a visible corridor between two overlapping framed
+ * stages after that final fit, then route their bridge against the settled
+ * geometry. This is deliberately post-fit: child-only spacing cannot account
+ * for a renderer-measured title extending above the lower frame.
+ */
+function separateBridgedGroupFrames(data: LayoutData): void {
+  const nodes = new Map(data.nodes.map((node) => [node.id, node]));
+  for (const edge of data.edges) {
+    const source = edge.start ? nodes.get(edge.start) : undefined;
+    const target = edge.end ? nodes.get(edge.end) : undefined;
+    const sourceGroup = source?.parentId ? nodes.get(source.parentId) : undefined;
+    const targetGroup = target?.parentId ? nodes.get(target.parentId) : undefined;
+    if (
+      !source ||
+      !target ||
+      !sourceGroup?.isGroup ||
+      !targetGroup?.isGroup ||
+      sourceGroup === targetGroup ||
+      !horizontalBoxesOverlap(sourceGroup, targetGroup)
+    ) {
+      continue;
+    }
+
+    const sourceBottom = sourceGroup.y! + sourceGroup.height! / 2;
+    const targetTop = targetGroup.y! - targetGroup.height! / 2;
+    const shift = sourceBottom + FRAMED_CYCLE_BRIDGE_GAP - targetTop;
+    if (shift <= 0) {
+      continue;
+    }
+    const moved = data.nodes.filter(
+      (node) =>
+        node === targetGroup ||
+        (node.isGroup !== true && isDescendantOf(node, targetGroup.id, nodes))
+    );
+    translateNodes(moved, 0, shift);
+  }
+}
+
 /** Keep a lone group exit adjacent to the stage it continues from. */
 function alignSingleGroupExits(data: LayoutData): void {
   const nodes = new Map(data.nodes.map((node) => [node.id, node]));
   for (const edge of data.edges) {
     const source = edge.start ? nodes.get(edge.start) : undefined;
     const target = edge.end ? nodes.get(edge.end) : undefined;
-    const group = source?.parentId ? nodes.get(source.parentId) : undefined;
+    const group = source ? outermostAncestorGroup(source, nodes) : undefined;
     // This is an exit only when its target is genuinely outside every frame.
     // A link from one frame to another is a bridge between two independently
     // constrained layouts; pulling its target beside the source frame would
@@ -631,6 +964,30 @@ function alignSingleGroupExits(data: LayoutData): void {
       target.y = previous.y;
     }
   }
+}
+
+function groupDepth(node: Node, nodesById: Map<string, Node>): number {
+  let depth = 0;
+  let parentId = node.parentId;
+  while (parentId) {
+    depth++;
+    parentId = nodesById.get(parentId)?.parentId;
+  }
+  return depth;
+}
+
+function outermostAncestorGroup(node: Node, nodesById: Map<string, Node>): Node | undefined {
+  let ancestor: Node | undefined;
+  let parentId = node.parentId;
+  while (parentId) {
+    const parent = nodesById.get(parentId);
+    if (!parent?.isGroup) {
+      break;
+    }
+    ancestor = parent;
+    parentId = parent.parentId;
+  }
+  return ancestor;
 }
 
 function isDescendantOf(node: Node, ancestorId: string, nodesById: Map<string, Node>): boolean {

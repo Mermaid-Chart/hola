@@ -1,0 +1,404 @@
+/* Diagram Lab — dense, table-first dev UI. Deliberately independent of the Dev
+   Explorer's stylesheet so neither can drift the other. */
+
+:root {
+  --lab-bg: #14161a;
+  --lab-panel: #1a1d23;
+  --lab-panel-2: #20242c;
+  --lab-border: #2c313b;
+  --lab-text: #dfe3ea;
+  --lab-muted: #8a93a3;
+  --lab-accent: #4c8dff;
+  --lab-ok: #3fbf7f;
+  --lab-warn: #e0a33e;
+  --lab-danger: #e5645f;
+  --lab-row-hover: #222732;
+  --lab-row-selected: #2a3550;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--lab-bg);
+  color: var(--lab-text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 13px;
+}
+
+diagram-lab-app {
+  display: block;
+  height: 100%;
+}
+
+.lab {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--lab-panel);
+  border-bottom: 1px solid var(--lab-border);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.control.grow {
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+.control > span {
+  font-size: 11px;
+  color: var(--lab-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+/* ── Split ───────────────────────────────────────────────────────────────── */
+
+.lab-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  --divider-width: 6px;
+}
+
+.lab-split::part(divider) {
+  background: var(--lab-border);
+}
+
+.table-pane,
+.detail-pane {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-pane {
+  border-left: 1px solid var(--lab-border);
+  background: var(--lab-panel);
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+
+.table-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+}
+
+.metrics-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--lab-panel-2);
+  border-bottom: 1px solid var(--lab-border);
+  padding: 7px 8px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lab-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.metrics-table thead th:hover {
+  color: var(--lab-text);
+}
+
+.metrics-table th.num,
+.metrics-table td.num {
+  text-align: right;
+}
+
+.metrics-table .sort {
+  margin-left: 4px;
+  color: var(--lab-accent);
+}
+
+.metrics-table tbody td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #23262e;
+  white-space: nowrap;
+}
+
+.metrics-table tbody tr {
+  cursor: pointer;
+}
+
+.metrics-table tbody tr:hover {
+  background: var(--lab-row-hover);
+}
+
+.metrics-table tbody tr.selected {
+  background: var(--lab-row-selected);
+}
+
+.metrics-table tbody tr.failed .path-cell .name {
+  color: var(--lab-danger);
+}
+
+.path-cell {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.path-cell .dir {
+  color: var(--lab-muted);
+}
+
+.flag-ok {
+  color: var(--lab-ok);
+}
+
+.flag-warn {
+  color: var(--lab-warn);
+}
+
+.has-score {
+  color: var(--lab-accent);
+}
+
+.score-cell {
+  width: 62px;
+}
+
+.score-input {
+  width: 46px;
+  background: #171a20;
+  border: 1px solid var(--lab-border);
+  border-radius: 4px;
+  color: var(--lab-text);
+  padding: 2px 4px;
+  font: inherit;
+  text-align: right;
+}
+
+.score-input:focus {
+  outline: 1px solid var(--lab-accent);
+  border-color: var(--lab-accent);
+}
+
+.empty {
+  padding: 24px;
+  color: var(--lab-muted);
+}
+
+/* ── Detail pane ─────────────────────────────────────────────────────────── */
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--lab-border);
+  flex: 0 0 auto;
+}
+
+.detail-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+
+.detail-empty {
+  padding: 28px;
+  color: var(--lab-muted);
+}
+
+.detail-empty .hint {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+kbd {
+  background: var(--lab-panel-2);
+  border: 1px solid var(--lab-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.diagram-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.diagram-frame svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.render-error {
+  margin: 0;
+  padding: 14px;
+  color: var(--lab-danger);
+  background: var(--lab-panel);
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+/* ── Score panel ─────────────────────────────────────────────────────────── */
+
+.score-panel {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-top: 1px solid var(--lab-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.score-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.score-chip {
+  min-width: 30px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--lab-border);
+  background: var(--lab-panel-2);
+  color: var(--lab-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.score-chip:hover {
+  border-color: var(--lab-accent);
+}
+
+.score-chip.active {
+  background: var(--lab-accent);
+  border-color: var(--lab-accent);
+  color: #0d1117;
+  font-weight: 600;
+}
+
+.score-chip.clear {
+  color: var(--lab-muted);
+}
+
+/* ── Metrics detail ──────────────────────────────────────────────────────── */
+
+.metrics-detail {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 2px 14px;
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--lab-border);
+  background: var(--lab-panel-2);
+  font-variant-numeric: tabular-nums;
+  max-height: 30vh;
+  overflow: auto;
+}
+
+.metrics-detail.muted {
+  display: block;
+  color: var(--lab-muted);
+}
+
+.metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.metric.wide {
+  grid-column: 1 / -1;
+}
+
+.metric-label {
+  color: var(--lab-muted);
+}
+
+.metric-value {
+  font-weight: 600;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+
+.status-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: var(--lab-panel);
+  border-top: 1px solid var(--lab-border);
+  font-size: 12px;
+}
+
+.status-bar .sweep {
+  color: var(--lab-accent);
+}
+
+.muted {
+  color: var(--lab-muted);
+}

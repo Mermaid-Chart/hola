@@ -33,6 +33,7 @@
     "build:types": "pnpm --filter mermaid types:build-config && tsx .build/types.ts",
     "build:types:watch": "tsc -p ./packages/mermaid/tsconfig.json --emitDeclarationOnly --watch",
     "dev": "tsx .esbuild/server.ts",
+    "lab": "tsx diagram-lab/server.ts",
     "dev:vite": "tsx .vite/server.ts",
     "dev:coverage": "pnpm coverage:e2e:clean && pnpm dev:vite",
     "copy-readme": "cpy './README.*' ./packages/mermaid/ --cwd=.",

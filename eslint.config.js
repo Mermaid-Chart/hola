@@ -163,7 +163,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['e2e/**', 'demos/**', '.esbuild/**'],
+    files: ['e2e/**', 'demos/**', '.esbuild/**', 'diagram-lab/**'],
     rules: {
       'no-console': 'off',
       // Dev tooling files often use lower-friction style (single-line ifs,

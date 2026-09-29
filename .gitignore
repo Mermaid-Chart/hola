@@ -82,3 +82,7 @@ mermaid-parser.tar.gz
 .fallow/
 test-results/
 .playwright-mcp/
+
+# Diagram Lab: build output only — data/records.json is meant to be kept.
+diagram-lab/dist/
+diagram-lab/data/*.tmp
