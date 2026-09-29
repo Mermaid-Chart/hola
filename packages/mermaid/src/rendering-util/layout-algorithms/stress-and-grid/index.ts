@@ -9,6 +9,8 @@ const COMPACT_GRID_SPACING = 180;
 const TALL_NODE_GRID_THRESHOLD = COMPACT_GRID_SPACING * 2;
 const GROUP_FRAME_PADDING = 36;
 const GROUP_ROW_GAP = 96;
+const CYCLE_NODE_GAP = 32;
+const FRAMED_CYCLE_BRIDGE_GAP = 96;
 
 interface ConnectedComponent {
   nodes: Node[];
@@ -47,6 +49,7 @@ export function runStressAndGridLayoutCore(
     alignSymmetricDecisionBranches(data4Layout);
     compactOuterVerticalLanes(data4Layout);
     compactGroupedRows(data4Layout);
+    compactFramedFiveNodeCycles(data4Layout);
     fitStressAndGridGroups(data4Layout, GROUP_FRAME_PADDING);
     alignSingleGroupExits(data4Layout);
     routeStressAndGridEdges(data4Layout, result.options.gridSpacing);
@@ -62,6 +65,7 @@ export function runStressAndGridLayoutCore(
     alignSymmetricDecisionBranches(componentData);
     compactOuterVerticalLanes(componentData);
     compactGroupedRows(componentData);
+    compactFramedFiveNodeCycles(componentData);
     fitStressAndGridGroups(componentData, GROUP_FRAME_PADDING);
     alignSingleGroupExits(componentData);
     return { componentData, result };
@@ -398,6 +402,189 @@ function groupedRows(nodes: Node[]): { nodes: Node[]; top: number; bottom: numbe
   return rows;
 }
 
+interface FramedFiveNodeCycle {
+  group: Node;
+  members: Node[];
+  anchor: Node;
+  aroundAnchor: [Node, Node, Node, Node];
+  bridge: Edge;
+}
+
+/**
+ * A five-node cycle is most legible as a compact two-row ring. The global
+ * stress solve intentionally leaves cycles free to rotate, which can put a
+ * bridge node in the middle of a frame and force two perimeter edges through
+ * long detours. When exactly one cycle member links outside its frame, retain
+ * that member as the centred entry/exit and arrange the other four around it.
+ */
+function compactFramedFiveNodeCycles(data: LayoutData): void {
+  const nodes = new Map(data.nodes.map((node) => [node.id, node]));
+  const cycles = data.nodes
+    .filter((node) => node.isGroup === true)
+    .map((group) => framedFiveNodeCycle(group, data.edges, nodes))
+    .filter((cycle): cycle is FramedFiveNodeCycle => cycle !== undefined);
+
+  for (const cycle of cycles) {
+    placeFramedFiveNodeCycle(cycle);
+  }
+
+  const cycleByAnchor = new Map(cycles.map((cycle) => [cycle.anchor.id, cycle]));
+  for (const cycle of cycles) {
+    const sourceCycle = cycle.bridge.start ? cycleByAnchor.get(cycle.bridge.start) : undefined;
+    const targetCycle = cycle.bridge.end ? cycleByAnchor.get(cycle.bridge.end) : undefined;
+    if (!sourceCycle || !targetCycle || sourceCycle === targetCycle) {
+      continue;
+    }
+    translateNodes(targetCycle.members, sourceCycle.anchor.x! - targetCycle.anchor.x!, 0);
+    separateFramedCycles(sourceCycle, targetCycle);
+  }
+}
+
+function separateFramedCycles(source: FramedFiveNodeCycle, target: FramedFiveNodeCycle): void {
+  const sourceContentBottom = Math.max(
+    ...source.members.map((member) => member.y! + member.height! / 2)
+  );
+  const targetContentTop = Math.min(
+    ...target.members.map((member) => member.y! - member.height! / 2)
+  );
+  // `fitStressAndGridGroups` puts a title above a group's child bounds, while
+  // the bottom has only frame padding. Account for both so the requested
+  // corridor is the visible frame-to-frame distance, not merely leaf space.
+  const sourceFrameBottom = sourceContentBottom + GROUP_FRAME_PADDING;
+  const targetFrameTop =
+    targetContentTop - GROUP_FRAME_PADDING - (target.group.labelBBox?.height ?? 0);
+  const shift = sourceFrameBottom + FRAMED_CYCLE_BRIDGE_GAP - targetFrameTop;
+  if (shift > 0) {
+    translateNodes(target.members, 0, shift);
+  }
+}
+
+function framedFiveNodeCycle(
+  group: Node,
+  edges: Edge[],
+  nodes: Map<string, Node>
+): FramedFiveNodeCycle | undefined {
+  const members = [...nodes.values()].filter(
+    (node) => node.isGroup !== true && node.parentId === group.id
+  );
+  if (members.length !== 5) {
+    return undefined;
+  }
+
+  const memberIds = new Set(members.map((member) => member.id));
+  const internalEdges = edges.filter(
+    (edge) =>
+      edge.start !== undefined &&
+      edge.end !== undefined &&
+      memberIds.has(edge.start) &&
+      memberIds.has(edge.end)
+  );
+  if (internalEdges.length !== members.length) {
+    return undefined;
+  }
+
+  const neighbours = new Map(members.map((member) => [member.id, new Set<string>()]));
+  for (const edge of internalEdges) {
+    neighbours.get(edge.start!)!.add(edge.end!);
+    neighbours.get(edge.end!)!.add(edge.start!);
+  }
+  if ([...neighbours.values()].some((neighboursForNode) => neighboursForNode.size !== 2)) {
+    return undefined;
+  }
+
+  const bridges = edges.filter(
+    (edge) =>
+      edge.start !== undefined &&
+      edge.end !== undefined &&
+      memberIds.has(edge.start) !== memberIds.has(edge.end)
+  );
+  if (bridges.length !== 1) {
+    return undefined;
+  }
+
+  const bridge = bridges[0];
+  const anchor = nodes.get(memberIds.has(bridge.start!) ? bridge.start! : bridge.end!);
+  if (!anchor) {
+    return undefined;
+  }
+  const [firstNeighbour, secondNeighbour] = [...neighbours.get(anchor.id)!]
+    .map((id) => nodes.get(id)!)
+    .sort((left, right) => left.x! - right.x! || left.id.localeCompare(right.id));
+  const aroundAnchor = traceCycleSide(
+    anchor.id,
+    firstNeighbour.id,
+    secondNeighbour.id,
+    neighbours,
+    nodes
+  );
+  if (!aroundAnchor) {
+    return undefined;
+  }
+
+  return { group, members, anchor, aroundAnchor, bridge };
+}
+
+function traceCycleSide(
+  anchorId: string,
+  firstId: string,
+  lastId: string,
+  neighbours: Map<string, Set<string>>,
+  nodes: Map<string, Node>
+): [Node, Node, Node, Node] | undefined {
+  const ordered: Node[] = [nodes.get(firstId)!];
+  let previousId = anchorId;
+  let currentId = firstId;
+  while (currentId !== lastId && ordered.length < 5) {
+    const nextId = [...neighbours.get(currentId)!].find((id) => id !== previousId);
+    if (!nextId || nextId === anchorId) {
+      return undefined;
+    }
+    ordered.push(nodes.get(nextId)!);
+    previousId = currentId;
+    currentId = nextId;
+  }
+  return ordered.length === 4 && currentId === lastId
+    ? (ordered as [Node, Node, Node, Node])
+    : undefined;
+}
+
+function placeFramedFiveNodeCycle(cycle: FramedFiveNodeCycle): void {
+  const [left, upperLeft, upperRight, right] = cycle.aroundAnchor;
+  const anchorLeavesFrame = cycle.bridge.start === cycle.anchor.id;
+  const rowDirection = anchorLeavesFrame ? -1 : 1;
+  const sideDistance = Math.max(
+    (cycle.anchor.width! + Math.max(left.width!, right.width!)) / 2 + CYCLE_NODE_GAP,
+    (upperLeft.width! + upperRight.width!) / 4 + CYCLE_NODE_GAP / 2
+  );
+  const otherRowY =
+    cycle.anchor.y! +
+    rowDirection *
+      (Math.max(
+        cycle.anchor.height!,
+        left.height!,
+        right.height!,
+        upperLeft.height!,
+        upperRight.height!
+      ) +
+        CYCLE_NODE_GAP);
+
+  left.x = cycle.anchor.x! - sideDistance;
+  left.y = cycle.anchor.y;
+  right.x = cycle.anchor.x! + sideDistance;
+  right.y = cycle.anchor.y;
+  upperLeft.x = left.x;
+  upperLeft.y = otherRowY;
+  upperRight.x = right.x;
+  upperRight.y = otherRowY;
+}
+
+function translateNodes(nodes: Node[], offsetX: number, offsetY: number): void {
+  for (const node of nodes) {
+    node.x! += offsetX;
+    node.y! += offsetY;
+  }
+}
+
 /** Refit group frames after the local grid-alignment pass moves their children. */
 function fitStressAndGridGroups(data: LayoutData, padding: number): void {
   const nodesById = new Map(data.nodes.map((node) => [node.id, node]));
@@ -429,7 +616,11 @@ function alignSingleGroupExits(data: LayoutData): void {
     const source = edge.start ? nodes.get(edge.start) : undefined;
     const target = edge.end ? nodes.get(edge.end) : undefined;
     const group = source?.parentId ? nodes.get(source.parentId) : undefined;
-    if (!source || !target || !group?.isGroup || target.parentId === group.id) {
+    // This is an exit only when its target is genuinely outside every frame.
+    // A link from one frame to another is a bridge between two independently
+    // constrained layouts; pulling its target beside the source frame would
+    // detach it from its own frame.
+    if (!source || !target || !group?.isGroup || target.parentId) {
       continue;
     }
     const previous = { x: target.x!, y: target.y! };
