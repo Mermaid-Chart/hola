@@ -181,7 +181,7 @@ hits so far: `xyChart.legendTextColor` (`9b95356233`) and `flowContainerStroke`
 (`a24470c6f4`). **Whenever an upstream diff adds a theme variable, add it to
 `theme-mc.js` before running the tests.**
 
-The same blind spot catches *mechanism* changes, not just new variables: `c38a56597`
+The same blind spot catches _mechanism_ changes, not just new variables: `c38a56597`
 (the v12.1.0 sync) changed every other theme's `calculate()` to merge nested
 object-valued variables (`xyChart`, `cynefin`, `radar`, `wardley`) through a shared
 `applyOverride` helper instead of a plain assignment, and added
