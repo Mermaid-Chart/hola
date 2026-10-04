@@ -1,7 +1,7 @@
 # Syncing upstream OSS mermaid into this fork
 
-> Last verified against `os_repo/master` (v12.0.0) on 2026-09-10. Fork tip ~1021
-> commits ahead of upstream. Unit suite: ~7476 tests in ~356 files on `develop`.
+> Last verified against `os_repo/develop` (v12.1.0) on 2026-10-04. Fork tip ~1037
+> commits ahead of upstream. Unit suite: ~7736 tests in ~368 files on `develop`.
 
 Two audiences read this: the CI resolver in
 [`sync-oss-develop.yml`](../workflows/sync-oss-develop.yml), which is pointed at it
