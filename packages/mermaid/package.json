@@ -82,11 +82,11 @@
   "dependencies": {
     "@braintree/sanitize-url": "^7.1.2",
     "@iconify/utils": "^3.0.2",
-    "@mermaid-js/parser": "^1.2.0",
+    "@mermaid-js/parser": "workspace:^",
     "@types/d3": "^7.4.3",
     "@upsetjs/venn.js": "^2.0.0",
     "antlr4ng": "^3.0.16",
-    "chevrotain": "~11.1.2",
+    "chevrotain": "~13.2.0",
     "cytoscape": "^3.34.0",
     "cytoscape-cose-bilkent": "^4.1.0",
     "cytoscape-fcose": "^2.2.0",
