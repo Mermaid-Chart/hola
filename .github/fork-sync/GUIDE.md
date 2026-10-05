@@ -1,7 +1,7 @@
 # Syncing upstream OSS mermaid into this fork
 
-> Last verified against `os_repo/master` (v12.0.0) on 2026-09-10. Fork tip ~1021
-> commits ahead of upstream. Unit suite: ~7476 tests in ~356 files on `develop`.
+> Last verified against `os_repo/develop` (v12.1.0) on 2026-10-04. Fork tip ~1037
+> commits ahead of upstream. Unit suite: ~7736 tests in ~368 files on `develop`.
 
 Two audiences read this: the CI resolver in
 [`sync-oss-develop.yml`](../workflows/sync-oss-develop.yml), which is pointed at it
@@ -181,6 +181,16 @@ hits so far: `xyChart.legendTextColor` (`9b95356233`) and `flowContainerStroke`
 (`a24470c6f4`). **Whenever an upstream diff adds a theme variable, add it to
 `theme-mc.js` before running the tests.**
 
+The same blind spot catches _mechanism_ changes, not just new variables: `c38a56597`
+(the v12.1.0 sync) changed every other theme's `calculate()` to merge nested
+object-valued variables (`xyChart`, `cynefin`, `radar`, `wardley`) through a shared
+`applyOverride` helper instead of a plain assignment, and added
+`theme-nested-overrides.spec.ts`, which — like the variable-presence specs above —
+iterates every registered theme. `theme-mc.js` still used the plain assignment and
+failed only that iteration. Fixed in the fork commit that added this paragraph by
+importing `applyOverride` from `theme-helpers.js` and using it in the post-`updateColors`
+pass, matching every other theme file.
+
 **Config.** The fork adds a `parser` key to `BaseDiagramConfig` in
 `config.schema.yaml` (`jison` | `antlr` | `langium`, default `jison`). Every
 diagram config inherits it through `allOf`, so any upstream spec asserting _exact_
@@ -209,6 +219,31 @@ That last one is the canonical silent-drop: `9b95356233` records a clean auto-me
 that removed all three, which would have made fixed-layout flowcharts quietly
 ignore caller-supplied positions. Re-check it on any merge touching the unified
 renderer.
+
+**Cross-package deps must stay on `workspace:`, not a literal range.** This is the
+same shape as the `package.json` import-specifier conflicts in section 4, but it
+bites with **no conflict at all** because only one side ever touches the line.
+`packages/mermaid/package.json`'s own dependency on `@mermaid-js/parser` had drifted
+to a plain `"^1.2.0"` instead of `"workspace:^"` sometime before the v12.1.0 sync —
+upstream's own copy never moved from `workspace:^`, so the 3-way merge saw "only the
+fork moved" and carried the stale literal forward untouched. It was harmless while
+`packages/parser`'s version stayed inside that range. The sync that bumped
+`@mermaid-js/parser` to the real upstream release (`1.2.1` → `2.0.1`, per the
+"packages outside `version.mjs`'s list" rule in section 8) pushed it out of range,
+so pnpm silently installed the **published** `@mermaid-js/parser@1.2.1` from the
+registry instead of linking the workspace package — bundling that release's
+chevrotain `11.1.2` and langium-cli-4.2-era generated types next to the
+newly-bumped langium `4.4.0` / chevrotain `13.2.0` everything else now uses, and
+producing a dual-instantiation TypeScript error in `radar/parser.ts` (reported as
+`Axis`/`Curve`/`Option` "duplicate" types, bottoming out in two incompatible
+`vscode-languageserver-textdocument` shapes) with no connection visible to the
+actual cause. Confirmed reproducible only on the fork — a pure `os_repo/develop`
+checkout of the same upstream commit typechecks clean — which is what makes this a
+clean-auto-merge finding rather than an upstream regression. Fixed by restoring
+`workspace:^`. **Any internal cross-package dependency that is not a literal
+`workspace:` range is a latent version of this bug**; it only surfaces once the
+dependency's version moves far enough to fall outside whatever range was
+accidentally committed.
 
 **`.github/workflows/e2e.yml`** must keep three fork deltas that upstream does not
 carry. `guard.sh` asserts all three, but if you are merging by hand:

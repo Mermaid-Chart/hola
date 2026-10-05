@@ -6,7 +6,7 @@ import type {
   DiagramLoader,
   ExternalDiagramDefinition,
 } from './types.js';
-import { directiveRegex, frontMatterRegex, stripAnyComments } from './regexes.js';
+import { directiveRegex, matchFrontMatter, stripAnyComments } from './regexes.js';
 import { UnknownDiagramError } from '../errors.js';
 
 export const detectors: Record<string, DetectorRecord> = {};
@@ -37,12 +37,12 @@ export const detectType = function (text: string, config?: MermaidConfig): strin
   // Strip header prelude (front matter, directives, comments, blank lines) only at the top
   // Then detect based on the first significant keyword to avoid false positives in labels/strings
   const headerlessText = stripHeaderPrelude(text);
-  // `stripAnyComments` is the linear-time equivalent of `.replace(anyCommentRegex, '\n')`,
-  // and regexes.ts requires callers to use it rather than the regex directly.
+  // `matchFrontMatter`/`stripAnyComments` are the linear-time equivalents of replacing
+  // `frontMatterRegex`/`anyCommentRegex` directly, and regexes.ts requires callers to use them
+  // on hot paths instead.
+  const frontMatter = matchFrontMatter(text);
   const cleanedText = stripAnyComments(
-    text
-      .replace(frontMatterRegex, '') // no-op after stripHeaderPrelude, but safe
-      .replace(directiveRegex, '') // defensive if any directive remains at the top
+    (frontMatter ? text.slice(frontMatter.length) : text).replace(directiveRegex, '')
   );
 
   // Robust anchored check for specific diagram types (after header prelude);
@@ -83,7 +83,7 @@ function stripHeaderPrelude(input: string): string {
   s = s.replace(/^\uFEFF/, '');
 
   // Remove Jekyll-style front matter at the very top
-  s = s.replace(frontMatterRegex, '');
+  s = stripLeadingFrontMatter(s);
 
   // Iteratively remove top-of-file blocks: directives, comment lines, and blank lines
   // - Directives: %%{ ... }%% possibly multiline
@@ -99,10 +99,17 @@ function stripHeaderPrelude(input: string): string {
   }
 
   // One extra pass for safety (handles stacked front matter blocks or multiple directives)
-  s = s.replace(frontMatterRegex, '');
+  s = stripLeadingFrontMatter(s);
   s = s.replace(headerPattern, '');
 
   return s;
+}
+
+// Linear-time equivalent of `s.replace(frontMatterRegex, '')`; regexes.ts requires hot paths to
+// use `matchFrontMatter` instead of the quadratic regex directly.
+function stripLeadingFrontMatter(s: string): string {
+  const frontMatter = matchFrontMatter(s);
+  return frontMatter ? s.slice(frontMatter.length) : s;
 }
 
 /**
