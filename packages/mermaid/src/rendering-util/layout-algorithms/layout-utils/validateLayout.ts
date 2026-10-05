@@ -9,6 +9,11 @@ import {
   segmentIntersectsRectInterior,
 } from './helpers.js';
 import type { Point, Rect } from './types.js';
+import {
+  slantedNodePolygon,
+  pointInsidePolygonInterior,
+  segmentIntersectsPolygonInterior,
+} from './slantedNodeOutline.js';
 
 type PortSide = 'N' | 'E' | 'S' | 'W';
 import { EPS, normalizePolyline, distance, segmentsCross } from './geometry.js';
@@ -334,6 +339,10 @@ function shapeInteriorMeasure(point: Point, node: Node, rect: Rect): number | un
 
 /** Whether a point is materially inside the body that Mermaid will draw. */
 function pointInsideNodeInterior(point: Point, node: Node, rect: Rect): boolean {
+  const polygon = slantedNodePolygon(node);
+  if (polygon) {
+    return pointInsidePolygonInterior(point, polygon, EPS_SHAPE_BOUNDARY);
+  }
   const measure = shapeInteriorMeasure(point, node, rect);
   if (measure != null) {
     return measure < 1 - shapeBoundaryTolerance(rect);
@@ -348,6 +357,10 @@ function pointInsideNodeInterior(point: Point, node: Node, rect: Rect): boolean 
 
 /** Whether the open segment reaches the material interior of a non-rectangular node. */
 function segmentIntersectsNodeInterior(a: Point, b: Point, node: Node, rect: Rect): boolean {
+  const polygon = slantedNodePolygon(node);
+  if (polygon) {
+    return segmentIntersectsPolygonInterior(a, b, polygon, EPS_SHAPE_BOUNDARY);
+  }
   if (!isEllipticShape(node) && !isDecisionShape(node)) {
     return segmentIntersectsRectInterior(a, b, rect);
   }
@@ -396,11 +409,9 @@ function segmentIntersectsNodeInterior(a: Point, b: Point, node: Node, rect: Rec
 }
 
 /**
- * Distance from a port to the nearest diamond vertex. The vertices sit at the
- * midpoints of the bounding rect's sides, which is where the outline actually
- * touches it.
+ * Distance from a port to the diamond outline, including its sloped sides.
  */
-function decisionVertexOffset(port: Point, rect: Rect): number | null {
+function decisionOutlineOffset(port: Point, rect: Rect): number | null {
   const cx = (rect.left + rect.right) / 2;
   const cy = (rect.top + rect.bottom) / 2;
   const vertices: Point[] = [
@@ -410,8 +421,18 @@ function decisionVertexOffset(port: Point, rect: Rect): number | null {
     { x: rect.left, y: cy },
   ];
   let best: number | null = null;
-  for (const v of vertices) {
-    const d = Math.hypot(port.x - v.x, port.y - v.y);
+  for (const [index, v] of vertices.entries()) {
+    const next = vertices[(index + 1) % vertices.length];
+    const dx = next.x - v.x;
+    const dy = next.y - v.y;
+    const t =
+      dx * dx + dy * dy === 0
+        ? 0
+        : Math.max(
+            0,
+            Math.min(1, ((port.x - v.x) * dx + (port.y - v.y) * dy) / (dx * dx + dy * dy))
+          );
+    const d = Math.hypot(port.x - v.x - t * dx, port.y - v.y - t * dy);
     if (best == null || d < best) {
       best = d;
     }
@@ -459,8 +480,8 @@ function portSideFraction(port: Point, rect: Rect): number | null {
  * worth more than a tidy attachment point.
  */
 const PORT_CORNER_FRACTION = 0.15;
-/** How near a diamond's vertex a port has to land to count as attached to it. */
-const DECISION_VERTEX_TOLERANCE = 8;
+/** How near a diamond's outline a port has to land to count as attached to it. */
+const DECISION_OUTLINE_TOLERANCE = 8;
 /**
  * Share of a group frame its members should cover. HOLA measures compactness
  * the same way — nodes' area over total area — and finds it tracks preference.
@@ -793,8 +814,8 @@ function distanceOutsideRect(p: Point, r: Rect): number {
 }
 
 /** Compute distance from a point to rectangle corners, return min distance */
-function minDistanceToCorners(p: Point, r: Rect): number {
-  const corners = [
+function minDistanceToCorners(p: Point, r: Rect, node: Node): number {
+  const corners = slantedNodePolygon(node) ?? [
     { x: r.left, y: r.top },
     { x: r.right, y: r.top },
     { x: r.left, y: r.bottom },
@@ -969,6 +990,13 @@ function firstInteriorNodeHit(
 }
 
 function isAncestorGroup(ancestorId: string, node: Node, byId: Map<string, Node>): boolean {
+  // A frame is trivially contained by itself. This matters for direct
+  // group-to-group edges: their terminal points can fall infinitesimally
+  // inside either frame after renderer-side rounding, but neither endpoint
+  // frame is foreign to its own edge.
+  if (String(node.id) === ancestorId) {
+    return true;
+  }
   const seen = new Set<string>();
   let cur: Node | undefined = node;
   while (cur?.parentId != null) {
@@ -1865,7 +1893,7 @@ export function validateLayout(
     // Check edge-corner-connection for start and end nodes
     if (sNode && points.length >= 1) {
       const r = rectForNode(sNode);
-      if (minDistanceToCorners(points[0], r) <= EPS_CORNER) {
+      if (minDistanceToCorners(points[0], r, sNode) <= EPS_CORNER) {
         issues.push({
           type: 'edge-corner-connection',
           message: diag ? `Edge "${edgeId}" connects at corner of node "${startId}"` : '',
@@ -1877,7 +1905,7 @@ export function validateLayout(
     }
     if (tNode && points.length >= 1) {
       const r = rectForNode(tNode);
-      if (minDistanceToCorners(points[points.length - 1], r) <= EPS_CORNER) {
+      if (minDistanceToCorners(points[points.length - 1], r, tNode) <= EPS_CORNER) {
         issues.push({
           type: 'edge-corner-connection',
           message: diag ? `Edge "${edgeId}" connects at corner of node "${endId}"` : '',
@@ -2927,9 +2955,8 @@ export function validateLayout(
     }
 
     // ── Port placement. Rectangles want their ports near the middle of a side;
-    // a port crowded into a corner reads as an accident. Incoming decision
-    // flow naturally resolves at a vertex. Outgoing decision branches may use
-    // the lower sloped sides instead, which produces a clearer split fan. The
+    // a port crowded into a corner reads as an accident. Decision inputs and
+    // outputs may attach anywhere on the sloped outline, not just vertices. The
     // rectangle rule is waived when the corner buys a straight line, because
     // removing a bend is worth more than the tidier attachment.
     for (const em of edgeMetas) {
@@ -2947,13 +2974,14 @@ export function validateLayout(
         }
         const port = terminal === 'start' ? pts[0] : pts[pts.length - 1];
 
-        if (isDecisionShape(node) && terminal === 'end') {
-          const offset = decisionVertexOffset(port, rect);
-          if (offset != null && offset > DECISION_VERTEX_TOLERANCE) {
+        if (isDecisionShape(node)) {
+          const offset = decisionOutlineOffset(port, rect);
+          if (offset != null && offset > DECISION_OUTLINE_TOLERANCE) {
             issues.push({
+              // Keep the existing diagnostic key for tooling compatibility.
               type: 'port-off-diamond-corner',
               message: diag
-                ? `Edge "${em.id}" attaches to decision node "${nodeId}" ${offset.toFixed(1)} from its nearest vertex`
+                ? `Edge "${em.id}" attaches to decision node "${nodeId}" ${offset.toFixed(1)} from its outline`
                 : '',
               edgeId: em.id,
               nodeIds: [nodeId],

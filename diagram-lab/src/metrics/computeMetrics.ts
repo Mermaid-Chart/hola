@@ -14,14 +14,25 @@ import { buildGraphModel, drawingBounds, simpleAdjacency } from './graphModel.js
 import { isPlanar } from './planarity.js';
 import { computeStress } from './stress.js';
 import { computeSubgraphStats } from './subgraphs.js';
-import type { DiagramMetrics, GraphModel, LabLayoutData } from './types.js';
+import { LAYOUT_DEPENDENT_METRIC_KEYS } from './types.js';
+import type {
+  DiagramMetrics,
+  GraphModel,
+  LabLayoutData,
+  LayoutMetrics,
+  StructuralMetrics,
+  ValidationSummary,
+} from './types.js';
 
 export interface MetricsComputation {
   metrics: DiagramMetrics;
   model: GraphModel;
 }
 
-export function computeMetrics(layout: LabLayoutData): MetricsComputation {
+export function computeMetrics(
+  layout: LabLayoutData,
+  validation?: ValidationSummary
+): MetricsComputation {
   const model = buildGraphModel(layout);
 
   const degrees = computeDegrees(model);
@@ -57,6 +68,12 @@ export function computeMetrics(layout: LabLayoutData): MetricsComputation {
     stressOptimalEdgeLength: stress ? stress.optimalEdgeLength : null,
     stressNodeCount: stress ? stress.nodeCount : null,
 
+    validationScore: validation ? validation.score : null,
+    validationOk: validation ? validation.ok : null,
+    validationIssues: validation ? validation.issueCount : null,
+    validationHardIssues: validation ? validation.hardIssueCount : null,
+    crossings: validation ? validation.crossings : null,
+
     hasSubgraphs: subgraphs.hasSubgraphs,
     subgraphBoundaryEdgeCount: subgraphs.boundaryEdgeCount,
     hasSubgraphBoundaryEdges: subgraphs.boundaryEdgeCount > 0,
@@ -64,4 +81,41 @@ export function computeMetrics(layout: LabLayoutData): MetricsComputation {
   };
 
   return { metrics, model };
+}
+
+/** Split a measurement into the half that survives a layout change and the half that does not. */
+export function splitMetrics(metrics: DiagramMetrics): {
+  structural: StructuralMetrics;
+  layout: LayoutMetrics;
+} {
+  const structural = { ...metrics } as Record<string, unknown>;
+  const layout = {} as Record<string, unknown>;
+  for (const key of LAYOUT_DEPENDENT_METRIC_KEYS) {
+    layout[key] = metrics[key];
+    delete structural[key];
+  }
+  return {
+    structural: structural as unknown as StructuralMetrics,
+    layout: layout as unknown as LayoutMetrics,
+  };
+}
+
+/**
+ * Recombine the two halves for display.
+ *
+ * With no layout half — the usual state right after switching layout — the
+ * layout-dependent fields come back `null`, so the structural columns render
+ * and the rest show as not-yet-measured.
+ */
+export function mergeMetrics(
+  structural: StructuralMetrics | undefined,
+  layout: LayoutMetrics | undefined
+): DiagramMetrics | undefined {
+  if (!structural) {
+    return undefined;
+  }
+  const blanks = Object.fromEntries(
+    LAYOUT_DEPENDENT_METRIC_KEYS.map((key) => [key, null])
+  ) as unknown as LayoutMetrics;
+  return { ...structural, ...blanks, ...(layout ?? {}) };
 }

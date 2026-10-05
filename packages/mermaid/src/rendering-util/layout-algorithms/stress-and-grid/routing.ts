@@ -1,4 +1,14 @@
 import type { Edge, LayoutData, Node } from '../../types.js';
+import { projectToSlantedNodeOutline } from '../layout-utils/slantedNodeOutline.js';
+import {
+  isolatedDiamondCircleBundle,
+  DIAMOND_CIRCLE_PORT_MARGIN,
+  DIAMOND_CIRCLE_PORT_SPAN,
+} from './diamondCircleBundle.js';
+import { nestedShortcutFan, nestedShortcutRoutes } from './nestedShortcutFan.js';
+import { cardinalDiamondFanPorts } from './cardinalDiamondFan.js';
+import { nestedFrameEntryRoutes } from './nestedFrameEntry.js';
+import { externalSiblingFrameCycleRoutes } from './frameGrid.js';
 
 interface Point {
   x: number;
@@ -28,6 +38,10 @@ const CLEARANCE = 20;
 // arrowheads are rendered. Fourteen pixels produced near-coincident routes on
 // feedback nodes such as "Notify Developer".
 const PORT_SPACING = 24;
+// Leave visible clearance from corners even when a short side compresses a fan.
+const PORT_CORNER_CLEARANCE = 4;
+// Short sides need proportional insets for bundles and centred three-port fans.
+const RECTANGULAR_PORT_CORNER_FRACTION = 0.16;
 const TURN_PENALTY = 12;
 const ROUTE_INTERACTION_PENALTY = 10_000;
 const ROUTE_LANE_CLEARANCE = 8;
@@ -37,6 +51,15 @@ const LARGE_NODE_CLEARANCE_THRESHOLD = 200;
 // not become the label's only available space.
 const LABEL_CLEARANCE = 12;
 const LABEL_HEIGHT = 24;
+const PARALLEL_BUNDLE_CORNER_CLEARANCE = 12;
+const LABELLED_PARALLEL_BUNDLE_CORNER_CLEARANCE = 40;
+const PARALLEL_BUNDLE_LANE_GAP = 4;
+const AXIS_ALIGNMENT_TOLERANCE = 8;
+// Keep obstacle checks consistent with the final validator. A line within two
+// pixels of a boundary is visually tangent after stroke width and browser
+// antialiasing are applied; only runs of at least twelve pixels are rejected.
+const BORDER_HUG_PROXIMITY = 2;
+const BORDER_HUG_MIN_LENGTH = 12;
 const EPSILON = 1e-6;
 
 /**
@@ -48,6 +71,7 @@ const EPSILON = 1e-6;
  * route using node-clearance and virtual-grid lines as its visibility graph.
  */
 export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): void {
+  const diamondCircleBundle = isolatedDiamondCircleBundle(data);
   const nodes = new Map(data.nodes.map((node) => [node.id, node]));
   const obstacles = [...nodes.values()]
     .map(rectFor)
@@ -58,7 +82,30 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
       .filter((node) => isSymmetricDiamondFan(node, data.edges, nodes))
       .map((node) => node.id)
   );
+  const symmetricLateralDiamondFans = new Set(
+    [...nodes.values()]
+      .filter((node) => isSymmetricDiamondFan(node, data.edges, nodes, 'H'))
+      .map((node) => node.id)
+  );
   const ports = allocatePorts(data.edges, nodes);
+  for (const [key, point] of cardinalDiamondFanPorts(data)) {
+    ports.set(key, point);
+  }
+  const shortcutRoutes = nestedShortcutRoutes(nestedShortcutFan(data));
+  for (const [edgeId, route] of shortcutRoutes) {
+    ports.set(`${edgeId}:start`, route[0]);
+    ports.set(`${edgeId}:end`, route.at(-1)!);
+  }
+  const nestedEntryRoutes = nestedFrameEntryRoutes(data);
+  for (const [edgeId, route] of nestedEntryRoutes) {
+    ports.set(`${edgeId}:start`, route.points[0]);
+    ports.set(`${edgeId}:end`, route.points.at(-1)!);
+  }
+  const externalCycleRoutes = externalSiblingFrameCycleRoutes(data);
+  for (const [edgeId, points] of externalCycleRoutes) {
+    ports.set(`${edgeId}:start`, points[0]);
+    ports.set(`${edgeId}:end`, points.at(-1)!);
+  }
   const routedPaths: Point[][] = [];
   // Labels need the same clearance as nodes. In particular, a short labelled
   // branch is commonly routed before a longer incoming edge; reserving its
@@ -85,14 +132,117 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
       ...labelObstacles,
     ];
     const hasGroupEndpoint = source.isGroup === true || target.isGroup === true;
+    const startPort = ports.get(`${edge.id}:start`)!;
+    const endPort = ports.get(`${edge.id}:end`)!;
+    // Specialized workflow/label corridors must not silently replace a
+    // diamond's globally allocated port with a rectangular side or vertex.
+    const preserveDiamondPorts = (candidate: Point[]): Point[] => {
+      if (source === target) {
+        return candidate;
+      }
+      const matches = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y) <= EPSILON;
+      if (
+        (!isDiamondNode(source) || matches(candidate[0], startPort)) &&
+        (!isDiamondNode(target) || matches(candidate.at(-1)!, endPort))
+      ) {
+        return candidate;
+      }
+      return routeAvoidingEndpoints(
+        startPort,
+        edge.startSide ?? sideAtPort(sourceRect, startPort, sideToward(source, target, 'start')),
+        endPort,
+        edge.endSide ?? sideAtPort(targetRect, endPort, sideToward(target, source, 'end')),
+        sourceRect,
+        targetRect,
+        data.edges.filter(
+          (candidate) => candidate.start === target.id || candidate.end === target.id
+        ).length,
+        routingObstacles,
+        gridSpacing,
+        routedPaths
+      );
+    };
+    const siblingFrameMemberRoute = routeSiblingFrameMemberConnection(
+      edge,
+      sourceRect,
+      targetRect,
+      source,
+      target,
+      startPort,
+      endPort,
+      data.edges,
+      ports,
+      nodes,
+      routingObstacles,
+      routedPaths
+    );
     let points =
       source === target
-        ? selfLoop(sourceRect, gridSpacing)
-        : (routeStraightReciprocalOfLabeledEdge(
+        ? selfLoop(sourceRect, gridSpacing, selfLoopSide(source, data.edges, nodes))
+        : (externalCycleRoutes.get(edge.id) ??
+          nestedEntryRoutes.get(edge.id)?.points ??
+          shortcutRoutes.get(edge.id) ??
+          routeDiamondCircleBundle(
+            sourceRect,
+            targetRect,
+            startPort,
+            diamondCircleBundle,
+            routingObstacles
+          ) ??
+          siblingFrameMemberRoute?.points ??
+          routeLayeredDirectedWorkflowEdge(
+            edge,
+            sourceRect,
+            targetRect,
+            startPort,
+            endPort,
+            data.edges,
+            nodes,
+            routingObstacles
+          ) ??
+          routeMixedDiamondBundle(
+            edge,
+            sourceRect,
+            targetRect,
+            startPort,
+            endPort,
+            data.edges,
+            routingObstacles,
+            routedPaths
+          ) ??
+          routeFrameRowBypass(
+            edge,
+            sourceRect,
+            targetRect,
+            nodes,
+            data.direction,
+            routingObstacles,
+            routedPaths
+          ) ??
+          routeStraightGroupFrameConnection(sourceRect, targetRect, routingObstacles) ??
+          routeAlignedSiblingGroupConnection(sourceRect, targetRect, routingObstacles) ??
+          routeOrderedParallelEdgeBundle(
             edge,
             sourceRect,
             targetRect,
             data.edges,
+            routingObstacles
+          ) ??
+          routeStraightReciprocalOfLabeledEdge(
+            edge,
+            sourceRect,
+            targetRect,
+            data.edges,
+            routingObstacles,
+            routedPaths
+          ) ??
+          routeSymmetricTerminalFrameFan(
+            source,
+            target,
+            startPort,
+            endPort,
+            data,
+            nodes,
             routingObstacles,
             routedPaths
           ) ??
@@ -104,25 +254,33 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             routingObstacles,
             routedPaths
           ) ??
+          routeLongWorkflowBranch(
+            edge,
+            sourceRect,
+            targetRect,
+            startPort,
+            endPort,
+            data.edges,
+            routingObstacles,
+            routedPaths
+          ) ??
           routeWithLabelClearance(edge, sourceRect, targetRect, routingObstacles, routedPaths) ??
           routeSymmetricDiamondFan(
             source,
             target,
-            ports.get(`${edge.id}:start`)!,
-            ports.get(`${edge.id}:end`)!,
+            startPort,
+            endPort,
             symmetricDiamondFans.has(source.id),
+            symmetricLateralDiamondFans.has(source.id),
             routingObstacles,
             routedPaths
           ) ??
           routeAvoidingEndpoints(
-            ports.get(`${edge.id}:start`)!,
-            sideAtPort(
-              sourceRect,
-              ports.get(`${edge.id}:start`)!,
-              sideToward(source, target, 'start')
-            ),
-            ports.get(`${edge.id}:end`)!,
-            sideAtPort(targetRect, ports.get(`${edge.id}:end`)!, sideToward(target, source, 'end')),
+            startPort,
+            edge.startSide ??
+              sideAtPort(sourceRect, startPort, sideToward(source, target, 'start')),
+            endPort,
+            edge.endSide ?? sideAtPort(targetRect, endPort, sideToward(target, source, 'end')),
             sourceRect,
             targetRect,
             data.edges.filter(
@@ -132,9 +290,22 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             gridSpacing,
             routedPaths
           ));
-    points = separateSharedRouteLane(points, routingObstacles, routedPaths);
+    points = separateSharedRouteLane(preserveDiamondPorts(points), routingObstacles, routedPaths);
+    if (hasGroupEndpoint) {
+      points = reserveEndpointApproachClearance(
+        points,
+        sourceRect,
+        targetRect,
+        routingObstacles,
+        routedPaths
+      );
+    }
     const label = (edge.label ?? edge.text ?? '').trim();
-    const dominantLabelPoint = label ? pointAtDominantSegment(points) : undefined;
+    const dominantLabelPoint = label
+      ? (nestedEntryRoutes.get(edge.id)?.labelPoint ??
+        siblingFrameMemberRoute?.labelPoint ??
+        pointAtDominantSegment(points))
+      : undefined;
     const dimensions = label ? labelDimensions(label) : undefined;
     const dominantLabelStraddlesGroupBorder = Boolean(
       label &&
@@ -183,7 +354,13 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
       label &&
       !hasGroupEndpoint &&
       !groupLabelRoute &&
-      labelOverlapsRoutedPath(labelPoint, label, routedPaths)
+      (labelOverlapsRoutedPath(labelPoint, label, routedPaths) ||
+        routingObstacles.some(
+          (obstacle) =>
+            obstacle.node.id !== undefined &&
+            obstacle.node.isGroup !== true &&
+            rectanglesOverlap(labelBounds(labelPoint, label), obstacle)
+        ))
     ) {
       const dedicatedLabelRoute = routeWithDedicatedLabelCorridor(
         sourceRect,
@@ -196,6 +373,20 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
         points = dedicatedLabelRoute.points;
         labelPoint = dedicatedLabelRoute.labelPoint;
       }
+    }
+    const portSafePoints = source === target ? points : preserveDiamondPorts(points);
+    if (portSafePoints !== points) {
+      points = portSafePoints;
+      labelPoint = label ? pointAtDominantSegment(points) : pointAtHalfLength(points);
+    }
+    // Routing uses conservative rectangular obstacles. Only after selecting
+    // the lane, extend its terminal runs to the actual sloped node outlines.
+    // Radial clipping would move the lane and introduce diagonal segments.
+    if (points.length >= 2) {
+      points = [...points];
+      points[0] = projectToSlantedNodeOutline(source, points[0], points[1]);
+      const last = points.length - 1;
+      points[last] = projectToSlantedNodeOutline(target, points[last], points[last - 1]);
     }
     edge.points = points;
     routedPaths.push(points);
@@ -210,6 +401,305 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
     edge.roundedCornerRadius = Math.min(16, gridSpacing / 8);
     edge.hasIntersectionPoints = true;
   }
+}
+
+function isLayeredWorkflowEdge(edge: Edge): boolean {
+  return edge.metadata?.stressAndGridLayered === true;
+}
+
+function routeDiamondCircleBundle(
+  source: Rect,
+  target: Rect,
+  start: Point,
+  bundle: ReturnType<typeof isolatedDiamondCircleBundle>,
+  obstacles: Rect[]
+): Point[] | undefined {
+  if (!bundle || source.node !== bundle.diamond || target.node !== bundle.circle) {
+    return undefined;
+  }
+  const circle = bundle.circle;
+  const vertical = Math.abs(circle.y! - source.node.y!) > Math.abs(circle.x! - source.node.x!);
+  const rx = circle.width! / 2;
+  const ry = circle.height! / 2;
+  const offset = vertical ? (start.x - circle.x!) / rx : (start.y - circle.y!) / ry;
+  if (Math.abs(offset) >= 1) {
+    return undefined;
+  }
+  const radius = Math.sqrt(1 - offset * offset);
+  const end = vertical
+    ? { x: start.x, y: circle.y! - Math.sign(circle.y! - source.node.y!) * ry * radius }
+    : { x: circle.x! - Math.sign(circle.x! - source.node.x!) * rx * radius, y: start.y };
+  const others = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+  return segmentClear(start, end, others) ? [start, end] : undefined;
+}
+
+function layeredRankSpan(edge: Edge): number {
+  const span = edge.metadata?.stressAndGridRankSpan;
+  return typeof span === 'number' ? span : 1;
+}
+
+/**
+ * Layered DAG placement guarantees that every edge travels downward. Preserve
+ * that invariant during routing: adjacent ranks use an ordered horizontal
+ * channel, while a shortcut over one or more ranks uses an outside bypass.
+ * Generic visibility routing is intentionally free to travel around either
+ * endpoint; in a DAG that freedom can create a technically clear route which
+ * loops below its target or crosses a sibling branch.
+ */
+function routeLayeredDirectedWorkflowEdge(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  start: Point,
+  end: Point,
+  edges: Edge[],
+  nodes: Map<string, Node>,
+  obstacles: Rect[]
+): Point[] | undefined {
+  if (!isLayeredWorkflowEdge(edge) || source.bottom >= target.top - EPSILON) {
+    return undefined;
+  }
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+  const convergence = routeLayeredConvergence(
+    edge,
+    source,
+    target,
+    start,
+    end,
+    edges,
+    nodes,
+    otherObstacles
+  );
+  if (convergence) {
+    return convergence;
+  }
+  if (layeredRankSpan(edge) > 1) {
+    const side = edge.metadata?.stressAndGridBypassSide === 'right' ? 'right' : 'left';
+    const label = (edge.label ?? edge.text ?? '').trim();
+    const dimensions = label ? labelDimensions(label) : { width: 0, height: 0 };
+    const labelWidth = Math.max(edge.width ?? 0, dimensions.width);
+    const clearance = Math.max(CLEARANCE, labelWidth / 2 + LABEL_CLEARANCE);
+    const verticalBlockers = otherObstacles.filter(
+      (obstacle) => obstacle.bottom > source.bottom && obstacle.top < target.top
+    );
+    // A long edge only has to leave its starting column for a box that
+    // actually occupies that column.  Taking the outermost bound of every
+    // intermediate rank turns a small local detour into a diagram-wide loop
+    // around unrelated branches.
+    const corridorBlockers = verticalBlockers.filter(
+      (obstacle) => obstacle.left < start.x + EPSILON && obstacle.right > start.x - EPSILON
+    );
+    const blockerBoundary =
+      side === 'left'
+        ? Math.min(target.left, ...corridorBlockers.map((obstacle) => obstacle.left)) - clearance
+        : Math.max(target.right, ...corridorBlockers.map((obstacle) => obstacle.right)) + clearance;
+    // If the assigned outer port already lies beyond every intermediate box,
+    // keep that x-coordinate as the bypass lane. This turns a long merge edge
+    // into one vertical run plus its final approach instead of adding a purely
+    // decorative excursion farther outside the diagram.
+    const laneX =
+      side === 'left'
+        ? start.x <= blockerBoundary
+          ? start.x
+          : blockerBoundary
+        : start.x >= blockerBoundary
+          ? start.x
+          : blockerBoundary;
+    const targetApproachY = target.top - CLEARANCE;
+    const points = simplify([
+      start,
+      { x: start.x, y: source.bottom + CLEARANCE },
+      { x: laneX, y: source.bottom + CLEARANCE },
+      { x: laneX, y: targetApproachY },
+      { x: end.x, y: targetApproachY },
+      end,
+    ]);
+    return routeSegmentsClear(points, otherObstacles) ? points : undefined;
+  }
+
+  const outgoing = edges.filter(
+    (candidate) =>
+      isLayeredWorkflowEdge(candidate) &&
+      layeredRankSpan(candidate) === 1 &&
+      candidate.start === edge.start
+  );
+  const incoming = edges.filter(
+    (candidate) =>
+      isLayeredWorkflowEdge(candidate) &&
+      layeredRankSpan(candidate) === 1 &&
+      candidate.end === edge.end
+  );
+  const usesOutgoingBundle = outgoing.length >= incoming.length;
+  const bundle = (usesOutgoingBundle ? outgoing : incoming).sort((left, right) => {
+    const leftOther = nodes.get(usesOutgoingBundle ? left.end! : left.start!)!;
+    const rightOther = nodes.get(usesOutgoingBundle ? right.end! : right.start!)!;
+    return leftOther.x! - rightOther.x! || left.id.localeCompare(right.id);
+  });
+  const index = Math.max(0, bundle.indexOf(edge));
+  const bundleSources = bundle.map((candidate) => rectFor(nodes.get(candidate.start!)!)!);
+  const bundleTargets = bundle.map((candidate) => rectFor(nodes.get(candidate.end!)!)!);
+  const minimumLane = Math.max(...bundleSources.map((rect) => rect.bottom)) + CLEARANCE;
+  const maximumLane = Math.min(...bundleTargets.map((rect) => rect.top)) - CLEARANCE;
+  if (minimumLane > maximumLane + EPSILON) {
+    return undefined;
+  }
+  const laneIndex = (() => {
+    if (!usesOutgoingBundle) {
+      return index;
+    }
+    // Each side of a downward fan needs the lane order facing its own
+    // direction: left-going branches grow away from the left source port,
+    // while right-going branches grow away from the right source port. A
+    // single reversed order merely moves the self-crossing from one side of
+    // the fan to the other.
+    const leftBranches = bundle.filter(
+      (candidate) => nodes.get(candidate.end!)!.x! < source.node.x! - EPSILON
+    );
+    const rightBranches = bundle.filter((candidate) => !leftBranches.includes(candidate));
+    const branch =
+      nodes.get(edge.end!)!.x! < source.node.x! - EPSILON ? leftBranches : rightBranches;
+    const branchIndex = Math.max(0, branch.indexOf(edge));
+    return branch === leftBranches ? branchIndex : branch.length - 1 - branchIndex;
+  })();
+  const laneCount = usesOutgoingBundle
+    ? Math.max(
+        bundle.filter((candidate) => nodes.get(candidate.end!)!.x! < source.node.x! - EPSILON)
+          .length,
+        bundle.filter((candidate) => nodes.get(candidate.end!)!.x! >= source.node.x! - EPSILON)
+          .length
+      )
+    : bundle.length;
+  let laneY =
+    laneCount === 1
+      ? (minimumLane + maximumLane) / 2
+      : minimumLane + ((maximumLane - minimumLane) * laneIndex) / (laneCount - 1);
+  const label = (edge.label ?? edge.text ?? '').trim();
+  if (label) {
+    const dimensions = labelDimensions(label);
+    const labelHeight = Math.max(edge.height ?? 0, dimensions.height);
+    const safeMinimum = source.bottom + labelHeight / 2 + LABEL_CLEARANCE;
+    const safeMaximum = target.top - labelHeight / 2 - LABEL_CLEARANCE;
+    if (safeMinimum > safeMaximum + EPSILON) {
+      return undefined;
+    }
+    laneY = Math.max(safeMinimum, Math.min(safeMaximum, laneY));
+  }
+  const points = simplify([start, { x: start.x, y: laneY }, { x: end.x, y: laneY }, end]);
+  return routeSegmentsClear(points, otherObstacles) ? points : undefined;
+}
+
+/**
+ * Coordinate every arrival at a layered merge, including rank-skipping edges.
+ * Sources on opposite sides share a bend level; on the same side the farther
+ * source turns later, after the nearer source has left its column. This keeps
+ * symmetric fork/merge pairs symmetric and avoids crossings with long arrivals.
+ * If an intermediate node blocks a source column, retain the bypass fallback.
+ */
+function routeLayeredConvergence(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  start: Point,
+  end: Point,
+  edges: Edge[],
+  nodes: Map<string, Node>,
+  obstacles: Rect[]
+): Point[] | undefined {
+  const incoming = edges.filter(
+    (candidate) => isLayeredWorkflowEdge(candidate) && candidate.end === edge.end
+  );
+  if (
+    incoming.length < 2 ||
+    edges.filter((candidate) => candidate.start === edge.start).length !== 1
+  ) {
+    return undefined;
+  }
+  const sources = incoming.map((candidate) => rectFor(nodes.get(candidate.start!)!)!);
+  const minimumLane = Math.max(...sources.map((rect) => rect.bottom)) + CLEARANCE;
+  const maximumLane = target.top - CLEARANCE;
+  if (minimumLane > maximumLane + EPSILON) {
+    return undefined;
+  }
+  const left = source.node.x! < target.node.x!;
+  const side = incoming
+    .filter((candidate) => {
+      const sourceOnLeft = nodes.get(candidate.start!)!.x! < target.node.x!;
+      return sourceOnLeft === left;
+    })
+    .sort(
+      (a, b) =>
+        Math.abs(nodes.get(a.start!)!.x! - target.node.x!) -
+          Math.abs(nodes.get(b.start!)!.x! - target.node.x!) || a.id.localeCompare(b.id)
+    );
+  const index = side.indexOf(edge);
+  const laneY =
+    side.length === 1
+      ? (minimumLane + maximumLane) / 2
+      : minimumLane + ((maximumLane - minimumLane) * index) / (side.length - 1);
+  const label = (edge.label ?? edge.text ?? '').trim();
+  if (label) {
+    const height = Math.max(edge.height ?? 0, labelDimensions(label).height);
+    if (
+      laneY < source.bottom + height / 2 + LABEL_CLEARANCE ||
+      laneY > target.top - height / 2 - LABEL_CLEARANCE
+    ) {
+      return undefined;
+    }
+  }
+  const points = simplify([start, { x: start.x, y: laneY }, { x: end.x, y: laneY }, end]);
+  return routeSegmentsClear(points, obstacles) ? points : undefined;
+}
+
+function routeSegmentsClear(points: Point[], obstacles: Rect[]): boolean {
+  return points.slice(1).every((point, index) => segmentClear(points[index], point, obstacles));
+}
+
+/**
+ * A group endpoint represents its frame, so it may use any clear point on the
+ * facing frame side. Requiring that endpoint to use the frame centre is both
+ * semantically unnecessary and visually harmful when a member row lies near
+ * the centre. If the external leaf has deliberately been placed on a clear
+ * row inside the frame's vertical span, connect it directly to that row.
+ */
+function routeStraightGroupFrameConnection(
+  source: Rect,
+  target: Rect,
+  obstacles: Rect[]
+): Point[] | undefined {
+  const sourceIsGroup = source.node.isGroup === true;
+  const targetIsGroup = target.node.isGroup === true;
+  if (sourceIsGroup === targetIsGroup) {
+    return undefined;
+  }
+
+  const frame = sourceIsGroup ? source : target;
+  const leaf = sourceIsGroup ? target : source;
+  const row = leaf.node.y!;
+  if (row <= frame.top + EPSILON || row >= frame.bottom - EPSILON) {
+    return undefined;
+  }
+
+  let framePoint: Point;
+  let leafPoint: Point;
+  if (leaf.right < frame.left - EPSILON) {
+    framePoint = { x: frame.left, y: row };
+    leafPoint = { x: leaf.right, y: row };
+  } else if (leaf.left > frame.right + EPSILON) {
+    framePoint = { x: frame.right, y: row };
+    leafPoint = { x: leaf.left, y: row };
+  } else {
+    return undefined;
+  }
+
+  const points = sourceIsGroup ? [framePoint, leafPoint] : [leafPoint, framePoint];
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+  return segmentClear(points[0], points[1], otherObstacles) ? points : undefined;
 }
 
 /**
@@ -358,6 +848,261 @@ function isEndpointContainer(
   );
 }
 
+/**
+ * Sibling frames that are aligned within the grid tolerance should connect
+ * directly at their facing centre points. Generic Manhattan routing adds two
+ * clearance stubs for their sub-pixel centre difference, creating a visibly
+ * sharp dogleg in an otherwise empty inter-frame gap.
+ */
+function routeAlignedSiblingGroupConnection(
+  source: Rect,
+  target: Rect,
+  obstacles: Rect[]
+): Point[] | undefined {
+  if (
+    !source.node.isGroup ||
+    !target.node.isGroup ||
+    source.node.parentId !== target.node.parentId
+  ) {
+    return undefined;
+  }
+  const vertical = Math.abs(source.node.x! - target.node.x!) <= AXIS_ALIGNMENT_TOLERANCE;
+  const topAligned = Math.abs(source.top - target.top) <= EPSILON;
+  const horizontal =
+    Math.abs(source.node.y! - target.node.y!) <= AXIS_ALIGNMENT_TOLERANCE || topAligned;
+  if (vertical === horizontal) {
+    return undefined;
+  }
+  const sourceBeforeTarget = vertical
+    ? source.node.y! < target.node.y!
+    : source.node.x! < target.node.x!;
+  const sharedCoordinate = vertical
+    ? (source.node.x! + target.node.x!) / 2
+    : topAligned
+      ? (Math.max(source.top, target.top) + Math.min(source.bottom, target.bottom)) / 2
+      : (source.node.y! + target.node.y!) / 2;
+  const points = vertical
+    ? [
+        { x: sharedCoordinate, y: sourceBeforeTarget ? source.bottom : source.top },
+        { x: sharedCoordinate, y: sourceBeforeTarget ? target.top : target.bottom },
+      ]
+    : [
+        { x: sourceBeforeTarget ? source.right : source.left, y: sharedCoordinate },
+        { x: sourceBeforeTarget ? target.left : target.right, y: sharedCoordinate },
+      ];
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+  return segmentClear(points[0], points[1], otherObstacles) ? points : undefined;
+}
+
+/**
+ * A frame connection that skips another frame belongs outside the row. Use
+ * the upper lane for forward links and the lower lane for feedback, so the
+ * two directions do not compete for the same corridor and cross each other.
+ */
+function routeFrameRowBypass(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  nodes: Map<string, Node>,
+  direction: LayoutData['direction'],
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): Point[] | undefined {
+  if ((!source.node.isGroup && !target.node.isGroup) || edge.startSide || edge.endSide) {
+    return undefined;
+  }
+  const frameFor = (node: Node) => {
+    const frame = node.isGroup ? node : nodes.get(node.parentId ?? '');
+    return frame?.isGroup && !frame.parentId ? rectFor(frame) : undefined;
+  };
+  const sourceFrame = frameFor(source.node);
+  const targetFrame = frameFor(target.node);
+  if (
+    !sourceFrame ||
+    !targetFrame ||
+    sourceFrame.node === targetFrame.node ||
+    Math.abs(sourceFrame.top - targetFrame.top) > EPSILON
+  ) {
+    return undefined;
+  }
+  const sign = Math.sign(targetFrame.node.x! - sourceFrame.node.x!);
+  const left = Math.min(sourceFrame.node.x!, targetFrame.node.x!);
+  const right = Math.max(sourceFrame.node.x!, targetFrame.node.x!);
+  const between = [...nodes.values()].filter(
+    (node) =>
+      node.isGroup &&
+      !node.parentId &&
+      node.x! > left &&
+      node.x! < right &&
+      Math.abs(node.y! - node.height! / 2 - sourceFrame.top) <= EPSILON
+  );
+  if (between.length === 0) {
+    return undefined;
+  }
+  const forward = sign === (direction === 'RL' ? -1 : 1);
+  const row = [sourceFrame, targetFrame, ...between.map((node) => rectFor(node)!)];
+  const lane = forward
+    ? Math.min(...row.map((rect) => rect.top)) - CLEARANCE
+    : Math.max(...row.map((rect) => rect.bottom)) + CLEARANCE;
+  const port = (rect: Rect, toward: number): Point => ({
+    // Top ports sit beside the frame title; bottom ports need no title inset.
+    x:
+      forward && rect.node.isGroup
+        ? rect.node.x! + toward * (rect.node.width! / 2 - CLEARANCE)
+        : rect.node.x!,
+    y: forward ? rect.top : rect.bottom,
+  });
+  const start = port(source, sign);
+  const end = port(target, -sign);
+  if (
+    forward &&
+    (
+      [
+        [source, start],
+        [target, end],
+      ] as const
+    ).some(([rect, point]) => {
+      return (
+        rect.node.isGroup &&
+        Math.abs(point.x - rect.node.x!) <
+          (rect.node.labelBBox?.width ?? 0) / 2 + ROUTE_LANE_CLEARANCE
+      );
+    })
+  ) {
+    return undefined;
+  }
+  const points = [start, { x: start.x, y: lane }, { x: end.x, y: lane }, end];
+  const otherObstacles = obstacles.filter(
+    (rect) => rect.node !== source.node && rect.node !== target.node
+  );
+  return routeIsClear(points, otherObstacles, routedPaths) ? points : undefined;
+}
+
+/**
+ * Entering a member of a neighbouring sibling frame must cross that frame's
+ * border, rather than borrowing the row immediately outside it. The generic
+ * visibility graph can otherwise travel beside the target frame until its
+ * final turn, which becomes a border-hugging segment after the renderer has
+ * accounted for the subgraph title. Use the open corridor between the frames,
+ * then enter the target member from its facing side on the member's own row.
+ */
+function routeSiblingFrameMemberConnection(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  sourceNode: Node,
+  targetNode: Node,
+  start: Point,
+  end: Point,
+  edges: Edge[],
+  ports: Map<string, Point>,
+  nodes: Map<string, Node>,
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): { points: Point[]; labelPoint?: Point } | undefined {
+  const sourceFrame = sourceNode.parentId ? nodes.get(sourceNode.parentId) : undefined;
+  const targetFrame = targetNode.parentId ? nodes.get(targetNode.parentId) : undefined;
+  if (
+    !sourceFrame?.isGroup ||
+    !targetFrame?.isGroup ||
+    sourceFrame === targetFrame ||
+    sourceFrame.parentId !== targetFrame.parentId
+  ) {
+    return undefined;
+  }
+
+  const sourceOnLeft = sourceFrame.x! < targetFrame.x!;
+  const startSide = sideAtPort(source, start, sideToward(sourceNode, targetNode, 'start'));
+  const endSide = sideAtPort(target, end, sideToward(targetNode, sourceNode, 'end'));
+  const parallel = edges
+    .filter((candidate) => candidate.start === edge.start && candidate.end === edge.end)
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const firstLane = sourceFrame.y! + sourceFrame.height! / 2 + CLEARANCE;
+  const lastLane = targetFrame.y! - targetFrame.height! / 2 - CLEARANCE;
+  if (
+    sourceFrame.parentId &&
+    parallel.length > 1 &&
+    parallel.every(
+      (candidate) =>
+        !(candidate.label ?? candidate.text ?? '').trim() &&
+        !candidate.startSide &&
+        !candidate.endSide &&
+        (candidate.minlen ?? 1) <= 1
+    ) &&
+    // A sloped diamond port has no single bounding-box side. Follow the
+    // bridge's intended approach rather than its nearest rectangular side.
+    (isDiamondNode(sourceNode) ? sideToward(sourceNode, targetNode, 'start') : startSide) ===
+      'bottom' &&
+    (isDiamondNode(targetNode) ? sideToward(targetNode, sourceNode, 'end') : endSide) === 'top' &&
+    lastLane - firstLane >= (parallel.length - 1) * ROUTE_LANE_CLEARANCE
+  ) {
+    // Nested bridge separation has reserved this band. Use ordered parallel
+    // lanes rather than leaving and then re-entering the source frame to
+    // avoid the earlier edge. Keep the globally allocated diamond ports.
+    // Order physical ports, not IDs: opposite diamond slopes distribute their
+    // ports in opposite directions. Both ends must have the same x ordering.
+    const ordered = [...parallel].sort(
+      (a, b) => ports.get(`${a.id}:start`)!.x - ports.get(`${b.id}:start`)!.x
+    );
+    if (
+      ordered.some(
+        (candidate, index) =>
+          index > 0 &&
+          ports.get(`${candidate.id}:end`)!.x <
+            ports.get(`${ordered[index - 1].id}:end`)!.x - EPSILON
+      )
+    ) {
+      return undefined;
+    }
+    const portIndex = ordered.indexOf(edge);
+    // Rightward runs need the rightmost port to turn first; leftward runs
+    // need the leftmost port first. This keeps every terminal approach clear.
+    const laneIndex = end.x > start.x ? parallel.length - 1 - portIndex : portIndex;
+    const laneY = firstLane + ((lastLane - firstLane) * laneIndex) / (parallel.length - 1);
+    const points = simplify([start, { x: start.x, y: laneY }, { x: end.x, y: laneY }, end]);
+    const otherObstacles = obstacles.filter(
+      (obstacle) => obstacle.node !== sourceNode && obstacle.node !== targetNode
+    );
+    if (
+      routeAvoidsEndpointBoxes(points, source, target) &&
+      routeIsClear(points, otherObstacles, routedPaths)
+    ) {
+      return { points };
+    }
+  }
+  if (
+    (sourceOnLeft && (startSide !== 'right' || endSide !== 'left')) ||
+    (!sourceOnLeft && (startSide !== 'left' || endSide !== 'right'))
+  ) {
+    return undefined;
+  }
+
+  const sourceBorder = sourceOnLeft
+    ? sourceFrame.x! + sourceFrame.width! / 2
+    : sourceFrame.x! - sourceFrame.width! / 2;
+  const targetBorder = sourceOnLeft
+    ? targetFrame.x! - targetFrame.width! / 2
+    : targetFrame.x! + targetFrame.width! / 2;
+  const escapeX = sourceBorder + (sourceOnLeft ? CLEARANCE : -CLEARANCE);
+  const corridorEnd = targetBorder + (sourceOnLeft ? -CLEARANCE : CLEARANCE);
+  const label = (edge.label ?? edge.text ?? '').trim();
+  const { width: labelWidth } = labelDimensions(label);
+  if (label && Math.abs(corridorEnd - escapeX) < labelWidth) {
+    return undefined;
+  }
+
+  const points = simplify([start, { x: escapeX, y: start.y }, { x: escapeX, y: end.y }, end]);
+  if (!routeIsClear(points, obstacles, routedPaths)) {
+    return undefined;
+  }
+  return {
+    points,
+    labelPoint: label ? { x: (escapeX + corridorEnd) / 2, y: end.y } : undefined,
+  };
+}
+
 function isAncestorOf(group: Node, node: Node, nodes: Map<string, Node>): boolean {
   let parentId = node.parentId;
   while (parentId) {
@@ -418,6 +1163,51 @@ function separateSharedRouteLane(
   return points;
 }
 
+/**
+ * Keep the last parallel routing band far enough from a leaf endpoint. Group
+ * exits sometimes use a compact specialized route whose final approach is a
+ * few pixels shorter than the generic port stub. Moving both ends of the
+ * adjacent band preserves every right angle while retaining the assigned
+ * endpoint port.
+ */
+function reserveEndpointApproachClearance(
+  points: Point[],
+  source: Rect,
+  target: Rect,
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): Point[] {
+  if (points.length < 4) {
+    return points;
+  }
+  const end = points.at(-1)!;
+  const beforeEnd = points.at(-2)!;
+  const approachHorizontal = Math.abs(end.y - beforeEnd.y) <= EPSILON;
+  const approachLength = approachHorizontal
+    ? Math.abs(end.x - beforeEnd.x)
+    : Math.abs(end.y - beforeEnd.y);
+  if (approachLength >= CLEARANCE - EPSILON) {
+    return points;
+  }
+
+  const offset = CLEARANCE - approachLength;
+  const direction = approachHorizontal
+    ? Math.sign(beforeEnd.x - end.x) || (end.x <= target.left ? -1 : 1)
+    : Math.sign(beforeEnd.y - end.y) || (end.y <= target.top ? -1 : 1);
+  const candidate = points.map((point) => ({ ...point }));
+  for (const index of [candidate.length - 3, candidate.length - 2]) {
+    if (approachHorizontal) {
+      candidate[index].x += direction * offset;
+    } else {
+      candidate[index].y += direction * offset;
+    }
+  }
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+  return routeIsClear(candidate, otherObstacles, routedPaths) ? simplify(candidate) : points;
+}
+
 function segmentsOverlap(a: Point, b: Point, c: Point, d: Point): boolean {
   if (Math.abs(a.y - b.y) <= EPSILON) {
     return (
@@ -461,7 +1251,7 @@ function routeLabelledLowerRightFan(
   const label = (edge.label ?? edge.text ?? '').trim();
   if (
     !label ||
-    /diamond|rhombus/.test(String(source.node.shape)) ||
+    isDiamondNode(source.node) ||
     edges.filter((candidate) => candidate.start === source.node.id && candidate.end).length < 4 ||
     target.node.x! <= source.node.x! ||
     target.node.y! - source.node.y! < (source.node.height! + target.node.height!) / 2 + 120
@@ -567,34 +1357,422 @@ function segmentIntersectsBounds(a: Point, b: Point, bounds: Bounds): boolean {
   );
 }
 
+/**
+ * Equal facing borders and centred terminal children admit reflected routes.
+ * Use one shared bend row/column instead of letting the visibility grid choose
+ * a different equally short lane for each side of a rectangular framed fork.
+ * Retain allocated ports and reject the lane if foreign content obstructs it.
+ */
+function routeSymmetricTerminalFrameFan(
+  source: Node,
+  target: Node,
+  start: Point,
+  end: Point,
+  data: LayoutData,
+  nodes: Map<string, Node>,
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): Point[] | undefined {
+  if (!source.parentId || !['rect', 'squareRect'].includes(source.shape ?? '')) {
+    return undefined;
+  }
+  const outgoing = data.edges.filter((candidate) => candidate.start === source.id);
+  if (
+    outgoing.length !== 2 ||
+    outgoing.some(
+      (candidate) =>
+        candidate.startSide !== undefined ||
+        candidate.endSide !== undefined ||
+        (candidate.minlen ?? 1) > 1 ||
+        candidate.isLayoutOnly === true
+    )
+  ) {
+    return undefined;
+  }
+  const branches = outgoing.map((candidate) => nodes.get(candidate.end ?? ''));
+  if (
+    branches.some(
+      (node) =>
+        !node ||
+        node.isGroup ||
+        node.parentId !== source.parentId ||
+        !['rect', 'squareRect'].includes(node.shape ?? '') ||
+        data.edges.filter((candidate) => candidate.start === node.id || candidate.end === node.id)
+          .length !== 1
+    )
+  ) {
+    return undefined;
+  }
+  const [first, second] = branches as Node[];
+  if (first === second) {
+    return undefined;
+  }
+  const horizontal = data.direction === 'LR' || data.direction === 'RL';
+  const along = horizontal ? 'x' : 'y';
+  const across = horizontal ? 'y' : 'x';
+  const size = horizontal ? 'width' : 'height';
+  const sign = data.direction === 'BT' || data.direction === 'RL' ? -1 : 1;
+  const facing = target[along]! - (sign * target[size]!) / 2;
+  if (
+    Math.abs((first[across]! + second[across]!) / 2 - source[across]!) > EPSILON ||
+    Math.abs(
+      first[along]! - (sign * first[size]!) / 2 - second[along]! + (sign * second[size]!) / 2
+    ) > EPSILON ||
+    Math.abs(start[along] - source[along]! - (sign * source[size]!) / 2) > EPSILON ||
+    Math.abs(end[along] - facing) > EPSILON ||
+    Math.abs(end[across] - target[across]!) > EPSILON
+  ) {
+    return undefined;
+  }
+  const bend = facing - sign * CLEARANCE;
+  if (sign * (bend - start[along]) < CLEARANCE) {
+    return undefined;
+  }
+  const points = [start, { ...start, [along]: bend }, { ...end, [along]: bend }, end];
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source && obstacle.node !== target
+  );
+  return routeIsClear(points, otherObstacles, routedPaths) ? points : undefined;
+}
+
 function routeSymmetricDiamondFan(
   source: Node,
   target: Node,
   start: Point,
   end: Point,
   isSymmetricFan: boolean,
+  isLateralFan: boolean,
   obstacles: Rect[],
   routedPaths: Point[][]
 ): Point[] | undefined {
-  if (!isSymmetricFan) {
+  if (!isSymmetricFan && !isLateralFan) {
     return undefined;
   }
-  // Leave a lower sloped diamond face horizontally, then run directly down
-  // into the task's top port. The two mirrored branches therefore need one
-  // turn each, rather than a short stub followed by two visual kinks.
-  const bend = { x: end.x, y: start.y };
   const otherObstacles = obstacles.filter(
     (obstacle) => obstacle.node !== source && obstacle.node !== target
   );
+  if (isLateralFan) {
+    const direction = Math.sign(target.x! - source.x!);
+    const targetRect = rectFor(target)!;
+    const targetPort = {
+      x: direction > 0 ? targetRect.left : targetRect.right,
+      y: target.y!,
+    };
+    // Equal facing borders give both branches the same bend column and a
+    // full arrowhead approach. Do not let visibility-grid tie-breaking pick
+    // different, equally short corridors for the two reflected routes.
+    const bendX = targetPort.x - direction * CLEARANCE;
+    if (direction * (bendX - source.x!) <= source.width! / 2) {
+      return undefined;
+    }
+    const points = [start, { x: bendX, y: start.y }, { x: bendX, y: targetPort.y }, targetPort];
+    return routeIsClear(points, otherObstacles, routedPaths) ? points : undefined;
+  }
+  // Leave a sloped diamond face horizontally, then run vertically into the
+  // facing side of each target. The two mirrored branches therefore need one
+  // turn each, rather than a short stub followed by two visual kinks or a
+  // vertical approach that accidentally enters a side port.
+  const direction = Math.sign(target.x! - source.x!);
+  if (direction === 0) {
+    return undefined;
+  }
+  const targetRect = rectFor(target)!;
+  const targetPort = {
+    x: target.x! - direction * (PORT_SPACING / 2),
+    y: target.y! > source.y! ? targetRect.top : targetRect.bottom,
+  };
+  const bend = { x: targetPort.x, y: start.y };
   if (
     !segmentClear(start, bend, otherObstacles) ||
-    !segmentClear(bend, end, otherObstacles) ||
+    !segmentClear(bend, targetPort, otherObstacles) ||
     routeInteractionPenalty(start, bend, routedPaths) > 0 ||
-    routeInteractionPenalty(bend, end, routedPaths) > 0
+    routeInteractionPenalty(bend, targetPort, routedPaths) > 0
   ) {
     return undefined;
   }
-  return [start, bend, end];
+  return [start, bend, targetPort];
+}
+
+/**
+ * A broad workflow fan may skip several rows before reaching its fallback
+ * target, while a labelled decision branch can enter a downstream column from
+ * the side.  The generic visibility graph sees both as ordinary diagonal
+ * edges and is prone to reuse the column already occupied by a nearer path.
+ * Keep those two cases in their own corridors: the fallback uses an outside
+ * lane and the labelled branch clears the source before entering the target's
+ * side port.  This is topology-based, so it also applies to similarly shaped
+ * edit/build pipelines without depending on node names.
+ */
+function routeLongWorkflowBranch(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  start: Point,
+  end: Point,
+  edges: Edge[],
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): Point[] | undefined {
+  const label = (edge.label ?? edge.text ?? '').trim();
+  const outgoing = edges.filter((candidate) => candidate.start === source.node.id && candidate.end);
+  const incoming = edges.filter((candidate) => candidate.end === target.node.id && candidate.start);
+  const outgoingTargetIds = new Set(outgoing.map((candidate) => candidate.end!));
+  const deepestTargetY = Math.max(
+    ...obstacles
+      .filter((obstacle) => outgoingTargetIds.has(obstacle.node.id))
+      .map((obstacle) => obstacle.node.y!)
+  );
+  const sourceIsDiamond = isDiamondNode(source.node);
+  const targetIsBelow = target.node.y! > source.node.y! + EPSILON;
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+
+  // The deepest unlabelled target of a broad fan is a fallback, not an
+  // invitation to run through every intermediate branch. It usually has a
+  // clear, one-turn path from the source's right side; use an outside lane
+  // only when that short route is genuinely blocked.
+  if (
+    !label &&
+    outgoing.length >= 4 &&
+    targetIsBelow &&
+    target.node.x! > source.node.x! + EPSILON &&
+    target.node.y! >= deepestTargetY - EPSILON
+  ) {
+    // Keep the outer fallback above nearer right-hand branches. They can
+    // then descend from a neighbouring lower port without crossing this
+    // horizontal run.
+    const fallbackStart = { x: source.right, y: source.node.y! - PORT_SPACING / 2 };
+    const targetPort = { x: target.node.x!, y: target.top };
+    const directPoints = [fallbackStart, { x: targetPort.x, y: fallbackStart.y }, targetPort];
+    if (routeIsClear(directPoints, otherObstacles, routedPaths)) {
+      return directPoints;
+    }
+    const laneX =
+      Math.max(target.right, ...otherObstacles.map((obstacle) => obstacle.right)) + CLEARANCE;
+    const laneY = targetPort.y - CLEARANCE;
+    const points = simplify([
+      fallbackStart,
+      { x: laneX, y: fallbackStart.y },
+      { x: laneX, y: laneY },
+      { x: targetPort.x, y: laneY },
+      targetPort,
+    ]);
+    return routeIsClear(points, otherObstacles, routedPaths) ? points : undefined;
+  }
+
+  // The intermediate right-hand branch of a broad classifier should visibly
+  // depart from the right side alongside its deeper fallback. Keeping that
+  // departure on the bottom edge makes an otherwise clear column look like a
+  // detour through the classifier.
+  if (
+    !label &&
+    outgoing.length >= 4 &&
+    targetIsBelow &&
+    target.node.x! > source.node.x! + EPSILON &&
+    target.node.y! < deepestTargetY - EPSILON
+  ) {
+    const start = { x: source.right, y: source.node.y! + PORT_SPACING / 2 };
+    const targetPort = { x: target.node.x!, y: target.top };
+    const points = [start, { x: targetPort.x, y: start.y }, targetPort];
+    if (routeIsClear(points, otherObstacles, routedPaths)) {
+      return points;
+    }
+  }
+
+  // When a labelled decision branch rejoins a task directly below its
+  // diamond, it is an ordinary vertical flow.  Do not send it through a
+  // side port just to distinguish it from the other exit: that creates two
+  // pointless sharp bends immediately before the target.
+  if (
+    label &&
+    sourceIsDiamond &&
+    outgoing.length === 2 &&
+    incoming.length >= 2 &&
+    targetIsBelow &&
+    Math.abs(target.node.x! - source.node.x!) <= AXIS_ALIGNMENT_TOLERANCE
+  ) {
+    const directPoints = simplify([
+      start,
+      { x: start.x, y: target.top - CLEARANCE },
+      { x: target.node.x!, y: target.top - CLEARANCE },
+      { x: target.node.x!, y: target.top },
+    ]);
+    if (routeIsClear(directPoints, otherObstacles, routedPaths)) {
+      return directPoints;
+    }
+  }
+
+  // A second decision can join that same task from the right. Give it the
+  // adjacent top port, rather than crowding the centred vertical arrival.
+  // The two incoming arrows remain visually related but no longer touch.
+  if (
+    label &&
+    sourceIsDiamond &&
+    outgoing.length === 2 &&
+    incoming.length >= 2 &&
+    targetIsBelow &&
+    target.node.x! < source.node.x! - EPSILON
+  ) {
+    const targetPort = { x: target.node.x! + PORT_SPACING, y: target.top };
+    const points = simplify([start, { x: targetPort.x, y: start.y }, targetPort]);
+    if (routeIsClear(points, otherObstacles, routedPaths)) {
+      return points;
+    }
+  }
+
+  // A lower-right labelled decision branch follows its allocated exit and
+  // enters the downstream task through its existing left port. The escape
+  // lane stays outside the diamond for both sloped and vertex departures.
+  if (
+    label &&
+    sourceIsDiamond &&
+    outgoing.length === 2 &&
+    incoming.length >= 2 &&
+    targetIsBelow &&
+    target.node.x! > source.node.x! + EPSILON &&
+    sideAtPort(target, end, sideToward(target.node, source.node, 'end')) === 'left'
+  ) {
+    const escapeX = source.right + CLEARANCE;
+    const points = simplify([start, { x: escapeX, y: start.y }, { x: escapeX, y: end.y }, end]);
+    return routeIsClear(points, otherObstacles, routedPaths) ? points : undefined;
+  }
+
+  return undefined;
+}
+
+/** Identifies a uniform, axis-aligned endpoint pair with parallel edges. */
+function isParallelBundleMember(edge: Edge, edges: Edge[], nodes: Map<string, Node>): boolean {
+  const source = edge.start ? nodes.get(edge.start) : undefined;
+  const target = edge.end ? nodes.get(edge.end) : undefined;
+  if (!source || !target) {
+    return false;
+  }
+  const axisAligned =
+    Math.abs(source.x! - target.x!) <= AXIS_ALIGNMENT_TOLERANCE ||
+    Math.abs(source.y! - target.y!) <= AXIS_ALIGNMENT_TOLERANCE;
+  if (!axisAligned) {
+    return false;
+  }
+  const forward = edges.filter(
+    (candidate) => candidate.start === source.id && candidate.end === target.id
+  );
+  const reverse = edges.filter(
+    (candidate) => candidate.start === target.id && candidate.end === source.id
+  );
+  const labelled = Boolean((edge.label ?? edge.text ?? '').trim());
+  return (
+    forward.length + reverse.length >= 2 &&
+    (forward.length >= 2 || reverse.length >= 2) &&
+    [...forward, ...reverse].every(
+      (candidate) => Boolean((candidate.label ?? candidate.text ?? '').trim()) === labelled
+    )
+  );
+}
+
+/**
+ * Parallel edges are a bundle, not independent paths. Assign a stable lane
+ * to every uniformly labelled or unlabelled member of an axis-aligned
+ * endpoint pair and use that same coordinate on both endpoints. This also
+ * works when one direction has more copies than the other, or either endpoint
+ * has unrelated edges.
+ */
+function routeOrderedParallelEdgeBundle(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  edges: Edge[],
+  obstacles: Rect[]
+): Point[] | undefined {
+  const vertical = Math.abs(source.node.x! - target.node.x!) <= AXIS_ALIGNMENT_TOLERANCE;
+  const horizontal = Math.abs(source.node.y! - target.node.y!) <= AXIS_ALIGNMENT_TOLERANCE;
+  if (!vertical && !horizontal) {
+    return undefined;
+  }
+
+  const [first, second] = vertical
+    ? [source, target].sort((left, right) => left.node.y! - right.node.y!)
+    : [source, target].sort((left, right) => left.node.x! - right.node.x!);
+  const forward = edges
+    .filter((candidate) => candidate.start === first.node.id && candidate.end === second.node.id)
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const reverse = edges
+    .filter((candidate) => candidate.start === second.node.id && candidate.end === first.node.id)
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const ordered = [...forward, ...reverse];
+  if (ordered.length < 2 || (forward.length < 2 && reverse.length < 2)) {
+    return undefined;
+  }
+
+  const labelled = Boolean((edge.label ?? edge.text ?? '').trim());
+  if (
+    ordered.some(
+      (candidate) => Boolean((candidate.label ?? candidate.text ?? '').trim()) !== labelled
+    )
+  ) {
+    return undefined;
+  }
+
+  const laneIndex = ordered.indexOf(edge);
+  const laneCount = ordered.length;
+  if (laneIndex < 0) {
+    return undefined;
+  }
+  const laneSize = vertical
+    ? Math.min(first.node.width!, second.node.width!)
+    : Math.min(first.node.height!, second.node.height!);
+  const cornerClearance = labelled
+    ? LABELLED_PARALLEL_BUNDLE_CORNER_CLEARANCE
+    : PARALLEL_BUNDLE_CORNER_CLEARANCE;
+  const usableSpan = laneSize - cornerClearance * 2;
+  if (usableSpan < (laneCount - 1) * PARALLEL_BUNDLE_LANE_GAP) {
+    return undefined;
+  }
+  if (labelled) {
+    const gap = vertical
+      ? Math.abs(source.node.y! - target.node.y!) - (source.node.height! + target.node.height!) / 2
+      : Math.abs(source.node.x! - target.node.x!) - (source.node.width! + target.node.width!) / 2;
+    const labelSpan = Math.max(
+      ...ordered.map((candidate) => {
+        const dimensions = labelDimensions((candidate.label ?? candidate.text ?? '').trim());
+        return vertical ? dimensions.height : dimensions.width;
+      })
+    );
+    if (gap < labelSpan + LABEL_CLEARANCE * 2) {
+      return undefined;
+    }
+  }
+  const center = vertical
+    ? (first.node.x! + second.node.x!) / 2
+    : (first.node.y! + second.node.y!) / 2;
+  const lane = center - usableSpan / 2 + (usableSpan * laneIndex) / Math.max(1, laneCount - 1);
+  const points = vertical
+    ? source.node === first.node
+      ? [
+          { x: lane, y: first.bottom },
+          { x: lane, y: second.top },
+        ]
+      : [
+          { x: lane, y: second.top },
+          { x: lane, y: first.bottom },
+        ]
+    : source.node === first.node
+      ? [
+          { x: first.right, y: lane },
+          { x: second.left, y: lane },
+        ]
+      : [
+          { x: second.left, y: lane },
+          { x: first.right, y: lane },
+        ];
+  const otherObstacles = obstacles.filter(
+    (obstacle) => obstacle.node !== source.node && obstacle.node !== target.node
+  );
+  // The bundle's lanes can be closer than ordinary independent routes on a
+  // narrow node, but they are distinct, parallel, and their order is fixed at
+  // both ends. Ordinary route-interaction scoring would reject that harmless
+  // close spacing as though it were an accidental shared lane.
+  return segmentClear(points[0], points[1], otherObstacles) ? points : undefined;
 }
 
 /**
@@ -983,6 +2161,8 @@ function routeAvoidingEndpoints(
     startSide,
     end,
     endSide,
+    sourceRect,
+    targetRect,
     obstaclesExceptTarget,
     gridSpacing,
     routedPaths,
@@ -1003,6 +2183,8 @@ function routeAvoidingEndpoints(
     startSide,
     end,
     endSide,
+    sourceRect,
+    targetRect,
     obstacles,
     gridSpacing,
     routedPaths,
@@ -1027,6 +2209,25 @@ function routeIntersectionLength(route: Point[], obstacle: Rect): number {
   for (let index = 1; index < route.length; index++) {
     const a = route[index - 1];
     const b = route[index];
+    // Sloped diamond ports sit inside the bounding rectangle. Their outward
+    // terminal segment is legitimate; only subsequent re-entry is forbidden.
+    if (isDiamondNode(obstacle.node)) {
+      const onBoundary = (point: Point) =>
+        Math.abs(
+          Math.abs((point.x - obstacle.node.x!) / (obstacle.node.width! / 2)) +
+            Math.abs((point.y - obstacle.node.y!) / (obstacle.node.height! / 2)) -
+            1
+        ) <= EPSILON;
+      const outward = (port: Point, other: Point) =>
+        (other.x - port.x) * (port.x - obstacle.node.x!) >= 0 &&
+        (other.y - port.y) * (port.y - obstacle.node.y!) >= 0;
+      if (
+        (index === 1 && onBoundary(a) && outward(a, b)) ||
+        (index === route.length - 1 && onBoundary(b) && outward(b, a))
+      ) {
+        continue;
+      }
+    }
     if (Math.abs(a.x - b.x) <= EPSILON && a.x > obstacle.left && a.x < obstacle.right) {
       length += Math.max(
         0,
@@ -1057,6 +2258,8 @@ function routeBetweenPorts(
   startSide: Side,
   end: Point,
   endSide: Side,
+  sourceRect: Rect,
+  targetRect: Rect,
   obstacles: Rect[],
   gridSpacing: number,
   routedPaths: Point[][],
@@ -1064,8 +2267,8 @@ function routeBetweenPorts(
 ): Point[] {
   // Stubs give the visibility-grid route room to turn away from its port.
   // This also keeps diamond-side attachments on the outside of the shape.
-  const startStub = extendPort(start, startSide);
-  const endStub = extendPort(end, endSide);
+  const startStub = extendPort(start, startSide, sourceRect);
+  const endStub = extendPort(end, endSide, targetRect);
   const routingObstacles = obstacles.map((obstacle) =>
     isLargeNode(obstacle.node) ? expandRect(obstacle, ROUTE_LANE_CLEARANCE) : obstacle
   );
@@ -1107,6 +2310,22 @@ function rectFor(node: Node): Rect | undefined {
 
 function allocatePorts(edges: Edge[], nodes: Map<string, Node>): Map<string, Point> {
   const assignments = new Map<string, { edge: Edge; endpoint: 'start' | 'end'; side: Side }[]>();
+  const diamondInputsBySide = new Map<string, { edge: Edge; node: Node; side: Side }[]>();
+  const diamondOutputsBySide = new Map<string, { edge: Edge; node: Node; side: Side }[]>();
+  const diamondAssignments = new Map<
+    string,
+    {
+      edge: Edge;
+      endpoint: 'start' | 'end';
+      node: Node;
+      xSign: number;
+      ySign: number;
+      other: Node;
+    }[]
+  >();
+  const parallelBundleEdgeIds = new Set(
+    edges.filter((edge) => isParallelBundleMember(edge, edges, nodes)).map((edge) => edge.id)
+  );
   const symmetricDiamondFans = new Set(
     [...nodes.values()]
       .filter((node) => isSymmetricDiamondFan(node, edges, nodes))
@@ -1119,22 +2338,97 @@ function allocatePorts(edges: Edge[], nodes: Map<string, Node>): Map<string, Poi
       )
       .map((node) => node.id)
   );
+  const alignedDiamondContinuations = new Set(
+    [...nodes.values()]
+      .filter((node) => hasAlignedDiamondContinuation(node, edges, nodes))
+      .map((node) => node.id)
+  );
   for (const edge of edges) {
     const source = edge.start ? nodes.get(edge.start) : undefined;
     const target = edge.end ? nodes.get(edge.end) : undefined;
     if (!source || !target || source === target) {
       continue;
     }
-    const sourceSide = sideToward(
-      source,
-      target,
-      'start',
-      diamondFanVertices.has(source.id),
-      symmetricDiamondFans.has(source.id)
-    );
-    const targetSide = sideToward(target, source, 'end');
-    add(assignments, `${source.id}:${sourceSide}`, { edge, endpoint: 'start', side: sourceSide });
-    add(assignments, `${target.id}:${targetSide}`, { edge, endpoint: 'end', side: targetSide });
+    const sourceSide =
+      edge.startSide ??
+      sideForCrowdedFan(
+        source,
+        target,
+        'start',
+        sideForParallelFrameFeedback(
+          source,
+          target,
+          'start',
+          sideToward(
+            source,
+            target,
+            'start',
+            diamondFanVertices.has(source.id),
+            symmetricDiamondFans.has(source.id)
+          ),
+          edges,
+          nodes
+        ),
+        edges,
+        nodes
+      );
+    const targetSide =
+      edge.endSide ??
+      sideForCrowdedFan(target, source, 'end', sideToward(target, source, 'end'), edges, nodes);
+    const allocatedSourceSide = edge.startSide
+      ? sourceSide
+      : sideEscapingParallelBundle(
+          edge,
+          source,
+          target,
+          'start',
+          sourceSide,
+          parallelBundleEdgeIds,
+          edges,
+          nodes
+        );
+    const allocatedTargetSide = edge.endSide
+      ? targetSide
+      : sideEscapingParallelBundle(
+          edge,
+          target,
+          source,
+          'end',
+          targetSide,
+          parallelBundleEdgeIds,
+          edges,
+          nodes
+        );
+    for (const [node, other, endpoint, side] of [
+      [source, target, 'start', allocatedSourceSide],
+      [target, source, 'end', allocatedTargetSide],
+    ] as const) {
+      if (isDiamondNode(node)) {
+        if (endpoint === 'end') {
+          add(diamondInputsBySide, `${node.id}:${side}`, { edge, node, side });
+        } else {
+          add(diamondOutputsBySide, `${node.id}:${side}`, { edge, node, side });
+        }
+        // Group by physical slope, including both inputs and outputs. An
+        // aligned edge chooses the upper-left or lower-right midpoint with
+        // a stable tie-break, while feedback follows its actual counterpart.
+        const tie = endpoint === 'end' ? -1 : 1;
+        const xSign =
+          side === 'left' ? -1 : side === 'right' ? 1 : Math.sign(other.x! - node.x!) || tie;
+        const ySign =
+          side === 'top' ? -1 : side === 'bottom' ? 1 : Math.sign(other.y! - node.y!) || tie;
+        add(diamondAssignments, `${node.id}:${xSign}:${ySign}`, {
+          edge,
+          endpoint,
+          node,
+          xSign,
+          ySign,
+          other,
+        });
+      } else {
+        add(assignments, `${node.id}:${side}`, { edge, endpoint, side });
+      }
+    }
   }
 
   const ports = new Map<string, Point>();
@@ -1151,30 +2445,245 @@ function allocatePorts(edges: Edge[], nodes: Map<string, Node>): Map<string, Poi
         a.endpoint.localeCompare(b.endpoint) ||
         a.edge.id.localeCompare(b.edge.id)
     );
-    const alignedCount = values.filter((value) => isAxisAligned(node, value.edge, nodes)).length;
-    // A symmetric split needs distinct exits, but its two lower sloped-side
-    // midpoints make a cleaner outward-then-downward fan than the left/right
-    // vertices. Other crowded diamond fans retain cardinal vertices.
-    const forceDiamondExitVertices =
-      diamondFanVertices.has(node.id) && !symmetricDiamondFans.has(node.id);
+    // Direct parallel-bundle routes own their lanes and do not consume a
+    // normal port slot. Otherwise an unrelated edge can be pushed to a node
+    // corner solely by bundle members that never use their allocated ports.
+    const allocatedValues = values.filter((value) => !parallelBundleEdgeIds.has(value.edge.id));
+    const portValues = allocatedValues.length > 0 ? allocatedValues : values;
+    const alignedCount = portValues.filter((value) =>
+      isAxisAligned(node, value.edge, nodes)
+    ).length;
+    const centeredIndex = portValues.findIndex(
+      (value) =>
+        supportsCenteredPort(node) && alignedCount === 1 && isAxisAligned(node, value.edge, nodes)
+    );
     values.forEach((value, index) => {
-      const port = portOnSide(
+      const portIndex = portValues.indexOf(value);
+      // Retain a valid fallback port for a bundled edge, even though the
+      // normal straight-lane path bypasses it.
+      const usesFallbackPort = portIndex < 0;
+      const allocationIndex = usesFallbackPort ? index : portIndex;
+      const allocationCount = usesFallbackPort ? values.length : portValues.length;
+      const reservedCenter = !usesFallbackPort && allocationIndex === centeredIndex;
+      const parallelCount = portValues.filter(
+        (candidate) =>
+          candidate.edge.start === value.edge.start && candidate.edge.end === value.edge.end
+      ).length;
+      const cornerInset =
+        allocationCount > 1 &&
+        (parallelCount > 1 ||
+          (isLayeredWorkflowEdge(value.edge) && value.endpoint === 'end') ||
+          (allocationCount === 3 &&
+            centeredIndex >= 0 &&
+            node.isGroup !== true &&
+            ['rect', 'squareRect'].includes(node.shape ?? '')))
+          ? Math.max(
+              PORT_CORNER_CLEARANCE,
+              (side === 'top' || side === 'bottom' ? node.width! : node.height!) *
+                RECTANGULAR_PORT_CORNER_FRACTION
+            )
+          : PORT_CORNER_CLEARANCE;
+      let port = portOnSide(
         node,
         side,
-        value.endpoint,
-        index,
-        values.length,
-        supportsCenteredPort(node) && alignedCount === 1 && isAxisAligned(node, value.edge, nodes),
-        forceDiamondExitVertices,
-        symmetricDiamondFans.has(node.id) && value.endpoint === 'start'
+        allocationIndex,
+        allocationCount,
+        reservedCenter,
+        cornerInset
       );
+      // The regular distribution includes the middle coordinate for odd
+      // counts. If an aligned edge reserves that coordinate, an adjacent
+      // non-aligned edge can otherwise be given the identical port. Move only
+      // the assignments that would cross that reserved slot, retaining their
+      // order and leaving ordinary fans unchanged.
+      if (!usesFallbackPort && centeredIndex >= 0 && !reservedCenter) {
+        const coordinate = distributedPortCoordinateAvoidingCenter(
+          side === 'top' || side === 'bottom' ? node.x! : node.y!,
+          side === 'top' || side === 'bottom' ? node.width! : node.height!,
+          allocationIndex,
+          allocationCount,
+          centeredIndex,
+          cornerInset
+        );
+        port =
+          side === 'top' || side === 'bottom'
+            ? { ...port, x: coordinate }
+            : { ...port, y: coordinate };
+      }
       ports.set(
         `${value.edge.id}:${value.endpoint}`,
         offsetGroupPortTowardCounterpart(node, port, side, value.edge, value.endpoint, nodes)
       );
     });
   }
+  const vertexTerminals = new Set<string>();
+  for (const inputs of diamondInputsBySide.values()) {
+    if (inputs.length === 1) {
+      const { edge, node, side } = inputs[0];
+      const key = `${edge.id}:end`;
+      // A lone arrival uses the facing vertex. Multiple arrivals on that
+      // cardinal side retain distinct sloped ports instead of sharing a tip.
+      ports.set(key, portOnSide(node, side, 0, 1, true));
+      vertexTerminals.add(key);
+    }
+  }
+  for (const [sideKey, outputs] of diamondOutputsBySide) {
+    if (
+      outputs.length === 1 &&
+      alignedDiamondContinuations.has(outputs[0].node.id) &&
+      !diamondInputsBySide.has(sideKey)
+    ) {
+      const { edge, node, side } = outputs[0];
+      const key = `${edge.id}:start`;
+      // An aligned continuation into a merge needs no side-to-axis dogleg.
+      // Its sibling may use another free vertex, but multiple exits on the
+      // same cardinal side still retain distributed sloped ports.
+      ports.set(key, portOnSide(node, side, 0, 1, true));
+      vertexTerminals.add(key);
+    }
+  }
+  for (const assignedValues of diamondAssignments.values()) {
+    const values = assignedValues.filter(
+      (value) => !vertexTerminals.has(`${value.edge.id}:${value.endpoint}`)
+    );
+    if (values.length === 0) {
+      continue;
+    }
+    const { node, xSign, ySign } = values[0];
+    // Sort along the slope from top to bottom, independent of input/output
+    // role or edge insertion order. The midpoint remains the centre of a fan.
+    values.sort(
+      (a, b) =>
+        a.other.y! - b.other.y! ||
+        -xSign * (a.other.x! - b.other.x!) ||
+        a.edge.id.localeCompare(b.edge.id)
+    );
+    const halfWidth = node.width! / 2;
+    const halfHeight = node.height! / 2;
+    const step = Math.min(
+      PORT_SPACING / Math.max(halfWidth, halfHeight),
+      0.6 / Math.max(1, values.length - 1)
+    );
+    for (const [index, value] of values.entries()) {
+      const fraction = 0.5 + (index - (values.length - 1) / 2) * step;
+      ports.set(`${value.edge.id}:${value.endpoint}`, {
+        x: node.x! + xSign * halfWidth * (ySign < 0 ? fraction : 1 - fraction),
+        y: node.y! + ySign * halfHeight * (ySign < 0 ? 1 - fraction : fraction),
+      });
+    }
+  }
+  const diamondCircle = isolatedDiamondCircleBundle({ nodes: [...nodes.values()], edges });
+  if (diamondCircle) {
+    const { diamond, circle } = diamondCircle;
+    const xSign = Math.sign(circle.x! - diamond.x!) || 1;
+    const ySign = Math.sign(circle.y! - diamond.y!) || 1;
+    for (const [index, edge] of diamondCircle.edges.entries()) {
+      const fraction =
+        DIAMOND_CIRCLE_PORT_MARGIN +
+        (DIAMOND_CIRCLE_PORT_SPAN * index) / (diamondCircle.edges.length - 1);
+      ports.set(`${edge.id}:start`, {
+        x: diamond.x! + ((xSign * diamond.width!) / 2) * (ySign < 0 ? fraction : 1 - fraction),
+        y: diamond.y! + ((ySign * diamond.height!) / 2) * (ySign < 0 ? 1 - fraction : fraction),
+      });
+    }
+  }
+  // Mixed styled parallel edges need coherent ports on both diamonds. Keep
+  // the labelled lane above the plain lanes rather than fanning all starts
+  // downwards and all arrivals upwards through the same narrow corridor.
+  for (const edge of edges) {
+    const source = edge.start ? nodes.get(edge.start) : undefined;
+    const target = edge.end ? nodes.get(edge.end) : undefined;
+    if (!source || !target) {
+      continue;
+    }
+    const bundle = mixedDiamondBundle(edge, source, target, edges);
+    if (!bundle) {
+      continue;
+    }
+    ports.set(`${edge.id}:start`, bundle.start);
+    ports.set(`${edge.id}:end`, bundle.end);
+  }
   return ports;
+}
+
+function mixedDiamondBundle(
+  edge: Edge,
+  source: Node,
+  target: Node,
+  edges: Edge[]
+): { start: Point; end: Point; fraction: number; vertical: boolean } | undefined {
+  if (!isDiamondNode(source) || !isDiamondNode(target)) {
+    return undefined;
+  }
+  const vertical = Math.abs(source.x! - target.x!) <= AXIS_ALIGNMENT_TOLERANCE;
+  if (!vertical && Math.abs(source.y! - target.y!) > AXIS_ALIGNMENT_TOLERANCE) {
+    return undefined;
+  }
+  const labelled = (candidate: Edge) => Boolean((candidate.label ?? candidate.text ?? '').trim());
+  const parallel = edges
+    .filter(
+      (candidate) =>
+        (candidate.start === edge.start && candidate.end === edge.end) ||
+        (candidate.start === edge.end && candidate.end === edge.start)
+    )
+    .sort((a, b) => Number(labelled(b)) - Number(labelled(a)) || a.id.localeCompare(b.id));
+  if (!parallel.some(labelled) || parallel.every(labelled)) {
+    return undefined;
+  }
+  const index = parallel.indexOf(edge);
+  const fraction = index / (parallel.length - 1) - 0.5;
+  const direction = Math.sign(vertical ? target.y! - source.y! : target.x! - source.x!);
+  const port = (node: Node, facing: number): Point =>
+    vertical
+      ? {
+          x: node.x! + (node.width! / 2) * fraction,
+          y: node.y! + ((facing * node.height!) / 2) * (1 - Math.abs(fraction)),
+        }
+      : {
+          x: node.x! + ((facing * node.width!) / 2) * (1 - Math.abs(fraction)),
+          y: node.y! + (node.height! / 2) * fraction,
+        };
+  return { start: port(source, direction), end: port(target, -direction), fraction, vertical };
+}
+
+function routeMixedDiamondBundle(
+  edge: Edge,
+  source: Rect,
+  target: Rect,
+  start: Point,
+  end: Point,
+  edges: Edge[],
+  obstacles: Rect[],
+  routedPaths: Point[][]
+): Point[] | undefined {
+  const bundle = mixedDiamondBundle(edge, source.node, target.node, edges);
+  const label = (edge.label ?? edge.text ?? '').trim();
+  if (!bundle || !label || Math.abs(bundle.fraction) <= EPSILON) {
+    return undefined;
+  }
+  const dimensions = labelDimensions(label);
+  const points = bundle.vertical
+    ? (() => {
+        const laneX =
+          bundle.fraction < 0
+            ? Math.min(source.left, target.left) - dimensions.width / 2 - LABEL_CLEARANCE
+            : Math.max(source.right, target.right) + dimensions.width / 2 + LABEL_CLEARANCE;
+        return [start, { x: laneX, y: start.y }, { x: laneX, y: end.y }, end];
+      })()
+    : (() => {
+        const laneY =
+          bundle.fraction < 0
+            ? Math.min(source.top, target.top) - dimensions.height / 2 - LABEL_CLEARANCE
+            : Math.max(source.bottom, target.bottom) + dimensions.height / 2 + LABEL_CLEARANCE;
+        return [start, { x: start.x, y: laneY }, { x: end.x, y: laneY }, end];
+      })();
+  return routeIsClear(
+    points,
+    obstacles.filter((obstacle) => obstacle.node !== source.node && obstacle.node !== target.node),
+    routedPaths
+  )
+    ? points
+    : undefined;
 }
 
 /**
@@ -1221,8 +2730,66 @@ function offsetGroupPortTowardCounterpart(
   };
 }
 
-function isSymmetricDiamondFan(node: Node, edges: Edge[], nodes: Map<string, Node>): boolean {
-  if (!/diamond|rhombus/.test(String(node.shape))) {
+function isDiamondNode(node: Node): boolean {
+  return /^(diamond|rhombus|diam|question|decision)$/.test(String(node.shape));
+}
+
+function hasAlignedDiamondContinuation(
+  node: Node,
+  edges: Edge[],
+  nodes: Map<string, Node>
+): boolean {
+  if (!isDiamondNode(node) || node.isGroup === true) {
+    return false;
+  }
+  const outgoing = edges.filter((edge) => edge.start === node.id);
+  if (
+    outgoing.length !== 2 ||
+    new Set(outgoing.map((edge) => edge.end)).size !== 2 ||
+    outgoing.some(
+      (edge) =>
+        !edge.end ||
+        edge.end === node.id ||
+        !nodes.has(edge.end) ||
+        nodes.get(edge.end)!.isGroup === true ||
+        edge.startSide !== undefined ||
+        edge.endSide !== undefined
+    )
+  ) {
+    return false;
+  }
+  return outgoing.some((edge) => {
+    const target = nodes.get(edge.end!);
+    if (
+      !target ||
+      target.isGroup === true ||
+      new Set(
+        edges
+          .filter(
+            (candidate) =>
+              candidate.end === target.id && candidate.start && candidate.start !== target.id
+          )
+          .map((candidate) => candidate.start)
+      ).size < 2
+    ) {
+      return false;
+    }
+    const dx = Math.abs(target.x! - node.x!);
+    const dy = Math.abs(target.y! - node.y!);
+    return (
+      (dx <= EPSILON && dy > (node.height! + target.height!) / 2 + EPSILON) ||
+      (dy <= EPSILON && dx > (node.width! + target.width!) / 2 + EPSILON)
+    );
+  });
+}
+
+function isSymmetricDiamondFan(
+  node: Node,
+  edges: Edge[],
+  nodes: Map<string, Node>,
+  axis: Axis = 'V'
+): boolean {
+  if (!isDiamondNode(node)) {
     return false;
   }
   const targets = edges
@@ -1230,6 +2797,36 @@ function isSymmetricDiamondFan(node: Node, edges: Edge[], nodes: Map<string, Nod
     .map((edge) => nodes.get(edge.end!))
     .filter((target): target is Node => target !== undefined)
     .sort((left, right) => left.x! - right.x!);
+  if (axis === 'H') {
+    if (
+      targets.length !== 2 ||
+      edges.some(
+        (edge) =>
+          edge.start === node.id &&
+          (edge.startSide || edge.endSide || (edge.label ?? edge.text ?? '').trim())
+      ) ||
+      targets.some(
+        (target) =>
+          target.isGroup === true ||
+          !/^(rect|squareRect)$/.test(String(target.shape)) ||
+          edges.filter((edge) => edge.start === target.id || edge.end === target.id).length !== 1
+      )
+    ) {
+      return false;
+    }
+    const direction = Math.sign(targets[0].x! - node.x!);
+    return (
+      direction !== 0 &&
+      Math.sign(targets[1].x! - node.x!) === direction &&
+      (targets[0].y! - node.y!) * (targets[1].y! - node.y!) < 0 &&
+      Math.abs((targets[0].y! + targets[1].y!) / 2 - node.y!) <= EPSILON &&
+      Math.abs(
+        targets[0].x! -
+          (direction * targets[0].width!) / 2 -
+          (targets[1].x! - (direction * targets[1].width!) / 2)
+      ) <= EPSILON
+    );
+  }
   return (
     targets.length === 2 &&
     Math.abs(targets[0].y! - targets[1].y!) <= EPSILON &&
@@ -1239,11 +2836,11 @@ function isSymmetricDiamondFan(node: Node, edges: Edge[], nodes: Map<string, Nod
 }
 
 function supportsCenteredPort(node: Node): boolean {
-  return !/circle|ellipse|diamond|rhombus/.test(String(node.shape));
+  return !isDiamondNode(node) && !/circle|ellipse/.test(String(node.shape));
 }
 
 function needsDiamondFanVertices(node: Node, edges: Edge[], nodes: Map<string, Node>): boolean {
-  if (!/diamond|rhombus/.test(String(node.shape))) {
+  if (!isDiamondNode(node)) {
     return false;
   }
   const outgoingBySide = new Map<Side, Node[]>();
@@ -1319,12 +2916,22 @@ function isAxisAligned(node: Node, edge: Edge, nodes: Map<string, Node>): boolea
   const other = otherId ? nodes.get(otherId) : undefined;
   return (
     !!other &&
-    (Math.abs((node.x ?? 0) - (other.x ?? 0)) <= EPSILON ||
-      Math.abs((node.y ?? 0) - (other.y ?? 0)) <= EPSILON)
+    (Math.abs((node.x ?? 0) - (other.x ?? 0)) <= AXIS_ALIGNMENT_TOLERANCE ||
+      Math.abs((node.y ?? 0) - (other.y ?? 0)) <= AXIS_ALIGNMENT_TOLERANCE)
   );
 }
 
 function portOrderCoordinate(node: Node, edge: Edge, side: Side, nodes: Map<string, Node>): number {
+  if (
+    (side === 'top' || side === 'bottom') &&
+    isLayeredWorkflowEdge(edge) &&
+    layeredRankSpan(edge) > 1 &&
+    layeredColumnBlocked(edge, nodes)
+  ) {
+    return edge.metadata?.stressAndGridBypassSide === 'right'
+      ? Number.POSITIVE_INFINITY
+      : Number.NEGATIVE_INFINITY;
+  }
   const otherId = edge.start === node.id ? edge.end : edge.start;
   const other = otherId ? nodes.get(otherId) : undefined;
   if (!other) {
@@ -1333,10 +2940,112 @@ function portOrderCoordinate(node: Node, edge: Edge, side: Side, nodes: Map<stri
   return side === 'top' || side === 'bottom' ? (other.x ?? 0) : (other.y ?? 0);
 }
 
+function layeredColumnBlocked(edge: Edge, nodes: Map<string, Node>): boolean {
+  const source = edge.start ? nodes.get(edge.start) : undefined;
+  const target = edge.end ? nodes.get(edge.end) : undefined;
+  const sourceRect = source && rectFor(source);
+  const targetRect = target && rectFor(target);
+  if (!source || !target || !sourceRect || !targetRect) {
+    return true;
+  }
+  return [...nodes.values()].some((node) => {
+    const rect = rectFor(node);
+    return (
+      node !== source &&
+      node !== target &&
+      rect !== undefined &&
+      rect.bottom > sourceRect.bottom &&
+      rect.top < targetRect.top &&
+      rect.left < source.x! + EPSILON &&
+      rect.right > source.x! - EPSILON
+    );
+  });
+}
+
 function add<T>(map: Map<string | number, T[]>, key: string | number, value: T): void {
   const values = map.get(key) ?? [];
   values.push(value);
   map.set(key, values);
+}
+
+/**
+ * In a two-frame parallel stage, both frames naturally enter the merge node
+ * from the same side. If its feedback edge also points in that direction, all
+ * three routes are forced onto a small node edge and the frame inputs land on
+ * its corners. Send only that feedback exit below the stage, leaving the two
+ * lateral ports evenly distributed for the parallel inputs.
+ */
+function sideForParallelFrameFeedback(
+  node: Node,
+  other: Node,
+  endpoint: 'start' | 'end',
+  preferredSide: Side,
+  edges: Edge[],
+  nodes: Map<string, Node>
+): Side {
+  if (endpoint !== 'start' || (preferredSide !== 'left' && preferredSide !== 'right')) {
+    return preferredSide;
+  }
+  const parent = node.parentId ? nodes.get(node.parentId) : undefined;
+  if (!parent?.isGroup || other.parentId) {
+    return preferredSide;
+  }
+  const parallelFrameInputs = edges.filter((candidate) => {
+    if (candidate.end !== node.id || !candidate.start) {
+      return false;
+    }
+    const source = nodes.get(candidate.start);
+    return source?.isGroup === true && source.parentId === parent.id;
+  });
+  const feedsBackIntoStage = edges.some((candidate) => {
+    if (candidate.start !== other.id || !candidate.end) {
+      return false;
+    }
+    const target = nodes.get(candidate.end);
+    return target !== undefined && isAncestorOf(parent, target, nodes);
+  });
+  if (parallelFrameInputs.length !== 2 || !feedsBackIntoStage) {
+    return preferredSide;
+  }
+  return 'bottom';
+}
+
+/**
+ * A narrow node cannot host three distinct ports on the same side without
+ * putting the outer two at its corners. When the destinations fan above,
+ * alongside, and below it, use the natural top/right/bottom (or
+ * top/left/bottom) exits instead. This preserves distinct ports and gives the
+ * router a longer first segment for the diagonal branches.
+ */
+function sideForCrowdedFan(
+  node: Node,
+  other: Node,
+  endpoint: 'start' | 'end',
+  preferredSide: Side,
+  edges: Edge[],
+  nodes: Map<string, Node>
+): Side {
+  if (preferredSide !== 'left' && preferredSide !== 'right') {
+    return preferredSide;
+  }
+  const dx = (other.x ?? 0) - (node.x ?? 0);
+  const dy = (other.y ?? 0) - (node.y ?? 0);
+  if (Math.abs(dx) <= EPSILON || Math.abs(dy) <= EPSILON) {
+    return preferredSide;
+  }
+  const sameSide = edges.filter((candidate) => {
+    const otherId = endpoint === 'start' ? candidate.end : candidate.start;
+    const candidateOther = otherId ? nodes.get(otherId) : undefined;
+    return (
+      candidateOther !== undefined &&
+      (endpoint === 'start' ? candidate.start : candidate.end) === node.id &&
+      sideToward(node, candidateOther, endpoint) === preferredSide
+    );
+  });
+  if (sameSide.length < 3 || node.height! >= (sameSide.length - 1) * PORT_SPACING + 4) {
+    return preferredSide;
+  }
+  return dy < 0 ? 'top' : 'bottom';
 }
 
 function sideToward(
@@ -1354,7 +3063,7 @@ function sideToward(
   if (
     preferDistinctDiamondVertices &&
     endpoint === 'start' &&
-    /diamond|rhombus/.test(String(from.shape)) &&
+    isDiamondNode(from) &&
     (forceLateralDiamondFan || Math.abs(dx) * 2 >= Math.abs(dy)) &&
     Math.abs(dx) > EPSILON
   ) {
@@ -1381,58 +3090,71 @@ function sideToward(
   return dy >= 0 ? 'bottom' : 'top';
 }
 
+/**
+ * A direct parallel bundle reserves its own lanes rather than ordinary port
+ * positions. A diagonal edge approaching the same side would otherwise be
+ * assigned into the bundle's middle lane, so let it use the lateral or
+ * vertical side that faces its counterpart instead.
+ */
+function sideEscapingParallelBundle(
+  edge: Edge,
+  node: Node,
+  other: Node,
+  endpoint: 'start' | 'end',
+  preferredSide: Side,
+  parallelBundleEdgeIds: Set<string>,
+  edges: Edge[],
+  nodes: Map<string, Node>
+): Side {
+  const dx = (other.x ?? 0) - (node.x ?? 0);
+  const dy = (other.y ?? 0) - (node.y ?? 0);
+  if (
+    parallelBundleEdgeIds.has(edge.id) ||
+    Math.abs(dx) <= EPSILON ||
+    Math.abs(dy) <= EPSILON ||
+    !edges.some((candidate) => {
+      if (!parallelBundleEdgeIds.has(candidate.id)) {
+        return false;
+      }
+      const candidateOtherId = endpoint === 'start' ? candidate.end : candidate.start;
+      const candidateOther = candidateOtherId ? nodes.get(candidateOtherId) : undefined;
+      return (
+        candidateOther !== undefined &&
+        (endpoint === 'start' ? candidate.start : candidate.end) === node.id &&
+        sideToward(node, candidateOther, endpoint) === preferredSide
+      );
+    })
+  ) {
+    return preferredSide;
+  }
+  if (preferredSide === 'top' || preferredSide === 'bottom') {
+    return dx >= 0 ? 'right' : 'left';
+  }
+  return dy >= 0 ? 'bottom' : 'top';
+}
+
 function portOnSide(
   node: Node,
   side: Side,
-  endpoint: 'start' | 'end',
   index: number,
   count: number,
   forceCenter = false,
-  forceDiamondExitVertices = false,
-  lowerDiamondFanExit = false
+  cornerInset = PORT_CORNER_CLEARANCE
 ): Point {
   const rect = rectFor(node)!;
-  if (/diamond|rhombus/.test(String(node.shape))) {
-    if (lowerDiamondFanExit) {
-      return {
-        left: { x: node.x! - node.width! / 4, y: node.y! + node.height! / 4 },
-        right: { x: node.x! + node.width! / 4, y: node.y! + node.height! / 4 },
-        top: { x: node.x!, y: rect.top },
-        bottom: { x: node.x!, y: rect.bottom },
-      }[side];
-    }
-    if (endpoint === 'end' || forceDiamondExitVertices) {
-      // A decision's incoming flow reads most clearly when it resolves at a
-      // vertex. Fanned outgoing branches also use vertices: side-midpoint
-      // ports can force a lower branch through a sibling directly below it.
-      return {
-        top: { x: node.x!, y: rect.top },
-        right: { x: rect.right, y: node.y! },
-        bottom: { x: node.x!, y: rect.bottom },
-        left: { x: rect.left, y: node.y! },
-      }[side];
-    }
-    // Attach at the midpoint of a sloped diamond side. Using the cardinal
-    // vertices gives decision branches an unnecessarily rigid, pinched look.
-    // The offset chooses the adjacent sloped side when multiple edges leave
-    // in the same general direction.
-    const offset = index >= count / 2 ? 1 : -1;
-    return {
-      top: { x: node.x! + (offset * node.width!) / 4, y: node.y! - node.height! / 4 },
-      right: { x: node.x! + node.width! / 4, y: node.y! + (offset * node.height!) / 4 },
-      bottom: { x: node.x! + (offset * node.width!) / 4, y: node.y! + node.height! / 4 },
-      left: { x: node.x! - node.width! / 4, y: node.y! + (offset * node.height!) / 4 },
-    }[side];
-  }
   if (side === 'top' || side === 'bottom') {
     return {
-      x: forceCenter ? node.x! : distributedPortCoordinate(node.x!, node.width!, index, count),
+      x: forceCenter
+        ? node.x!
+        : distributedPortCoordinate(node.x!, node.width!, index, count, cornerInset),
       y: side === 'top' ? rect.top : rect.bottom,
     };
   }
   return {
     x: side === 'left' ? rect.left : rect.right,
-    y: forceCenter ? node.y! : distributedPortCoordinate(node.y!, node.height!, index, count),
+    y: forceCenter
+      ? node.y!
+      : distributedPortCoordinate(node.y!, node.height!, index, count, cornerInset),
   };
 }
 
@@ -1440,23 +3162,50 @@ function distributedPortCoordinate(
   center: number,
   size: number,
   index: number,
-  count: number
+  count: number,
+  cornerInset = PORT_CORNER_CLEARANCE
 ): number {
   if (count <= 1) {
     return center;
   }
   // A side needs enough room for every incident edge. Fixed insets collapse
   // high-degree nodes, so retain a small corner clearance and share the rest.
-  const span = Math.min((count - 1) * PORT_SPACING, Math.max(0, size - 4));
+  const span = Math.min((count - 1) * PORT_SPACING, Math.max(0, size - 2 * cornerInset));
   return center - span / 2 + (span * index) / (count - 1);
 }
 
-function extendPort(point: Point, side: Side): Point {
+function distributedPortCoordinateAvoidingCenter(
+  center: number,
+  size: number,
+  index: number,
+  count: number,
+  centeredIndex: number,
+  cornerInset = PORT_CORNER_CLEARANCE
+): number {
+  if (count % 2 === 0) {
+    return distributedPortCoordinate(center, size, index, count, cornerInset);
+  }
+  const middleIndex = (count - 1) / 2;
+  let adjustedIndex = index;
+  if (centeredIndex < middleIndex && index >= middleIndex) {
+    adjustedIndex++;
+  } else if (centeredIndex > middleIndex && index <= middleIndex) {
+    adjustedIndex--;
+  }
+  const span = Math.min((count - 1) * PORT_SPACING, Math.max(0, size - 2 * cornerInset));
+  const coordinate = center + (adjustedIndex - middleIndex) * (span / (count - 1));
+  return Math.max(
+    center - size / 2 + cornerInset,
+    Math.min(center + size / 2 - cornerInset, coordinate)
+  );
+}
+
+function extendPort(point: Point, side: Side, rect: Rect): Point {
   return {
-    top: { x: point.x, y: point.y - CLEARANCE },
-    right: { x: point.x + CLEARANCE, y: point.y },
-    bottom: { x: point.x, y: point.y + CLEARANCE },
-    left: { x: point.x - CLEARANCE, y: point.y },
+    top: { x: point.x, y: Math.min(point.y, rect.top) - CLEARANCE },
+    right: { x: Math.max(point.x, rect.right) + CLEARANCE, y: point.y },
+    bottom: { x: point.x, y: Math.max(point.y, rect.bottom) + CLEARANCE },
+    left: { x: Math.min(point.x, rect.left) - CLEARANCE, y: point.y },
   }[side];
 }
 
@@ -1738,7 +3487,36 @@ function shortestPath(
 }
 
 function segmentClear(a: Point, b: Point, obstacles: Rect[]): boolean {
-  return obstacles.every((obstacle) => !segmentIntersectsRect(a, b, obstacle));
+  return obstacles.every(
+    (obstacle) => !segmentIntersectsRect(a, b, obstacle) && !segmentHugsRectBorder(a, b, obstacle)
+  );
+}
+
+function segmentHugsRectBorder(a: Point, b: Point, rect: Rect): boolean {
+  // Label reserves use an anonymous sentinel node. Parallel labelled bundles
+  // may legitimately run on the conservative reserve boundary: the actual
+  // label box remains clear, and treating that synthetic edge as a solid
+  // node border would turn the second straight lane into a perimeter detour.
+  if (!rect.node.id) {
+    return false;
+  }
+  if (Math.abs(a.y - b.y) <= EPSILON) {
+    const onHorizontalBorder =
+      Math.abs(a.y - rect.top) <= BORDER_HUG_PROXIMITY ||
+      Math.abs(a.y - rect.bottom) <= BORDER_HUG_PROXIMITY;
+    const overlap =
+      Math.min(Math.max(a.x, b.x), rect.right) - Math.max(Math.min(a.x, b.x), rect.left);
+    return onHorizontalBorder && overlap >= BORDER_HUG_MIN_LENGTH;
+  }
+  if (Math.abs(a.x - b.x) <= EPSILON) {
+    const onVerticalBorder =
+      Math.abs(a.x - rect.left) <= BORDER_HUG_PROXIMITY ||
+      Math.abs(a.x - rect.right) <= BORDER_HUG_PROXIMITY;
+    const overlap =
+      Math.min(Math.max(a.y, b.y), rect.bottom) - Math.max(Math.min(a.y, b.y), rect.top);
+    return onVerticalBorder && overlap >= BORDER_HUG_MIN_LENGTH;
+  }
+  return false;
 }
 
 function segmentIntersectsRect(a: Point, b: Point, rect: Rect): boolean {
@@ -1839,13 +3617,62 @@ function pointAtDominantSegment(points: Point[]): Point {
   return { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
 }
 
-function selfLoop(rect: Rect, gridSpacing: number): Point[] {
+function selfLoopSide(node: Node, edges: Edge[], nodes: Map<string, Node>): Side {
+  const usage = new Map<Side, number>([
+    ['top', 0],
+    ['right', 0],
+    ['bottom', 0],
+    ['left', 0],
+  ]);
+  for (const edge of edges) {
+    const endpoint = edge.start === node.id ? 'start' : edge.end === node.id ? 'end' : undefined;
+    const otherId = endpoint === 'start' ? edge.end : endpoint === 'end' ? edge.start : undefined;
+    const other = otherId ? nodes.get(otherId) : undefined;
+    if (!endpoint || !other || other === node) {
+      continue;
+    }
+    const side = sideToward(node, other, endpoint);
+    usage.set(side, usage.get(side)! + 1);
+  }
+  // Side order gives a stable result when more than one side is unused. The
+  // left loop is a good default for a left-to-right fan because it stays out
+  // of the diagram's active downstream corridor.
+  const sides: Side[] = ['left', 'top', 'right', 'bottom'];
+  return sides.sort((first, second) => usage.get(first)! - usage.get(second)!)[0];
+}
+
+function selfLoop(rect: Rect, gridSpacing: number, side: Side): Point[] {
   const x = (rect.left + rect.right) / 2;
-  const reach = Math.max(CLEARANCE, gridSpacing / 4);
-  return [
-    { x: x - PORT_SPACING / 2, y: rect.top },
-    { x: x - PORT_SPACING / 2, y: rect.top - reach },
-    { x: x + PORT_SPACING / 2, y: rect.top - reach },
-    { x: x + PORT_SPACING / 2, y: rect.top },
-  ];
+  const y = (rect.top + rect.bottom) / 2;
+  // Self loops should read as local annotations, not span an entire grid
+  // cell. Keeping the reach within normal frame padding also avoids crossing
+  // an unrelated branch above or below the node.
+  const reach = Math.max(CLEARANCE, Math.min(gridSpacing / 4, 32));
+  const halfPortGap = PORT_SPACING / 2;
+  return {
+    top: [
+      { x: x - halfPortGap, y: rect.top },
+      { x: x - halfPortGap, y: rect.top - reach },
+      { x: x + halfPortGap, y: rect.top - reach },
+      { x: x + halfPortGap, y: rect.top },
+    ],
+    right: [
+      { x: rect.right, y: y - halfPortGap },
+      { x: rect.right + reach, y: y - halfPortGap },
+      { x: rect.right + reach, y: y + halfPortGap },
+      { x: rect.right, y: y + halfPortGap },
+    ],
+    bottom: [
+      { x: x - halfPortGap, y: rect.bottom },
+      { x: x - halfPortGap, y: rect.bottom + reach },
+      { x: x + halfPortGap, y: rect.bottom + reach },
+      { x: x + halfPortGap, y: rect.bottom },
+    ],
+    left: [
+      { x: rect.left, y: y - halfPortGap },
+      { x: rect.left - reach, y: y - halfPortGap },
+      { x: rect.left - reach, y: y + halfPortGap },
+      { x: rect.left, y: y + halfPortGap },
+    ],
+  }[side];
 }

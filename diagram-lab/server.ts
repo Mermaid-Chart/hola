@@ -27,8 +27,19 @@ import type { Request, Response } from 'express';
 import { packageOptions } from '../.build/common.js';
 import { generateLangium } from '../.build/generateLangium.js';
 import { defaultOptions, getBuildConfig } from '../.esbuild/util.js';
-import { detectDiagramType, mergeRecord, recordKey, recordsToCsv } from './src/server-utils.js';
-import type { LabRecord } from './src/server-utils.js';
+import {
+  KNOWN_LAB_LAYOUTS,
+  detectDiagramType,
+  emptyStore,
+  mergeRecord,
+  mergeStructure,
+  migrateStore,
+  recordKey,
+  resolveLayouts,
+  storeToCsv,
+} from './src/server-utils.js';
+import type { DiagramStructureRecord, LabStore, LayoutRecord } from './src/server-utils.js';
+import { LAYOUT_DEPENDENT_METRIC_KEYS } from './src/metrics/types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -52,16 +63,47 @@ function resolveLabPort(): number {
 
 const labPort = resolveLabPort();
 
-/** Corpus root. Defaults to the same dev-diagrams tree the Dev Explorer browses. */
+/**
+ * Corpus root — the folder you drop the diagrams you want to study into.
+ *
+ * Deliberately the lab's own `diagrams/` folder rather than the repo's
+ * 372-diagram example tree: the point of this tool is a small, deliberate set
+ * you are actually investigating. Point `MERMAID_LAB_ROOT` somewhere else (for
+ * example `e2e/platform/dev-diagrams`) to study an existing corpus instead.
+ */
 const corpusRootAbs = resolve(
   process.cwd(),
-  process.env.MERMAID_LAB_ROOT ??
-    process.env.MERMAID_DEV_EXPLORER_ROOT ??
-    'e2e/platform/dev-diagrams'
+  process.env.MERMAID_LAB_ROOT ?? 'diagram-lab/diagrams'
 );
 
 const dataDir = resolve(__dirname, 'data');
 const recordsPath = resolve(dataDir, process.env.MERMAID_LAB_RECORDS ?? 'records.json');
+
+/** Which layouts the lab offers. See diagram-lab/layouts.json. */
+const layoutsConfigPath = resolve(__dirname, 'layouts.json');
+let labLayouts: string[] = [...KNOWN_LAB_LAYOUTS];
+
+async function loadLayoutsConfig(): Promise<void> {
+  let configured: unknown;
+  try {
+    const raw = await fs.readFile(layoutsConfigPath, 'utf-8');
+    configured = (JSON.parse(raw) as { layouts?: unknown }).layouts;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+      console.warn('[lab] layouts.json could not be read; offering every known layout.', e);
+    }
+  }
+
+  const resolved = resolveLayouts(configured, process.env.MERMAID_LAB_LAYOUTS);
+  labLayouts = resolved.layouts;
+  if (resolved.unknown.length > 0) {
+    console.warn(
+      `[lab] Ignoring unknown layout(s) in ${resolved.source === 'env' ? 'MERMAID_LAB_LAYOUTS' : 'layouts.json'}: ` +
+        `${resolved.unknown.join(', ')}. Known: ${KNOWN_LAB_LAYOUTS.join(', ')}`
+    );
+  }
+  console.log(`[lab] layouts (${resolved.source}): ${labLayouts.join(', ')}`);
+}
 
 const publicDir = resolve(__dirname, 'public');
 const clientDistDir = resolve(__dirname, 'dist');
@@ -87,12 +129,19 @@ export interface CorpusEntry {
   name: string;
   /** Diagram keyword from the source, e.g. `flowchart`, `sequenceDiagram`. */
   diagramType: string;
+  /** sha256 of the file, so the client can tell stored metrics from stale ones. */
+  sourceHash: string;
   bytes: number;
   lineCount: number;
 }
 
 function toPosix(p: string): string {
   return p.split(path.sep).join('/');
+}
+
+/** Line endings normalised first, so a checkout on another platform is not "a change". */
+function hashSource(source: string): string {
+  return createHash('sha256').update(source.replace(/\r\n/g, '\n')).digest('hex');
 }
 
 async function walkCorpus(dir: string, acc: CorpusEntry[]): Promise<void> {
@@ -117,6 +166,7 @@ async function walkCorpus(dir: string, acc: CorpusEntry[]): Promise<void> {
         dir: rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '',
         name: entry.name.replace(/\.mmd$/, ''),
         diagramType: detectDiagramType(source),
+        sourceHash: hashSource(source),
         bytes: Buffer.byteLength(source, 'utf-8'),
         lineCount: source.split('\n').length,
       });
@@ -139,34 +189,33 @@ function resolveWithinCorpus(requested: unknown): { absPath: string; relPath: st
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Records store
+// Store
 //
-// One record per (diagram, layout) pair: the computed metrics plus whatever
-// score and note the operator typed. Kept as a single JSON file — the whole
-// point of the tool is that the table is small enough to read.
+// Two halves, for the reason documented in src/server-utils.ts: structure is a
+// property of the diagram and survives a layout change, layout metrics and the
+// operator's score belong to the (diagram, layout) pair.
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface RecordsFile {
-  version: 1;
-  updatedAt: string;
-  records: Record<string, LabRecord>;
-}
+let store: LabStore = emptyStore();
 
-let store: RecordsFile = { version: 1, updatedAt: new Date().toISOString(), records: {} };
-
-async function loadRecords(): Promise<void> {
+async function loadStore(): Promise<void> {
   try {
     const raw = await fs.readFile(recordsPath, 'utf-8');
-    const parsed = JSON.parse(raw) as RecordsFile;
-    if (parsed && typeof parsed === 'object' && parsed.records) {
-      store = { version: 1, updatedAt: parsed.updatedAt ?? '', records: parsed.records };
-      console.log(`[lab] Loaded ${Object.keys(store.records).length} record(s).`);
-      return;
+    const parsed: unknown = JSON.parse(raw);
+    const before = (parsed as { version?: number })?.version;
+    store = migrateStore(parsed, LAYOUT_DEPENDENT_METRIC_KEYS);
+    const migrated = before !== 2;
+    console.log(
+      `[lab] Loaded ${Object.keys(store.diagrams).length} diagram(s) and ` +
+        `${Object.keys(store.records).length} layout record(s)` +
+        (migrated ? ' (migrated from an older store format).' : '.')
+    );
+    if (migrated) {
+      await persistStore();
     }
-    console.warn('[lab] records file has an unexpected shape; starting empty.');
   } catch (e) {
     if ((e as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      console.warn('[lab] Could not read records file; starting empty.', e);
+      console.warn('[lab] Could not read the store; starting empty.', e);
     }
   }
 }
@@ -174,7 +223,7 @@ async function loadRecords(): Promise<void> {
 let writeQueue: Promise<void> = Promise.resolve();
 
 /** Serialised so two concurrent POSTs cannot interleave a read-modify-write. */
-function persistRecords(): Promise<void> {
+function persistStore(): Promise<void> {
   writeQueue = writeQueue.then(async () => {
     store.updatedAt = new Date().toISOString();
     await fs.mkdir(dataDir, { recursive: true });
@@ -185,10 +234,46 @@ function persistRecords(): Promise<void> {
   return writeQueue;
 }
 
-function upsertRecord(incoming: LabRecord): LabRecord {
+function upsertRecord(incoming: LayoutRecord): LayoutRecord {
   const key = recordKey(incoming.diagram, incoming.layout);
   const merged = mergeRecord(store.records[key], incoming);
   store.records[key] = merged;
+  return merged;
+}
+
+/**
+ * Move every stored entry for `from` onto `to`.
+ *
+ * The store is keyed by diagram path, so a rename would otherwise orphan every
+ * measurement and every score attached to the file.
+ */
+function renameInStore(from: string, to: string): void {
+  const structure = store.diagrams[from];
+  if (structure) {
+    delete store.diagrams[from];
+    store.diagrams[to] = { ...structure, diagram: to };
+  }
+  for (const [key, record] of Object.entries(store.records)) {
+    if (record.diagram === from) {
+      delete store.records[key];
+      store.records[recordKey(to, record.layout)] = { ...record, diagram: to };
+    }
+  }
+}
+
+/** Forget a diagram entirely: its structure and every layout record for it. */
+function forgetInStore(diagram: string): void {
+  delete store.diagrams[diagram];
+  for (const [key, record] of Object.entries(store.records)) {
+    if (record.diagram === diagram) {
+      delete store.records[key];
+    }
+  }
+}
+
+function upsertStructure(incoming: DiagramStructureRecord): DiagramStructureRecord {
+  const merged = mergeStructure(store.diagrams[incoming.diagram], incoming);
+  store.diagrams[incoming.diagram] = merged;
   return merged;
 }
 
@@ -293,8 +378,12 @@ async function buildClientBundle(): Promise<void> {
 }
 
 async function createServer(): Promise<void> {
+  // Make the drop folder exist, so a first run has somewhere obvious to put
+  // diagrams rather than failing the corpus listing.
+  await fs.mkdir(corpusRootAbs, { recursive: true });
   await generateLangium();
-  await loadRecords();
+  await loadLayoutsConfig();
+  await loadStore();
 
   const rebuildMermaid = await buildMermaidBundles();
   await buildClientBundle();
@@ -326,9 +415,21 @@ async function createServer(): Promise<void> {
     .watch(['public/**/*'], { cwd: __dirname, ignoreInitial: true })
     .on('all', () => sendReload());
 
+  // Editing layouts.json should take effect without restarting the server.
+  chokidar.watch(['layouts.json'], { cwd: __dirname, ignoreInitial: true }).on('all', () => {
+    void (async () => {
+      await loadLayoutsConfig();
+      sendReload();
+    })();
+  });
+
   const app = express();
   app.use(cors());
   app.get('/events', eventsHandler);
+
+  app.get('/api/config', (_req, res) => {
+    res.json({ layouts: labLayouts, known: KNOWN_LAB_LAYOUTS });
+  });
 
   app.get('/api/corpus', (_req, res) => {
     void (async () => {
@@ -337,6 +438,7 @@ async function createServer(): Promise<void> {
       entries.sort((a, b) => a.path.localeCompare(b.path, undefined, { sensitivity: 'base' }));
       res.json({
         root: toPosix(path.relative(process.cwd(), corpusRootAbs)),
+        rootAbs: corpusRootAbs,
         entries,
       });
     })();
@@ -357,27 +459,159 @@ async function createServer(): Promise<void> {
     })();
   });
 
-  app.get('/api/records', (_req, res) => {
+  /**
+   * Overwrite a diagram's source.
+   *
+   * Returns the new source hash so the client can tell its stored metrics are
+   * now stale without a full corpus reload.
+   */
+  app.put('/api/file', express.text({ type: '*/*', limit: '4mb' }), (req, res) => {
+    void (async () => {
+      try {
+        const { absPath, relPath } = resolveWithinCorpus(req.query.path);
+        if (!absPath.endsWith('.mmd')) {
+          res.status(400).json({ error: 'Only .mmd files are allowed' });
+          return;
+        }
+        if (typeof req.body !== 'string') {
+          res.status(400).json({ error: 'Expected a text/plain body' });
+          return;
+        }
+        const stats = await fs.stat(absPath);
+        if (!stats.isFile()) {
+          res.status(400).json({ error: 'Not a file' });
+          return;
+        }
+        await fs.writeFile(absPath, req.body, 'utf-8');
+        console.log(`[lab] saved ${relPath} (${Buffer.byteLength(req.body, 'utf-8')} bytes)`);
+        res.json({ path: relPath, sourceHash: hashSource(req.body) });
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') {
+          res.status(404).json({ error: 'No such diagram' });
+          return;
+        }
+        res.status(400).json({ error: 'Invalid path' });
+      }
+    })();
+  });
+
+  /**
+   * Rename a diagram inside the corpus.
+   *
+   * Refuses to clobber an existing file, and keeps the corpus flat-ish by
+   * rejecting a name that tries to climb out of the root. The store follows the
+   * rename so measurements and scores are not orphaned.
+   */
+  app.post('/api/file/rename', express.json({ limit: '64kb' }), (req, res) => {
+    void (async () => {
+      const body = req.body as { path?: string; name?: string } | undefined;
+      try {
+        const { absPath, relPath } = resolveWithinCorpus(body?.path);
+        const rawName = typeof body?.name === 'string' ? body.name.trim() : '';
+        if (!rawName || rawName.includes('/') || rawName.includes('\\') || rawName.includes('\0')) {
+          res.status(400).json({ error: 'Name must be a bare filename' });
+          return;
+        }
+        const newName = rawName.endsWith('.mmd') ? rawName : `${rawName}.mmd`;
+        if (newName === '.mmd' || newName.startsWith('.')) {
+          res.status(400).json({ error: 'Invalid filename' });
+          return;
+        }
+
+        const dir = path.dirname(absPath);
+        const target = resolve(dir, newName);
+        // resolveWithinCorpus again, so a crafted name cannot escape the root.
+        const { relPath: newRel } = resolveWithinCorpus(
+          toPosix(path.relative(corpusRootAbs, target))
+        );
+
+        if (target === absPath) {
+          res.json({ path: newRel, renamed: false });
+          return;
+        }
+        try {
+          await fs.access(target);
+          res.status(409).json({ error: `${newName} already exists` });
+          return;
+        } catch {
+          // ENOENT is what we want.
+        }
+
+        await fs.rename(absPath, target);
+        renameInStore(relPath, newRel);
+        await persistStore();
+        console.log(`[lab] renamed ${relPath} -> ${newRel}`);
+        res.json({ path: newRel, renamed: true });
+      } catch {
+        res.status(400).json({ error: 'Invalid path' });
+      }
+    })();
+  });
+
+  /** Delete a diagram from the corpus, and forget everything stored about it. */
+  app.delete('/api/file', (req, res) => {
+    void (async () => {
+      try {
+        const { absPath, relPath } = resolveWithinCorpus(req.query.path);
+        if (!absPath.endsWith('.mmd')) {
+          res.status(400).json({ error: 'Only .mmd files can be deleted' });
+          return;
+        }
+        await fs.unlink(absPath);
+        forgetInStore(relPath);
+        await persistStore();
+        console.log(`[lab] deleted ${relPath}`);
+        res.json({ ok: true, path: relPath });
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') {
+          res.status(404).json({ error: 'No such diagram' });
+          return;
+        }
+        res.status(400).json({ error: 'Invalid path' });
+      }
+    })();
+  });
+
+  app.get('/api/store', (_req, res) => {
     res.json(store);
   });
 
-  app.post('/api/records', express.json({ limit: '32mb' }), (req, res) => {
+  /**
+   * Upsert either half of the store, or both.
+   *
+   * A sweep sends both (one render produces both); a keystroke sends only a
+   * score. The merge helpers keep whichever half the payload leaves out.
+   */
+  app.post('/api/store', express.json({ limit: '32mb' }), (req, res) => {
     void (async () => {
-      const body = req.body as { records?: LabRecord[] } | undefined;
-      const incoming = Array.isArray(body?.records) ? body.records : [];
-      const saved: LabRecord[] = [];
-      for (const record of incoming) {
-        if (!record || typeof record.diagram !== 'string' || typeof record.layout !== 'string') {
-          continue;
+      const body = req.body as
+        | { diagrams?: DiagramStructureRecord[]; records?: LayoutRecord[] }
+        | undefined;
+
+      const savedDiagrams: DiagramStructureRecord[] = [];
+      for (const incoming of body?.diagrams ?? []) {
+        if (incoming && typeof incoming.diagram === 'string') {
+          savedDiagrams.push(upsertStructure(incoming));
         }
-        saved.push(upsertRecord(record));
       }
-      if (saved.length === 0) {
-        res.status(400).json({ error: 'No valid records in payload' });
+
+      const savedRecords: LayoutRecord[] = [];
+      for (const incoming of body?.records ?? []) {
+        if (
+          incoming &&
+          typeof incoming.diagram === 'string' &&
+          typeof incoming.layout === 'string'
+        ) {
+          savedRecords.push(upsertRecord(incoming));
+        }
+      }
+
+      if (savedDiagrams.length === 0 && savedRecords.length === 0) {
+        res.status(400).json({ error: 'No valid diagrams or records in payload' });
         return;
       }
-      await persistRecords();
-      res.json({ saved: saved.length, records: saved });
+      await persistStore();
+      res.json({ diagrams: savedDiagrams, records: savedRecords });
     })();
   });
 
@@ -385,22 +619,29 @@ async function createServer(): Promise<void> {
     void (async () => {
       const diagram = typeof req.query.diagram === 'string' ? req.query.diagram : undefined;
       const layout = typeof req.query.layout === 'string' ? req.query.layout : undefined;
-      if (!diagram || !layout) {
-        res.status(400).json({ error: 'diagram and layout are required' });
+      if (!diagram) {
+        res.status(400).json({ error: 'diagram is required' });
         return;
       }
-      delete store.records[recordKey(diagram, layout)];
-      await persistRecords();
+      if (layout) {
+        delete store.records[recordKey(diagram, layout)];
+      } else {
+        // No layout named: forget the diagram entirely, both halves.
+        delete store.diagrams[diagram];
+        for (const key of Object.keys(store.records)) {
+          if (store.records[key].diagram === diagram) {
+            delete store.records[key];
+          }
+        }
+      }
+      await persistStore();
       res.json({ ok: true });
     })();
   });
 
   app.get('/api/export.csv', (req, res) => {
     const layout = typeof req.query.layout === 'string' ? req.query.layout : undefined;
-    const rows = Object.values(store.records)
-      .filter((record) => !layout || record.layout === layout)
-      .sort((a, b) => a.diagram.localeCompare(b.diagram) || a.layout.localeCompare(b.layout));
-    res.type('text/csv').attachment('diagram-lab.csv').send(recordsToCsv(rows));
+    res.type('text/csv').attachment('diagram-lab.csv').send(storeToCsv(store, layout));
   });
 
   app.use(

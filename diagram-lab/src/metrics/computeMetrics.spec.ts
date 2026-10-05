@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { computeMetrics } from './computeMetrics.js';
+import { computeMetrics, mergeMetrics, splitMetrics } from './computeMetrics.js';
 import { buildGraphModel } from './graphModel.js';
+import { LAYOUT_DEPENDENT_METRIC_KEYS } from './types.js';
 import type { LabEdge, LabLayoutData, LabNode } from './types.js';
 
 function node(id: string, extra: Partial<LabNode> = {}): LabNode {
@@ -407,5 +408,64 @@ describe('buildGraphModel — robustness', () => {
       )
     );
     expect(model.groupIds).toEqual(['g1', 'g2']);
+  });
+});
+
+describe('splitMetrics / mergeMetrics', () => {
+  const laidOut = computeMetrics(
+    layout(placed([node('A'), node('B'), node('C')], { A: [0, 0], B: [100, 0], C: [200, 0] }), [
+      edge('A', 'B', { label: 'x' }),
+      edge('B', 'C'),
+    ])
+  ).metrics;
+
+  it('puts every metric in exactly one half', () => {
+    const { structural, layout: layoutHalf } = splitMetrics(laidOut);
+    const keys = [...Object.keys(structural), ...Object.keys(layoutHalf)].sort();
+    expect(keys).toEqual(Object.keys(laidOut).sort());
+    expect(Object.keys(structural).some((k) => k in layoutHalf)).toBe(false);
+  });
+
+  it('puts only the placement-dependent metrics in the layout half', () => {
+    const { layout: layoutHalf } = splitMetrics(laidOut);
+    expect(Object.keys(layoutHalf).sort()).toEqual([...LAYOUT_DEPENDENT_METRIC_KEYS].sort());
+  });
+
+  it('round-trips through a merge', () => {
+    const { structural, layout: layoutHalf } = splitMetrics(laidOut);
+    expect(mergeMetrics(structural, layoutHalf)).toEqual(laidOut);
+  });
+
+  it('keeps the structural half readable with no layout half — the layout-switch case', () => {
+    const { structural } = splitMetrics(laidOut);
+    const merged = mergeMetrics(structural, undefined);
+
+    // This is what a row looks like the moment you switch layout: structure
+    // intact, placement metrics blank until that pair is measured.
+    expect(merged?.nodeCount).toBe(3);
+    expect(merged?.edgeCount).toBe(2);
+    expect(merged?.degreeMax).toBe(2);
+    expect(merged?.isTree).toBe(true);
+    expect(merged?.nonPlanar).toBe(false);
+    expect(merged?.labeledEdgeRatio).toBeCloseTo(0.5);
+    for (const key of LAYOUT_DEPENDENT_METRIC_KEYS) {
+      expect(merged?.[key], key).toBeNull();
+    }
+  });
+
+  it('returns undefined when there is no structural half at all', () => {
+    expect(mergeMetrics(undefined, undefined)).toBeUndefined();
+  });
+
+  it('gives the same structural half whichever placement the layout chose', () => {
+    const otherPlacement = computeMetrics(
+      layout(placed([node('A'), node('B'), node('C')], { A: [0, 0], B: [0, 90], C: [70, 45] }), [
+        edge('A', 'B', { label: 'x' }),
+        edge('B', 'C'),
+      ])
+    ).metrics;
+
+    expect(splitMetrics(otherPlacement).structural).toEqual(splitMetrics(laidOut).structural);
+    expect(splitMetrics(otherPlacement).layout).not.toEqual(splitMetrics(laidOut).layout);
   });
 });

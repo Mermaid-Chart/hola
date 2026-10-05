@@ -254,6 +254,17 @@ describe('createCommonLayoutRenderer', () => {
       'paint',
       'after',
     ]);
+    expect(mocks.logDebug).toHaveBeenCalledWith(
+      'LAYOUT-DBG: node heights',
+      expect.objectContaining({
+        layout: undefined,
+        phase: 'after-measure',
+        nodes: [
+          expect.objectContaining({ id: 'A', height: 20 }),
+          expect.objectContaining({ id: 'B', height: 20 }),
+        ],
+      })
+    );
     for (const context of seenContexts) {
       expect(context.element).toBe(element);
       expect(context.options).toBe(options);

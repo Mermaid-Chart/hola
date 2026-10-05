@@ -1,0 +1,25 @@
+{
+  "nodes": [
+    {
+      "id": "a",
+      "width": 68.40625,
+      "height": 54
+    },
+    {
+      "id": "D",
+      "width": 156.390625,
+      "height": 156.390625
+    },
+    {
+      "id": "I",
+      "width": 108.921875,
+      "height": 108.921875
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "4d0d534b439e2bd26b2c14fa6063ed8cc89408631299440de548daaf02217c12",
+    "capturedAt": "2026-10-04T12:20:22.777Z",
+    "capturedFrom": "dev-explorer test-dataset/SIMPLE knsv2-25-flowchart-dagre-lr.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

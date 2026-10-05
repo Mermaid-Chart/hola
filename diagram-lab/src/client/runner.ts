@@ -13,6 +13,12 @@
  * - **Positions** come from `window.mermaidLastLayoutCapture`, the finished
  *   `LayoutData` — node centres and sizes, which is what stress and the drawing
  *   box need.
+ * - **The validator's verdict** comes from
+ *   `window.mermaidValidateLastLayoutSummary()`, the same `validateLayout` run
+ *   the Dev Explorer's validation panel shows. It grades the finished drawing,
+ *   so it is a property of the (diagram, layout) pair, and it is deliberately
+ *   invoked *after* the render returns rather than inside it — validation is
+ *   several quadratic passes and would otherwise hold the picture off screen.
  *
  * Both are installed by `layout-algorithms/ddlt/validationCapture.ts`, behind
  * the single `window.mermaidCaptureValidation` flag.
@@ -22,7 +28,13 @@
  */
 
 import { computeMetrics } from '../metrics/index.js';
-import type { DiagramMetrics, LabEdge, LabLayoutData, LabNode } from '../metrics/index.js';
+import type {
+  DiagramMetrics,
+  LabEdge,
+  LabLayoutData,
+  LabNode,
+  ValidationSummary,
+} from '../metrics/index.js';
 
 interface CapturedLayout {
   svgId: string;
@@ -50,6 +62,7 @@ declare global {
     mermaidCaptureValidation?: boolean;
     mermaidLastLayoutCapture?: CapturedLayout;
     mermaidLastStructureCapture?: CapturedStructure;
+    mermaidValidateLastLayoutSummary?: () => ValidationSummary | undefined;
   }
 }
 
@@ -71,6 +84,32 @@ async function getMermaid(): Promise<MermaidLike> {
   return mermaid;
 }
 
+/**
+ * Render settings that change the drawing without changing the diagram.
+ *
+ * An object rather than two more positional arguments: both are plain strings,
+ * so a swapped pair would be a silent wrong-measurement bug rather than a type
+ * error.
+ */
+export interface RenderSettings {
+  theme?: string;
+  look?: string;
+}
+
+const DEFAULT_THEME = 'default';
+const DEFAULT_LOOK = 'classic';
+
+/**
+ * Fixed seed for the `handDrawn` look.
+ *
+ * Mermaid's default seed of 0 means "pick a random one per render", which makes
+ * every rough-edge offset differ between runs. The lab exists to compare
+ * measurements, so a diagram measured twice under the same settings has to come
+ * out the same both times; pinning the seed is what makes that true. Harmless
+ * under the other looks, which never read it.
+ */
+const HAND_DRAWN_SEED = 1;
+
 let queue: Promise<unknown> = Promise.resolve();
 
 /**
@@ -79,8 +118,12 @@ let queue: Promise<unknown> = Promise.resolve();
  * Calls are serialised against each other, so callers may fire this in a loop
  * without coordinating.
  */
-export function runDiagram(source: string, layout: string, theme = 'default'): Promise<RunResult> {
-  const run = queue.then(() => renderAndMeasure(source, layout, theme));
+export function runDiagram(
+  source: string,
+  layout: string,
+  settings: RenderSettings = {}
+): Promise<RunResult> {
+  const run = queue.then(() => renderAndMeasure(source, layout, settings));
   // Keep the chain alive even when one diagram throws.
   queue = run.catch(() => undefined);
   return run;
@@ -118,7 +161,11 @@ export function graftPositions(
   };
 }
 
-async function renderAndMeasure(source: string, layout: string, theme: string): Promise<RunResult> {
+async function renderAndMeasure(
+  source: string,
+  layout: string,
+  settings: RenderSettings
+): Promise<RunResult> {
   const mermaid = await getMermaid();
 
   await mermaid.initialize({
@@ -126,7 +173,9 @@ async function renderAndMeasure(source: string, layout: string, theme: string): 
     securityLevel: 'strict',
     maxTextSize: LAB_MAX_TEXT_SIZE,
     maxEdges: LAB_MAX_EDGES,
-    theme,
+    theme: settings.theme ?? DEFAULT_THEME,
+    look: settings.look ?? DEFAULT_LOOK,
+    handDrawnSeed: HAND_DRAWN_SEED,
     layout,
     logLevel: 'error',
   });
@@ -148,10 +197,22 @@ async function renderAndMeasure(source: string, layout: string, theme: string): 
   }
 
   const captured = window.mermaidLastLayoutCapture;
-  const laidOut =
-    captured && captured.capturedAt !== layoutBefore ? captured.layout : { nodes: [], edges: [] };
+  const hasLayout = Boolean(captured && captured.capturedAt !== layoutBefore);
+  const laidOut = hasLayout ? (captured as CapturedLayout).layout : { nodes: [], edges: [] };
 
-  const { metrics } = computeMetrics(graftPositions(structure, laidOut));
+  // Only meaningful when this render actually produced a layout capture —
+  // otherwise the accessor would grade whatever drawing came before.
+  let validation: ValidationSummary | undefined;
+  if (hasLayout) {
+    try {
+      validation = window.mermaidValidateLastLayoutSummary?.();
+    } catch (e) {
+      // A validator crash must not lose the metrics that did compute.
+      console.warn('[lab] validateLayout failed', e);
+    }
+  }
+
+  const { metrics } = computeMetrics(graftPositions(structure, laidOut), validation);
   return { metrics, svg, durationMs };
 }
 
@@ -159,10 +220,10 @@ async function renderAndMeasure(source: string, layout: string, theme: string): 
 export async function tryRunDiagram(
   source: string,
   layout: string,
-  theme = 'default'
+  settings: RenderSettings = {}
 ): Promise<{ ok: true; result: RunResult } | { ok: false; error: string }> {
   try {
-    return { ok: true, result: await runDiagram(source, layout, theme) };
+    return { ok: true, result: await runDiagram(source, layout, settings) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

@@ -140,7 +140,9 @@ QSTR
 raykov
 Raykov
 readmodel
+reconverging
 reinit
+relayout
 rels
 reqs
 resetframe

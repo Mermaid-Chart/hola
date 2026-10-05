@@ -3,13 +3,22 @@
  * sort key and the tooltip that says what the number actually means.
  */
 
+import { isLayoutDependentMetric } from '../metrics/index.js';
 import type { DiagramMetrics } from '../metrics/index.js';
-import type { CorpusEntry, LabRecord } from './api.js';
+import type { CorpusEntry, DiagramStructureRecord, LayoutRecord } from './api.js';
 
 export interface Row {
   entry: CorpusEntry;
-  record?: LabRecord;
+  /** Layout-independent half — survives a layout change. */
+  structure?: DiagramStructureRecord;
+  /** The (diagram, layout) half for the layout currently selected. */
+  record?: LayoutRecord;
+  /** The two halves recombined for display. */
   metrics?: DiagramMetrics;
+  /** The stored structure was measured from a different version of the file. */
+  structureStale: boolean;
+  /** The stored layout metrics were measured from a different version of the file. */
+  layoutStale: boolean;
 }
 
 export type CellValue = string | number | boolean | null;
@@ -19,6 +28,13 @@ export interface Column {
   label: string;
   title: string;
   numeric: boolean;
+  /**
+   * Whether this column's value changes when the layout changes.
+   *
+   * Derived from the metrics package's own key list rather than restated here,
+   * so the header marker can never drift from what the store actually splits.
+   */
+  layoutDependent: boolean;
   /** Sort key and CSV-ish value. `null` sorts last in both directions. */
   value: (row: Row) => CellValue;
   /** What the cell shows. */
@@ -60,7 +76,9 @@ function metric<K extends keyof DiagramMetrics>(row: Row, key: K): DiagramMetric
   return row.metrics?.[key];
 }
 
-export const COLUMNS: Column[] = [
+type ColumnSpec = Omit<Column, 'layoutDependent'>;
+
+const COLUMN_SPECS: ColumnSpec[] = [
   {
     key: 'diagram',
     label: 'Diagram',
@@ -89,6 +107,26 @@ export const COLUMNS: Column[] = [
         : String(row.record.score),
     cellClass: (row) =>
       row.record?.score === null || row.record?.score === undefined ? '' : 'has-score',
+  },
+  {
+    key: 'acceptable',
+    label: 'ok?',
+    title:
+      'Your verdict: is this layout good enough to ship for this diagram? Separate from the validator, which only says the drawing is not broken.',
+    numeric: true,
+    value: (row) => (row.record?.acceptable ?? null) as CellValue,
+    text: (row) =>
+      row.record?.acceptable === undefined || row.record?.acceptable === null
+        ? '—'
+        : row.record.acceptable
+          ? '✓'
+          : '✗',
+    cellClass: (row) =>
+      row.record?.acceptable === true
+        ? 'flag-ok'
+        : row.record?.acceptable === false
+          ? 'flag-bad'
+          : '',
   },
   {
     key: 'nodeCount',
@@ -151,7 +189,8 @@ export const COLUMNS: Column[] = [
   {
     key: 'isTree',
     label: 'tree',
-    title: 'Connected and acyclic when read as an undirected graph',
+    title:
+      'Connected and acyclic, read as an undirected graph. Parallel edges and self-loops are collapsed first, so A-->B plus B-->A is one edge here even though E counts two.',
     numeric: true,
     value: (row) => (metric(row, 'isTree') ?? null) as CellValue,
     text: (row) => flag(metric(row, 'isTree'), 'yes'),
@@ -194,6 +233,45 @@ export const COLUMNS: Column[] = [
     text: (row) => fmtRatio(metric(row, 'stressNormalized'), 3),
   },
   {
+    key: 'validationScore',
+    label: 'valid',
+    title:
+      'validateLayout score in [0, 1000] — the same number the Dev Explorer validation panel and the DDLT sweep read by. Zero when the layout is invalid. Higher is better.',
+    numeric: true,
+    value: (row) => metric(row, 'validationScore') ?? null,
+    text: (row) => fmtNumber(metric(row, 'validationScore')),
+    cellClass: (row) => {
+      const score = metric(row, 'validationScore');
+      if (score === null || score === undefined) {
+        return '';
+      }
+      if (metric(row, 'validationOk') === false) {
+        return 'flag-bad';
+      }
+      return score >= 900 ? 'flag-ok' : score >= 700 ? 'flag-warn' : 'flag-bad';
+    },
+  },
+  {
+    key: 'validationHardIssues',
+    label: 'hard',
+    title:
+      'Issues that make the layout invalid, as opposed to merely lowering the score. Any above zero means validationOk is false.',
+    numeric: true,
+    value: (row) => metric(row, 'validationHardIssues') ?? null,
+    text: (row) => fmtNumber(metric(row, 'validationHardIssues')),
+    cellClass: (row) => ((metric(row, 'validationHardIssues') ?? 0) > 0 ? 'flag-bad' : ''),
+  },
+  {
+    key: 'crossings',
+    label: 'cross',
+    title:
+      'Edge crossings the validator counted. Read next to non-planar: a non-planar graph must cross at least once, so crossings above that floor are the layout\u2019s own doing.',
+    numeric: true,
+    value: (row) => metric(row, 'crossings') ?? null,
+    text: (row) => fmtNumber(metric(row, 'crossings')),
+    cellClass: (row) => ((metric(row, 'crossings') ?? 0) > 0 ? 'flag-warn' : ''),
+  },
+  {
     key: 'drawingArea',
     label: 'size',
     title: 'Bounding box of the drawing, width × height in layout px',
@@ -209,6 +287,14 @@ export const COLUMNS: Column[] = [
     },
   },
 ];
+
+/** Columns that belong to the (diagram, layout) pair but are not metric keys. */
+const EXTRA_LAYOUT_DEPENDENT = new Set(['score', 'acceptable']);
+
+export const COLUMNS: Column[] = COLUMN_SPECS.map((spec) => ({
+  ...spec,
+  layoutDependent: isLayoutDependentMetric(spec.key) || EXTRA_LAYOUT_DEPENDENT.has(spec.key),
+}));
 
 export const SORTABLE_KEYS = new Set(COLUMNS.map((column) => column.key));
 

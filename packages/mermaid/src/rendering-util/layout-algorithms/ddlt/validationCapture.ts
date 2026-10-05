@@ -1,6 +1,6 @@
 import type { Selection } from 'd3';
 import type { LayoutData } from '../../types.js';
-import { validateLayout } from '../layout-utils/validateLayout.js';
+import { isSoftIssueType, validateLayout } from '../layout-utils/validateLayout.js';
 import type { ValidateLayoutResult } from '../layout-utils/validateLayout.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,6 +111,7 @@ export function captureLayoutForValidation(element: D3Selection, data4Layout: La
     const captured = getCaptureGlobal()?.mermaidLastLayoutCapture;
     return captured ? validateLayout(captured.layout) : undefined;
   };
+  installValidationSummary();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,5 +197,87 @@ export function captureStructureBeforeLayout(data4Layout: LayoutData): void {
       isLayoutOnly: edge.isLayoutOnly,
       labelNodeId: edge.labelNodeId,
     })),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Validation summary (dev / test tooling — NOT part of production rendering)
+//
+// `mermaidValidateLastLayout` hands back the full `ValidateLayoutResult`, which
+// is what a panel wants when it is going to render every issue. A tool that only
+// wants to *record* the verdict needs a few numbers instead — and, crucially,
+// needs to split hard issues from soft ones the same way the validator does.
+//
+// That split lives in `isSoftIssueType`. A consumer outside this package would
+// have to copy the list and would then drift from it silently, so the summary is
+// produced here, where the real predicate is in scope.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ValidationIssueTally {
+  type: string;
+  count: number;
+  soft: boolean;
+}
+
+export interface CapturedValidationSummary {
+  /** Whether the layout is valid at all. `score` is 0 when this is false. */
+  ok: boolean;
+  /** DDLT headline score in [0, 1000]. */
+  score: number;
+  issueCount: number;
+  /** Issues that make the layout invalid, as opposed to merely lowering the score. */
+  hardIssueCount: number;
+  softIssueCount: number;
+  /** Edge crossings counted globally by the validator. */
+  crossings: number;
+  /** Issue counts by type, most frequent first, hard types before soft ones. */
+  byType: ValidationIssueTally[];
+}
+
+interface ValidationSummaryGlobal {
+  mermaidValidateLastLayoutSummary?: () => CapturedValidationSummary | undefined;
+}
+
+function summarise(result: ValidateLayoutResult): CapturedValidationSummary {
+  const tally = new Map<string, ValidationIssueTally>();
+  let hardIssueCount = 0;
+  for (const issue of result.issues) {
+    const soft = isSoftIssueType(issue.type);
+    if (!soft) {
+      hardIssueCount++;
+    }
+    const entry = tally.get(issue.type);
+    if (entry) {
+      entry.count++;
+    } else {
+      tally.set(issue.type, { type: issue.type, count: 1, soft });
+    }
+  }
+
+  return {
+    ok: result.ok,
+    score: result.score,
+    issueCount: result.issues.length,
+    hardIssueCount,
+    softIssueCount: result.issues.length - hardIssueCount,
+    crossings: result.breakdown?.crossings ?? 0,
+    byType: [...tally.values()].sort((a, b) =>
+      a.soft === b.soft ? b.count - a.count : Number(a.soft) - Number(b.soft)
+    ),
+  };
+}
+
+/**
+ * Install `window.mermaidValidateLastLayoutSummary` next to the full-result
+ * accessor. Called from {@link captureLayoutForValidation}.
+ */
+export function installValidationSummary(): void {
+  if (typeof globalThis === 'undefined') {
+    return;
+  }
+  const g = globalThis as unknown as ValidationSummaryGlobal & ValidationCaptureGlobal;
+  g.mermaidValidateLastLayoutSummary = () => {
+    const result = g.mermaidValidateLastLayout?.();
+    return result ? summarise(result) : undefined;
   };
 }

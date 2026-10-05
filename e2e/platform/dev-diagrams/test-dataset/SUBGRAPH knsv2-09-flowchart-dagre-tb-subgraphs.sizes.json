@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "process_C",
+      "width": 131.28125,
+      "height": 54
+    },
+    {
+      "id": "process_B",
+      "width": 130.765625,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "f9fa4aafd4b30c71945e340c730b07fed374d779885e154d3d41c71f96f23c92",
+    "capturedAt": "2026-10-04T09:59:59.359Z",
+    "capturedFrom": "dev-explorer test-dataset/SUBGRAPH knsv2-09-flowchart-dagre-tb-subgraphs.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

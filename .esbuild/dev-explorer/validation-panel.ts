@@ -120,6 +120,8 @@ export class DevValidationPanel extends LitElement {
     copyMsg: { state: true },
     diagram: { state: true },
     layout: { state: true },
+    look: { state: true },
+    theme: { state: true },
   };
 
   declare state: ValidationState;
@@ -131,12 +133,15 @@ export class DevValidationPanel extends LitElement {
   /** Transient feedback for the copy button. */
   declare copyMsg: string;
   /**
-   * What was graded. Carried only so the copied JSON says which diagram and
-   * which layout produced the score — a bare score pasted into an issue is
-   * not worth much.
+   * What was graded. Carried only so the copied JSON says which diagram, and
+   * under which render settings, produced the score — a bare score pasted into
+   * an issue is not worth much. Look and theme are in there because both change
+   * node sizing, and so change the geometry the validator grades.
    */
   declare diagram: string;
   declare layout: string;
+  declare look: string;
+  declare theme: string;
 
   constructor() {
     super();
@@ -148,6 +153,8 @@ export class DevValidationPanel extends LitElement {
     this.copyMsg = '';
     this.diagram = '';
     this.layout = '';
+    this.look = '';
+    this.theme = '';
   }
 
   createRenderRoot() {
@@ -174,6 +181,8 @@ export class DevValidationPanel extends LitElement {
     return {
       diagram: this.diagram || undefined,
       layout: this.layout || undefined,
+      look: this.look || undefined,
+      theme: this.theme || undefined,
       validatedAt: new Date().toISOString(),
       durationMs: Number(this.durationMs.toFixed(3)),
       ok: result?.ok,

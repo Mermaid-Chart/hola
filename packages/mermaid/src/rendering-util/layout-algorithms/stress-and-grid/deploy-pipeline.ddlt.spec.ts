@@ -148,7 +148,7 @@ describe('stress-and-grid DDLT — deploy-pipeline.mmd', () => {
     }
   });
 
-  it('attaches incoming decision edges at their diamond vertex', async () => {
+  it('attaches single incoming decision edges at their facing vertex', async () => {
     const layout = await runDeployPipeline();
     const nodeById = new Map(layout.nodes.map((node) => [node.id, node]));
 
@@ -158,8 +158,10 @@ describe('stress-and-grid DDLT — deploy-pipeline.mmd', () => {
       const port = edge.points!.at(-1)!;
 
       expect(
-        (Math.abs(port.x - node.x!) <= 1e-6 && Math.abs(port.y - node.y!) === node.height! / 2) ||
-          (Math.abs(port.y - node.y!) <= 1e-6 && Math.abs(port.x - node.x!) === node.width! / 2)
+        (Math.abs(port.x - node.x!) <= 1e-6 &&
+          Math.abs(Math.abs(port.y - node.y!) - node.height! / 2) <= 1e-6) ||
+          (Math.abs(port.y - node.y!) <= 1e-6 &&
+            Math.abs(Math.abs(port.x - node.x!) - node.width! / 2) <= 1e-6)
       ).toBe(true);
     }
   });

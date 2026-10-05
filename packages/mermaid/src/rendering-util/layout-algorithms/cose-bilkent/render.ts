@@ -13,6 +13,27 @@ interface NodeWithPosition extends Node {
   id?: string;
 }
 
+type HeightSnapshotNode = Pick<NodeWithPosition, 'id' | 'width' | 'height' | 'x' | 'y'>;
+
+function logNodeHeights(
+  log: InternalHelpers['log'],
+  layout: string | undefined,
+  phase: string,
+  nodes: Iterable<HeightSnapshotNode>
+): void {
+  log.debug('LAYOUT-DBG: node heights', {
+    layout,
+    phase,
+    nodes: [...nodes].map((node) => ({
+      id: node.id,
+      width: node.width,
+      height: node.height,
+      x: node.x,
+      y: node.y,
+    })),
+  });
+}
+
 /**
  * Render function for cose-bilkent layout algorithm
  *
@@ -48,6 +69,8 @@ export const render = async (
   const edgeLabels = element.insert('g').attr('class', 'edgeLabels');
   const nodes = element.insert('g').attr('class', 'nodes');
 
+  logNodeHeights(log, data4Layout.layoutAlgorithm, 'after-prepare', data4Layout.nodes);
+
   // Step 1: Insert nodes into DOM to get their actual dimensions
   log.debug('Inserting nodes into DOM for dimension calculation');
 
@@ -82,6 +105,7 @@ export const render = async (
       }
     })
   );
+  logNodeHeights(log, data4Layout.layoutAlgorithm, 'after-measure', Object.values(nodeDb));
 
   // Step 2: Run the cose-bilkent layout algorithm
   log.debug('Running cose-bilkent layout algorithm');
@@ -100,6 +124,7 @@ export const render = async (
   };
 
   const layoutResult = await executeCoseBilkentLayout(updatedLayoutData, data4Layout.config);
+  logNodeHeights(log, data4Layout.layoutAlgorithm, 'after-layout', layoutResult.nodes);
 
   // Step 3: Position the nodes based on layout results
   log.debug('Positioning nodes based on layout results');
@@ -192,6 +217,8 @@ export const render = async (
       }
     })
   );
+
+  logNodeHeights(log, data4Layout.layoutAlgorithm, 'after-paint', Object.values(nodeDb));
 
   log.debug('Cose-bilkent rendering completed');
 };

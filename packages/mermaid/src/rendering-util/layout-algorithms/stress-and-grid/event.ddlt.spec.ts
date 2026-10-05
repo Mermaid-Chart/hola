@@ -26,14 +26,14 @@ async function runEvent(): Promise<LayoutData> {
 describe('stress-and-grid DDLT — nested event subgraphs', () => {
   it('keeps nested frames padded and routes edges outside foreign frames', async () => {
     const layout = await runEvent();
-    const hardIssues = validateLayout(layout).issues.filter(
-      (issue) => issue.type !== 'group-dead-space'
-    );
+    const validation = validateLayout(layout);
+    const hardIssues = validation.issues.filter((issue) => issue.type !== 'group-dead-space');
 
     expect(hardIssues).toEqual([]);
+    expect(validation.breakdown.crossings).toBe(0);
     expect(
       layout.edges.find((edge) => edge.id === 'L_presetKey_updateKnob_0')?.points
-    ).toHaveLength(5);
+    ).toHaveLength(4);
     expect(
       layout.edges
         .filter((edge) =>

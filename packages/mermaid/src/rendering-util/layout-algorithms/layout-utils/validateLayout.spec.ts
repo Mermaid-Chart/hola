@@ -27,6 +27,67 @@ function getIssueTypes(layout: LayoutData): string[] {
   return res.issues.map((i) => i.type);
 }
 
+describe('slanted polygon outlines', () => {
+  it.each([
+    { shape: 'trap-b', x: 75, fromY: -20, toY: 0 },
+    { shape: 'lean-l', x: -75, fromY: 0, toY: 20 },
+  ])('does not mistake the empty $shape bbox wedge for material', ({ shape, x, fromY, toY }) => {
+    const obstacle = { ...mkNode('O', 0, 0, 160, 40), shape } as Node;
+    const edge = mkEdge('e', undefined, undefined, [
+      { x, y: fromY },
+      { x, y: toY },
+    ]);
+    expect(getIssueTypes({ nodes: [obstacle], edges: [edge], config: EMPTY_CONFIG })).not.toContain(
+      'edge-intersects-obstacle'
+    );
+  });
+  it('accepts horizontal attachments on actual trapezoid/parallelogram slopes', () => {
+    const a = { ...mkNode('A', 0, 0, 160, 40), shape: 'trap-b' } as Node;
+    const b = { ...mkNode('B', 320, 0, 160, 40), shape: 'lean-l' } as Node;
+    const edge = mkEdge('e', 'A', 'B', [
+      { x: 70, y: 0 },
+      { x: 250, y: 0 },
+    ]);
+    expect(validateLayout({ nodes: [a, b], edges: [edge], config: EMPTY_CONFIG }).issues).toEqual(
+      []
+    );
+  });
+
+  it.each(['trap-b', 'lean-l'])('still rejects edges through the %s body', (shape) => {
+    const obstacle = { ...mkNode('O', 0, 0, 160, 40), shape } as Node;
+    const edge = mkEdge('e', undefined, undefined, [
+      { x: -100, y: 0 },
+      { x: 100, y: 0 },
+    ]);
+    expect(getIssueTypes({ nodes: [obstacle], edges: [edge], config: EMPTY_CONFIG })).toContain(
+      'edge-intersects-obstacle'
+    );
+  });
+
+  it.each(['trap-b', 'lean-l'])('still rejects interior endpoints on %s', (shape) => {
+    const a = { ...mkNode('A', 0, 0, 160, 40), shape } as Node;
+    const b = mkNode('B', 320, 0);
+    const edge = mkEdge('e', 'A', 'B', [
+      { x: 0, y: 0 },
+      { x: 300, y: 0 },
+    ]);
+    expect(getIssueTypes({ nodes: [a, b], edges: [edge], config: EMPTY_CONFIG })).toContain(
+      'edge-endpoint-inside-node'
+    );
+  });
+
+  it.each(['trap-b', 'lean-l'])('rejects actual %s vertices rather than bbox corners', (shape) => {
+    const a = { ...mkNode('A', 0, 0, 160, 40), shape } as Node;
+    const edge = mkEdge('e', 'A', undefined, [
+      { x: 60, y: -20 },
+      { x: 200, y: -20 },
+    ]);
+    expect(getIssueTypes({ nodes: [a], edges: [edge], config: EMPTY_CONFIG })).toContain(
+      'edge-corner-connection'
+    );
+  });
+});
+
 describe('validateLayout scoring (DDLT unified, 0–1000 fixed cap)', () => {
   it('returns 1000 for a clean tiny graph (no penalties)', () => {
     // Two nodes, one straight 2-point edge: 0 bends, 0 crossings.
@@ -606,6 +667,19 @@ describe('validateLayout new geometric issues', () => {
     const layout: LayoutData = { nodes: [source, target], edges: [e], config: {} as any };
 
     expect(getIssueTypes(layout)).not.toContain('edge-intersects-obstacle');
+  });
+
+  it('accepts diamond slope inputs while rejecting ports away from the outline', () => {
+    const source = mkNode('Source', -150, -25, 40, 40);
+    const target: Node = { ...mkNode('Target', 0, 0, 100, 100), isGroup: false, shape: 'diamond' };
+    const edge = mkEdge('e', 'Source', 'Target', [
+      { x: -130, y: -25 },
+      { x: -25, y: -25 },
+    ]);
+    const layout: LayoutData = { nodes: [source, target], edges: [edge], config: EMPTY_CONFIG };
+    expect(getIssueTypes(layout)).not.toContain('port-off-diamond-corner');
+    edge.points![1] = { x: -10, y: -10 };
+    expect(getIssueTypes(layout)).toContain('port-off-diamond-corner');
   });
 
   it('still flags an edge that crosses the real interior of a circular obstacle', () => {
@@ -1361,6 +1435,29 @@ describe('validateLayout new geometric issues', () => {
     const c = { ...mkGroup('C', 0, 0, 150, 150), parentId: 'G' } as unknown as Node;
     const res = validateLayout({ nodes: [g, c], edges: [], config: {} as any });
     expect(res.issues.map((i) => i.type)).not.toContain('group-group-padding');
+  });
+
+  it('does NOT treat a direct group-to-group edge as foreign frame traversal', () => {
+    const parent = mkGroup('parent', 0, 0, 320, 320);
+    const source = { ...mkGroup('source', 0, 100, 140, 80), parentId: 'parent' } as Node;
+    const target = { ...mkGroup('target', 0, -100, 140, 80), parentId: 'parent' } as Node;
+    const sourceMember = { ...mkNode('sourceMember', 0, 100), parentId: 'source' } as Node;
+    const targetMember = { ...mkNode('targetMember', 0, -100), parentId: 'target' } as Node;
+    // The terminal points are just inside the frames, as can happen after
+    // renderer-side attachment-point rounding. The frames are literal edge
+    // endpoints, so neither can be foreign to the route.
+    const edge = mkEdge('source-target', 'source', 'target', [
+      { x: 0, y: 61 },
+      { x: 0, y: -61 },
+    ]);
+
+    const res = validateLayout({
+      nodes: [parent, source, target, sourceMember, targetMember],
+      edges: [edge],
+      config: {} as any,
+    });
+
+    expect(res.issues.map((issue) => issue.type)).not.toContain('edge-crosses-foreign-group');
   });
 
   // ---- edge-to-group-too-short / node-close-to-own-frame (SOFT, graded) ----

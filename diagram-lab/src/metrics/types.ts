@@ -136,6 +136,23 @@ export interface DiagramMetrics {
    */
   stressNodeCount: number | null;
 
+  // ── Validator verdict ──────────────────────────────────────────────────────
+  // Straight from `layout-utils/validateLayout.ts`, the same 0–1000 score the
+  // Dev Explorer's validation panel and the DDLT sweep read by. It grades the
+  // finished drawing, so it belongs to the (diagram, layout) pair like stress.
+  /** DDLT headline score in [0, 1000]. Zero when the layout is invalid. */
+  validationScore: number | null;
+  /** Whether the layout is valid at all — not whether *you* find it acceptable. */
+  validationOk: boolean | null;
+  /** Every issue the validator raised. */
+  validationIssues: number | null;
+  /** Issues that make the layout invalid, as opposed to merely lowering the score. */
+  validationHardIssues: number | null;
+  /** Edge crossings the validator counted. Read next to `nonPlanar`: a non-planar
+   *  graph must cross at least once, so crossings above that floor are the
+   *  layout's own doing. */
+  crossings: number | null;
+
   // ── Subgraphs ──────────────────────────────────────────────────────────────
   /** `true` when the diagram declares at least one subgraph. */
   hasSubgraphs: boolean;
@@ -145,4 +162,60 @@ export interface DiagramMetrics {
   hasSubgraphBoundaryEdges: boolean;
   /** Ids of the subgraphs an outside edge reaches into. */
   piercedSubgraphIds: string[];
+}
+
+/**
+ * The metrics that depend on where the layout put things.
+ *
+ * Everything *not* in this list is a property of the parsed diagram and comes
+ * out identical whichever layout ran — which is why the lab stores the two
+ * halves separately, keyed by diagram and by (diagram, layout) respectively.
+ * Switching layout therefore leaves the structural columns standing.
+ *
+ * This set is the single source of truth for that split: the store, the table
+ * header markers and the sweep all read it.
+ */
+export const LAYOUT_DEPENDENT_METRIC_KEYS = [
+  'drawingWidth',
+  'drawingHeight',
+  'drawingArea',
+  'stress',
+  'stressNormalized',
+  'stressOptimalEdgeLength',
+  'stressNodeCount',
+  'validationScore',
+  'validationOk',
+  'validationIssues',
+  'validationHardIssues',
+  'crossings',
+] as const;
+
+export type LayoutMetricKey = (typeof LAYOUT_DEPENDENT_METRIC_KEYS)[number];
+
+/** The half of {@link DiagramMetrics} that changes when the layout changes. */
+export type LayoutMetrics = Pick<DiagramMetrics, LayoutMetricKey>;
+
+/** The half of {@link DiagramMetrics} that is a property of the diagram alone. */
+export type StructuralMetrics = Omit<DiagramMetrics, LayoutMetricKey>;
+
+export function isLayoutDependentMetric(key: string): key is LayoutMetricKey {
+  return (LAYOUT_DEPENDENT_METRIC_KEYS as readonly string[]).includes(key);
+}
+
+/**
+ * The validator's verdict, as `installValidationSummary` in
+ * `layout-algorithms/ddlt/validationCapture.ts` hands it over.
+ *
+ * Structurally mirrored rather than imported, for the same reason the node and
+ * edge types are: this package must not pull the Mermaid runtime into the lab
+ * bundle.
+ */
+export interface ValidationSummary {
+  ok: boolean;
+  score: number;
+  issueCount: number;
+  hardIssueCount: number;
+  softIssueCount: number;
+  crossings: number;
+  byType: { type: string; count: number; soft: boolean }[];
 }

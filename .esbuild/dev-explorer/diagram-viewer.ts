@@ -897,6 +897,8 @@ export class DevDiagramViewer extends LitElement {
       // Context for the copied JSON, so a pasted score says what produced it.
       panel.diagram = this.filePath;
       panel.layout = this.layout;
+      panel.look = this.look;
+      panel.theme = this.theme;
       panel.state = 'done';
     } catch (err) {
       panel.error = err instanceof Error ? err.message : String(err);

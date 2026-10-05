@@ -1,0 +1,25 @@
+{
+  "nodes": [
+    {
+      "id": "A",
+      "width": 63.4375,
+      "height": 63.4375
+    },
+    {
+      "id": "B",
+      "width": 69.0625,
+      "height": 54
+    },
+    {
+      "id": "C",
+      "width": 69.578125,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "6f424b9f068570dc680d8b1f3f95ebfa5f96a430b18e0a183f8216e0fd5ab598",
+    "capturedAt": "2026-10-04T10:10:44.710Z",
+    "capturedFrom": "dev-explorer test-dataset/SIMPLE knsv2-27-flowchart-dagre-lr-subgraphs.mmd theme=default look=classic layout=ipsep-cola"
+  }
+}
