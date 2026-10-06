@@ -1,4 +1,4 @@
-import type { Axis, Curve, Option } from '../../../../parser/dist/src/language/generated/ast.js';
+import type { Radar } from '@mermaid-js/parser';
 import type { RadarDiagramConfig } from '../../config.type.js';
 import type { DiagramDBBase } from '../../diagram-api/types.js';
 
@@ -22,9 +22,9 @@ export interface RadarDB extends DiagramDBBase<RadarDiagramConfig> {
   getAxes: () => RadarAxis[];
   getCurves: () => RadarCurve[];
   getOptions: () => RadarOptions;
-  setAxes: (axes: Axis[]) => void;
-  setCurves: (curves: Curve[]) => void;
-  setOptions: (options: Option[]) => void;
+  setAxes: (axes: Radar['axes']) => void;
+  setCurves: (curves: Radar['curves']) => void;
+  setOptions: (options: Radar['options']) => void;
 }
 
 export interface RadarStyleOptions {

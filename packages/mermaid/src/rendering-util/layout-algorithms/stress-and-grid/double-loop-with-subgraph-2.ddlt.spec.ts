@@ -37,7 +37,7 @@ describe('stress-and-grid DDLT — double loop with subgraphs', () => {
     for (const [frameId, memberIds] of [
       ['top', ['T1', 'T2', 'T3', 'T4', 'T5']],
       ['down', ['B1', 'B2', 'B3', 'B4', 'B5']],
-    ]) {
+    ] as const) {
       const frame = nodes.get(frameId)!;
       const left = frame.x! - frame.width! / 2;
       const right = frame.x! + frame.width! / 2;

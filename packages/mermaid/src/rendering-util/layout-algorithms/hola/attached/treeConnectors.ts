@@ -45,7 +45,8 @@
  * just starts on the shape instead of on its box.
  */
 
-import type { Edge, Point } from '../../../../types.js';
+import type { Point } from '../../../../types.js';
+import type { Edge } from '../../../types.js';
 import type { Cardinal, Direction, HolaGraph, Rect, Side, Silhouette } from '../core/model.js';
 import { oppositeSide, sideOfCardinal } from '../core/model.js';
 import { silhouetteBand, silhouettePort } from '../core/adapter/silhouette.js';

@@ -161,6 +161,19 @@ const structuralVariants = [
         process_B -->|via_AWSBatch| container_Beta
       end`,
   },
+  {
+    name: 'multiline entry captions',
+    leaves: 6,
+    code: `flowchart LR
+      subgraph container_Alpha
+        process_A --> process_B --> process_E
+        subgraph container_Beta
+          process_C --> Process_D --> process_F
+        end
+        process_A -->|messages<br/>from the event queue| process_C
+        process_E -->|via_AWSBatch<br/>scheduled work<br/>and retries| container_Beta
+      end`,
+  },
 ] as const;
 
 for (const variant of structuralVariants) {
@@ -205,8 +218,8 @@ for (const variant of structuralVariants) {
         expect(entries).toHaveLength(2);
         for (const edge of entries) {
           expect(edge.points, edge.id).toHaveLength(2);
-          const source = node(edge.start);
-          const target = node(edge.end);
+          const source = node(edge.start!);
+          const target = node(edge.end!);
           expect(edge.points![0]).toEqual({
             x: source.x!,
             y: source.y! + source.height! / 2,

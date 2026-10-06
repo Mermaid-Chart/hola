@@ -29,7 +29,7 @@ describe('stress-and-grid DDLT — labelled subgraph bundle', () => {
     const frame = layout.nodes.find((node) => node.id === 'one')!;
     const loop = layout.edges.find((edge) => edge.start === 'a3' && edge.end === 'a3')!;
     const densityIssue = validation.issues.find(
-      (issue) => issue.type === 'group-dead-space' && issue.nodeIds.includes('one')
+      (issue) => issue.type === 'group-dead-space' && issue.nodeIds?.includes('one')
     );
 
     expect(hardIssues).toEqual([]);

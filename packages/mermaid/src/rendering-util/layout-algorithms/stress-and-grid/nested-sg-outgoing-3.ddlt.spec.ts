@@ -47,7 +47,7 @@ describe('stress-and-grid DDLT — nested outgoing frames', () => {
     expect(alpha).toBeDefined();
     expect(beta).toBeDefined();
     expect(messages).toBeDefined();
-    expect(alpha!.y).toBeCloseTo(beta!.y, 6);
+    expect(alpha!.y).toBeCloseTo(beta!.y!, 6);
     expect(messages!.x! - messages!.width! / 2).toBeGreaterThan(alpha!.x! + alpha!.width! / 2);
     expect(messages!.x! + messages!.width! / 2).toBeLessThan(beta!.x! - beta!.width! / 2);
   });

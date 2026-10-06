@@ -1,4 +1,10 @@
 import type { Edge, LayoutData, Node } from '../../types.js';
+import { captionDimensions } from './captionGeometry.js';
+import {
+  acceptLocalGeometryProposal,
+  constrainedLocalEdge,
+  measuredLocalNode,
+} from './localProposal.js';
 
 interface Fan {
   source: Node;
@@ -93,18 +99,9 @@ function terminalFans(data: LayoutData): Fan[] {
           node.isDummy === true ||
           node.isEdgeLabel === true ||
           node.isLabelNode === true ||
-          !Number.isFinite(node.width) ||
-          !Number.isFinite(node.height) ||
-          node.width! <= 0 ||
-          node.height! <= 0
+          !measuredLocalNode(node)
       ) ||
-      [...edges, ...stemEdges].some(
-        (edge) =>
-          edge.startSide !== undefined ||
-          edge.endSide !== undefined ||
-          (edge.minlen ?? 1) > 1 ||
-          edge.isLayoutOnly === true
-      )
+      [...edges, ...stemEdges].some(constrainedLocalEdge)
     ) {
       continue;
     }
@@ -138,64 +135,50 @@ export function arrangeCardinalDiamondFans(data: LayoutData): boolean {
       continue;
     }
     const selected = new Set([...stem, ...branches, ...(frame ? [frame] : [])]);
-    const previous = [...selected].map((node) => ({
-      node,
-      x: node.x,
-      y: node.y,
-      width: node.width,
-      height: node.height,
-    }));
-    const lateralGap = Math.max(
-      GAP,
-      labelGap(edges[0], acrossSize),
-      labelGap(edges[2], acrossSize)
-    );
-    branches.forEach((node, index) => {
-      if (index === 1) {
-        node[across] = source[across];
-        node[along] =
-          source[along]! +
+    const accepted = acceptLocalGeometryProposal(selected, () => {
+      const lateralGap = Math.max(
+        GAP,
+        labelGap(edges[0], acrossSize),
+        labelGap(edges[2], acrossSize)
+      );
+      branches.forEach((node, index) => {
+        if (index === 1) {
+          node[across] = source[across];
+          node[along] =
+            source[along]! +
+            sign *
+              ((source[alongSize]! + node[alongSize]!) / 2 +
+                Math.max(GAP, labelGap(edges[index], alongSize)));
+        } else {
+          node[along] = source[along];
+          node[across] =
+            source[across]! +
+            (index === 0 ? -1 : 1) * ((source[acrossSize]! + node[acrossSize]!) / 2 + lateralGap);
+        }
+      });
+      for (let index = 1; index < stem.length; index++) {
+        const predecessor = stem[index];
+        const target = stem[index - 1];
+        predecessor[across] = source[across];
+        predecessor[along] =
+          target[along]! -
           sign *
-            ((source[alongSize]! + node[alongSize]!) / 2 +
-              Math.max(GAP, labelGap(edges[index], alongSize)));
-      } else {
-        node[along] = source[along];
-        node[across] =
-          source[across]! +
-          (index === 0 ? -1 : 1) * ((source[acrossSize]! + node[acrossSize]!) / 2 + lateralGap);
+            ((predecessor[alongSize]! + target[alongSize]!) / 2 +
+              Math.max(GAP, labelGap(stemEdges[index - 1], alongSize)));
       }
-    });
-    for (let index = 1; index < stem.length; index++) {
-      const predecessor = stem[index];
-      const target = stem[index - 1];
-      predecessor[across] = source[across];
-      predecessor[along] =
-        target[along]! -
-        sign *
-          ((predecessor[alongSize]! + target[alongSize]!) / 2 +
-            Math.max(GAP, labelGap(stemEdges[index - 1], alongSize)));
-    }
-    if (frame) {
-      fitFrame(frame, [...stem, ...branches]);
-    }
-    const obstacles = data.nodes.filter((node) => !selected.has(node));
-    if (
-      [...selected].some((node) =>
+      if (frame) {
+        fitFrame(frame, [...stem, ...branches]);
+      }
+      const obstacles = data.nodes.filter((node) => !selected.has(node));
+      return ![...selected].some((node) =>
         obstacles.some(
           (obstacle) =>
             Math.abs(node.x! - obstacle.x!) - (node.width! + obstacle.width!) / 2 < 30 &&
             Math.abs(node.y! - obstacle.y!) - (node.height! + obstacle.height!) / 2 < 30
         )
-      )
-    ) {
-      for (const snapshot of previous) {
-        Object.assign(snapshot.node, {
-          x: snapshot.x,
-          y: snapshot.y,
-          width: snapshot.width,
-          height: snapshot.height,
-        });
-      }
+      );
+    });
+    if (!accepted) {
       continue;
     }
     changed = true;
@@ -247,19 +230,7 @@ function labelGap(edge: Edge, size: 'width' | 'height'): number {
   if (!label) {
     return 0;
   }
-  const lines = label
-    .replace(/<br\s*\/?\s*>/giu, '\n')
-    .replace(/<[^>]+>/gu, '')
-    .split('\n');
-  return (
-    Math.max(
-      edge[size] ?? 0,
-      size === 'width'
-        ? Math.max(40, ...lines.map((line) => line.trim().length * 8))
-        : lines.length * 24
-    ) +
-    2 * LABEL_CLEARANCE
-  );
+  return captionDimensions(label, edge, 'conservative')[size] + 2 * LABEL_CLEARANCE;
 }
 
 function fitFrame(frame: Node, members: Node[]): void {

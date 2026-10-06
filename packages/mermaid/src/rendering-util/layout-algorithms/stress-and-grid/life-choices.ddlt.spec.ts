@@ -36,7 +36,7 @@ describe('stress-and-grid DDLT — life-choices', () => {
       );
     }
     const betterWorkToHappyLife = layout.edges.find((edge) => edge.id === 'L_nh_ne_0')!;
-    expect(Math.max(...betterWorkToHappyLife.points.map((point) => point.x))).toBeLessThan(20);
+    expect(Math.max(...betterWorkToHappyLife.points!.map((point) => point.x))).toBeLessThan(20);
     expect(betterWorkToHappyLife.points).toHaveLength(4);
   });
 });

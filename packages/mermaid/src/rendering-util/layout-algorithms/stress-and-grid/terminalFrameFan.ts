@@ -1,4 +1,10 @@
 import type { Edge, LayoutData, Node } from '../../types.js';
+import { captionDimensions } from './captionGeometry.js';
+import {
+  acceptLocalGeometryProposal,
+  constrainedLocalEdge,
+  measuredLocalNode,
+} from './localProposal.js';
 
 const FRAME_PADDING = 36;
 const CHAIN_GAP = 36;
@@ -115,23 +121,14 @@ export function arrangeTerminalFrameFan(data: LayoutData): boolean {
     const selected = new Set([frame, ...members, ...predecessors]);
     const selectedLinks = new Set(links);
     if (
-      links.some(
-        (edge) =>
-          edge.startSide !== undefined ||
-          edge.endSide !== undefined ||
-          (edge.minlen ?? 1) > 1 ||
-          edge.isLayoutOnly === true
-      ) ||
+      links.some(constrainedLocalEdge) ||
       [...selected].some(
         (node) =>
           node.dir !== undefined ||
           node.isDummy === true ||
           node.isEdgeLabel === true ||
           node.isLabelNode === true ||
-          !Number.isFinite(node.width) ||
-          !Number.isFinite(node.height) ||
-          node.width! <= 0 ||
-          node.height! <= 0
+          !measuredLocalNode(node)
       ) ||
       !Number.isFinite(cursor.x) ||
       !Number.isFinite(cursor.y) ||
@@ -144,87 +141,77 @@ export function arrangeTerminalFrameFan(data: LayoutData): boolean {
       continue;
     }
 
-    const previous = [...selected].map((node) => ({
-      node,
-      x: node.x,
-      y: node.y,
-      width: node.width,
-      height: node.height,
-    }));
-    const row = cursor[along]!;
-    for (let index = 1; index < chain.length; index++) {
-      const source = chain[index - 1];
-      const target = chain[index];
-      const edge = incoming(target)[0];
-      target[along] = row;
-      target[across] =
-        source[across]! +
-        (source[acrossSize]! + target[acrossSize]!) / 2 +
-        Math.max(CHAIN_GAP, labelSpan(edge, acrossSize) + 2 * LABEL_CLEARANCE);
-    }
-    const halfSpan = Math.max(
-      (branches[0][acrossSize]! + branches[1][acrossSize]!) / 4 + 20,
-      fork[acrossSize]! / 2 + 40,
-      ...branchEdges.map(
-        (edge) => labelSpan(edge, acrossSize) + 2 * LABEL_CLEARANCE + PORT_HALF_SPAN
-      )
-    );
-    const rowGap = Math.max(
-      48,
-      ...branchEdges.map((edge) => labelSpan(edge, alongSize) + 48),
-      // A wider entry node can project farther into the fork's forward row
-      // than the fork itself, especially when the direction is horizontal.
-      Math.max(...chain.map((node) => node[alongSize]!)) / 2 - fork[alongSize]! / 2 + CHAIN_GAP,
-      halfSpan +
-        24 -
-        fork[alongSize]! / 2 -
-        Math.min(...branches.map((node) => node[alongSize]!)) / 2
-    );
-    const facingBorder = row + sign * (fork[alongSize]! / 2 + rowGap);
-    branches.forEach((node, index) => {
-      node[across] = fork[across]! + (index === 0 ? -halfSpan : halfSpan);
-      node[along] = facingBorder + (sign * node[alongSize]!) / 2;
-    });
-    fitFrame(frame, members);
-
-    // A lone outgoing diamond port is at the sloped side's midpoint. Align
-    // that point (not the bounding-box centre) with the entry's facing side.
-    // Centre the caption wholly outside the frame and beyond the decision's
-    // box, allowing for the router's conservative text estimate as well as
-    // actual theme-dependent measurements.
-    const frameBorder = frame[across]! - frame[acrossSize]! / 2;
-    const entryBorder = cursor[across]! - cursor[acrossSize]! / 2;
-    const inset = entryBorder - frameBorder;
-    const entryGap = Math.max(
-      CHAIN_GAP,
-      Math.abs(inset - decision[acrossSize]! / 4) +
-        labelSpan(entryEdge, acrossSize) +
-        2 * LABEL_CLEARANCE
-    );
-    decision[along] = row - (sign * decision[alongSize]!) / 4;
-    decision[across] = frameBorder - entryGap - decision[acrossSize]! / 2;
-    for (let index = 1; index < predecessors.length; index++) {
-      const source = predecessors[index];
-      const target = predecessors[index - 1];
-      source[across] = decision[across];
-      source[along] =
-        target[along]! -
-        sign *
-          ((source[alongSize]! + target[alongSize]!) / 2 +
-            Math.max(CHAIN_GAP, labelSpan(incoming(target)[0], alongSize) + 2 * LABEL_CLEARANCE));
-    }
-    // Reject atomically rather than displacing unrelated content. Checking
-    // the enlarged frame too protects sibling frames and their entire trees.
-    const obstacles = data.nodes.filter((node) => !selected.has(node));
-    if ([...selected].some((node) => obstacles.some((obstacle) => boxesTooClose(node, obstacle)))) {
-      for (const snapshot of previous) {
-        Object.assign(snapshot.node, {
-          x: snapshot.x,
-          y: snapshot.y,
-          width: snapshot.width,
-          height: snapshot.height,
-        });
+    const accepted = acceptLocalGeometryProposal(selected, () => {
+      const row = cursor[along]!;
+      for (let index = 1; index < chain.length; index++) {
+        const source = chain[index - 1];
+        const target = chain[index];
+        const edge = incoming(target)[0];
+        target[along] = row;
+        target[across] =
+          source[across]! +
+          (source[acrossSize]! + target[acrossSize]!) / 2 +
+          Math.max(CHAIN_GAP, labelSpan(edge, acrossSize) + 2 * LABEL_CLEARANCE);
       }
+      const halfSpan = Math.max(
+        (branches[0][acrossSize]! + branches[1][acrossSize]!) / 4 + 20,
+        fork[acrossSize]! / 2 + 40,
+        ...branchEdges.map(
+          (edge) => labelSpan(edge, acrossSize) + 2 * LABEL_CLEARANCE + PORT_HALF_SPAN
+        )
+      );
+      const rowGap = Math.max(
+        48,
+        ...branchEdges.map((edge) => labelSpan(edge, alongSize) + 48),
+        // A wider entry node can project farther into the fork's forward row
+        // than the fork itself, especially when the direction is horizontal.
+        Math.max(...chain.map((node) => node[alongSize]!)) / 2 - fork[alongSize]! / 2 + CHAIN_GAP,
+        halfSpan +
+          24 -
+          fork[alongSize]! / 2 -
+          Math.min(...branches.map((node) => node[alongSize]!)) / 2
+      );
+      const facingBorder = row + sign * (fork[alongSize]! / 2 + rowGap);
+      branches.forEach((node, index) => {
+        node[across] = fork[across]! + (index === 0 ? -halfSpan : halfSpan);
+        node[along] = facingBorder + (sign * node[alongSize]!) / 2;
+      });
+      fitFrame(frame, members);
+
+      // A lone outgoing diamond port is at the sloped side's midpoint. Align
+      // that point (not the bounding-box centre) with the entry's facing side.
+      // Centre the caption wholly outside the frame and beyond the decision's
+      // box, allowing for the router's conservative text estimate as well as
+      // actual theme-dependent measurements.
+      const frameBorder = frame[across]! - frame[acrossSize]! / 2;
+      const entryBorder = cursor[across]! - cursor[acrossSize]! / 2;
+      const inset = entryBorder - frameBorder;
+      const entryGap = Math.max(
+        CHAIN_GAP,
+        Math.abs(inset - decision[acrossSize]! / 4) +
+          labelSpan(entryEdge, acrossSize) +
+          2 * LABEL_CLEARANCE
+      );
+      decision[along] = row - (sign * decision[alongSize]!) / 4;
+      decision[across] = frameBorder - entryGap - decision[acrossSize]! / 2;
+      for (let index = 1; index < predecessors.length; index++) {
+        const source = predecessors[index];
+        const target = predecessors[index - 1];
+        source[across] = decision[across];
+        source[along] =
+          target[along]! -
+          sign *
+            ((source[alongSize]! + target[alongSize]!) / 2 +
+              Math.max(CHAIN_GAP, labelSpan(incoming(target)[0], alongSize) + 2 * LABEL_CLEARANCE));
+      }
+      // Reject atomically rather than displacing unrelated content. Checking
+      // the enlarged frame too protects sibling frames and their entire trees.
+      const obstacles = data.nodes.filter((node) => !selected.has(node));
+      return ![...selected].some((node) =>
+        obstacles.some((obstacle) => boxesTooClose(node, obstacle))
+      );
+    });
+    if (!accepted) {
       continue;
     }
     changed = true;
@@ -237,16 +224,7 @@ function labelSpan(edge: Edge, size: 'width' | 'height'): number {
   if (!label) {
     return 0;
   }
-  const lines = label
-    .replace(/<br\s*\/?\s*>/giu, '\n')
-    .replace(/<[^>]+>/gu, '')
-    .split('\n');
-  return Math.max(
-    edge[size] ?? 0,
-    size === 'width'
-      ? Math.max(40, ...lines.map((line) => line.trim().length * 8))
-      : lines.length * 24
-  );
+  return captionDimensions(label, edge, 'conservative')[size];
 }
 
 function fitFrame(frame: Node, members: Node[]): void {

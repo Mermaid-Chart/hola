@@ -11,12 +11,7 @@ import {
   setAccTitle,
   setDiagramTitle,
 } from '../common/commonDb.js';
-import type {
-  Axis,
-  Curve,
-  Option,
-  Entry,
-} from '../../../../parser/dist/src/language/generated/ast.js';
+import type { Radar } from '@mermaid-js/parser';
 import type { RadarAxis, RadarCurve, RadarOptions, RadarDB, RadarData } from './types.js';
 import { log } from '../../logger.js';
 
@@ -53,7 +48,7 @@ const getAxes = (): RadarAxis[] => data.axes;
 const getCurves = (): RadarCurve[] => data.curves;
 const getOptions = (): RadarOptions => data.options;
 
-const setAxes = (axes: Axis[]) => {
+const setAxes = (axes: Radar['axes']) => {
   data.axes = axes.map((axis) => {
     return {
       name: axis.name,
@@ -62,7 +57,7 @@ const setAxes = (axes: Axis[]) => {
   });
 };
 
-const setCurves = (curves: Curve[]) => {
+const setCurves = (curves: Radar['curves']) => {
   data.curves = curves.map((curve) => {
     return {
       name: curve.name,
@@ -72,7 +67,7 @@ const setCurves = (curves: Curve[]) => {
   });
 };
 
-const computeCurveEntries = (entries: Entry[]): number[] => {
+const computeCurveEntries = (entries: Radar['curves'][number]['entries']): number[] => {
   // If entries have axis reference, we must order them according to the axes
   if (entries[0].axis == undefined) {
     return entries.map((entry) => entry.value);
@@ -90,14 +85,14 @@ const computeCurveEntries = (entries: Entry[]): number[] => {
   });
 };
 
-const setOptions = (options: Option[]) => {
+const setOptions = (options: Radar['options']) => {
   // Create a map from option names to option objects for quick lookup
   const optionMap = options.reduce(
     (acc, option) => {
       acc[option.name] = option;
       return acc;
     },
-    {} as Record<string, Option>
+    {} as Record<string, Radar['options'][number]>
   );
 
   data.options = {

@@ -1,8 +1,14 @@
 import type { Edge, LayoutData, Node } from '../../types.js';
+import {
+  acceptLocalGeometryProposal,
+  constrainedLocalEdge,
+  measuredLocalNode,
+} from './localProposal.js';
 
 // Two 20px terminal approaches plus a separate 24px routing lane.
 const FRAME_GRID_GAP = 64;
 const NODE_CLEARANCE = 30;
+const LABEL_CLEARANCE = 14;
 const MEMBER_BRIDGE_GAP = 96;
 const EXTERNAL_CYCLE_GAP = 36;
 const ROUTE_CLEARANCE = 20;
@@ -20,6 +26,14 @@ interface ExternalFrameCycle {
   outside: Node;
   incoming: Edge;
   outgoing: Edge;
+}
+
+interface FrameCompanion {
+  node: Node;
+  owner: Node;
+  axis: 'x' | 'y';
+  width: number;
+  height: number;
 }
 
 /**
@@ -163,54 +177,196 @@ export function alignSiblingFrameRows(data: LayoutData): void {
     }
     row.sort((a, b) => a.x! - b.x! || a.id.localeCompare(b.id));
     const rowSet = new Set(row);
+    // A private, aligned terminal continuation belongs to its source's
+    // packing unit, even though it is semantically outside the subgraph.
+    // Keep this ownership temporary: never rewrite containment or ports.
+    const companions = data.nodes.flatMap<FrameCompanion>((node) => {
+      if (
+        node.parentId ||
+        node.isGroup ||
+        node.isDummy ||
+        node.isEdgeLabel ||
+        node.isLabelNode ||
+        node.dir !== undefined ||
+        ![node.x, node.y, node.width, node.height].every(Number.isFinite) ||
+        node.width! <= 0 ||
+        node.height! <= 0
+      ) {
+        return [];
+      }
+      const incoming = data.edges.filter((edge) => edge.end === node.id);
+      if (incoming.length !== 1 || data.edges.some((edge) => edge.start === node.id)) {
+        return [];
+      }
+      const edge = incoming[0];
+      const source = nodes.get(edge.start ?? '');
+      const owner = source && owners.get(source);
+      if (
+        !source ||
+        source.isGroup ||
+        source.isDummy ||
+        source.isEdgeLabel ||
+        source.isLabelNode ||
+        source.dir !== undefined ||
+        !owner ||
+        !rowSet.has(owner) ||
+        data.edges.filter((candidate) => candidate.start === source.id).length !== 1 ||
+        edge.startSide !== undefined ||
+        edge.endSide !== undefined ||
+        (edge.minlen ?? 1) > 1 ||
+        edge.isLayoutOnly ||
+        ![source.x, source.y, source.width, source.height, edge.width ?? 0, edge.height ?? 0].every(
+          Number.isFinite
+        ) ||
+        source.width! <= 0 ||
+        source.height! <= 0 ||
+        (edge.width ?? 0) < 0 ||
+        (edge.height ?? 0) < 0 ||
+        boxesNeedClearance(node, owner)
+      ) {
+        return [];
+      }
+      const axis =
+        Math.abs(node.x! - source.x!) <= EPSILON
+          ? 'y'
+          : Math.abs(node.y! - source.y!) <= EPSILON
+            ? 'x'
+            : undefined;
+      if (!axis) {
+        return [];
+      }
+      const label = (edge.label ?? edge.text ?? '').trim();
+      const width = label ? (edge.width! > 0 ? edge.width! : Math.max(40, label.length * 8)) : 0;
+      const height = label
+        ? edge.height! > 0
+          ? edge.height!
+          : label.replace(/<br\s*\/?\s*>/giu, '\n').split('\n').length * 24
+        : 0;
+      const size = axis === 'x' ? 'width' : 'height';
+      const gap = Math.abs(node[axis]! - owner[axis]!) - (node[size]! + owner[size]!) / 2;
+      if (label && gap < (axis === 'x' ? width : height) + 2 * LABEL_CLEARANCE - EPSILON) {
+        return [];
+      }
+      owners.set(node, owner);
+      return [{ node, owner, axis, width, height }];
+    });
     const moved = data.nodes.filter((node) => rowSet.has(owners.get(node)!));
     const stationary = data.nodes.filter((node) => !moved.includes(node));
-    const previous = moved.map((node) => ({ node, x: node.x!, y: node.y! }));
-    const top = Math.min(...row.map((node) => node.y! - node.height! / 2));
-    // Reserve the widest inter-frame label for every gap in this row.
-    const gap = Math.max(
-      FRAME_GRID_GAP,
-      ...data.edges.flatMap((edge) => {
+    acceptLocalGeometryProposal(moved, () => {
+      const top = Math.min(...row.map((node) => node.y! - node.height! / 2));
+      const shifts = new Map(row.map((frame) => [frame, top + frame.height! / 2 - frame.y!]));
+      const alignedUnits = row.map((frame) => new Set([frame]));
+      // An already aligned semantic bridge couples the vertical translation of
+      // its two packing boxes. Different wrapper depths need not have matching
+      // frame tops; top-aligning them independently would bend a straight edge.
+      for (const edge of data.edges) {
         const source = nodes.get(edge.start ?? '');
         const target = nodes.get(edge.end ?? '');
-        const label = (edge.label ?? edge.text ?? '').trim();
+        const first = source && owners.get(source);
+        const second = target && owners.get(target);
         if (
           !source ||
           !target ||
-          !label ||
-          !rowSet.has(owners.get(source)!) ||
-          !rowSet.has(owners.get(target)!) ||
-          owners.get(source) === owners.get(target)
+          !first ||
+          !second ||
+          first === second ||
+          !rowSet.has(first) ||
+          !rowSet.has(second) ||
+          !Number.isFinite(source.y) ||
+          !Number.isFinite(target.y) ||
+          Math.abs(source.y! - target.y!) > EPSILON ||
+          edge.startSide !== undefined ||
+          edge.endSide !== undefined ||
+          (edge.minlen ?? 1) > 1 ||
+          edge.isLayoutOnly
         ) {
-          return [];
+          continue;
         }
-        return [Math.max(edge.width ?? 0, label.length * 8, 40) + 24];
-      })
-    );
-    let left = row[0].x! - row[0].width! / 2;
-    for (const frame of row) {
-      const dx = left + frame.width! / 2 - frame.x!;
-      const dy = top + frame.height! / 2 - frame.y!;
-      for (const node of moved.filter((node) => owners.get(node) === frame)) {
-        node.x! += dx;
-        node.y! += dy;
+        const firstUnit = alignedUnits.find((unit) => unit.has(first))!;
+        const secondUnit = alignedUnits.find((unit) => unit.has(second))!;
+        if (firstUnit !== secondUnit) {
+          for (const frame of secondUnit) {
+            firstUnit.add(frame);
+          }
+          alignedUnits.splice(alignedUnits.indexOf(secondUnit), 1);
+        }
       }
-      left += frame.width! + gap;
-    }
-    // Roll back the whole row if packing it would displace an unrelated node
-    // or another row. Partial acceptance would reintroduce uneven spacing.
-    if (row.some((frame) => stationary.some((node) => boxesNeedClearance(frame, node)))) {
-      for (const { node, x, y } of previous) {
-        Object.assign(node, { x, y });
+      for (const unit of alignedUnits) {
+        const shift = Math.min(...[...unit].map((frame) => shifts.get(frame)!));
+        for (const frame of unit) {
+          shifts.set(frame, shift);
+        }
       }
+      // Keep the routing lane alongside the widest inter-frame caption. A
+      // caption-only gap would obstruct a neighbouring edge's terminal bend.
+      const gap = Math.max(
+        FRAME_GRID_GAP,
+        ...data.edges.flatMap((edge) => {
+          const source = nodes.get(edge.start ?? '');
+          const target = nodes.get(edge.end ?? '');
+          const label = (edge.label ?? edge.text ?? '').trim();
+          if (
+            !source ||
+            !target ||
+            !label ||
+            !rowSet.has(owners.get(source)!) ||
+            !rowSet.has(owners.get(target)!) ||
+            owners.get(source) === owners.get(target)
+          ) {
+            return [];
+          }
+          return [Math.max(edge.width ?? 0, label.length * 8, 40) + FRAME_GRID_GAP];
+        })
+      );
+      let left = row[0].x! - row[0].width! / 2;
+      for (const frame of row) {
+        const dx = left + frame.width! / 2 - frame.x!;
+        const dy = shifts.get(frame)!;
+        for (const node of moved.filter((node) => owners.get(node) === frame)) {
+          node.x! += dx;
+          node.y! += dy;
+        }
+        left += frame.width! + gap;
+      }
+      // Roll back the whole row if packing it would displace an unrelated node
+      // or another row. Partial acceptance would reintroduce uneven spacing.
+      const packingBoxes = [...row, ...companions.map(({ node }) => node)];
+      const captions = companions
+        .filter(({ width }) => width > 0)
+        .map((companion) => {
+          const { node, owner, axis, width, height } = companion;
+          const size = axis === 'x' ? 'width' : 'height';
+          const sign = Math.sign(node[axis]! - owner[axis]!);
+          const border = owner[axis]! + (sign * owner[size]!) / 2;
+          const terminal = node[axis]! - (sign * node[size]!) / 2;
+          return { owner, box: { ...node, [axis]: (border + terminal) / 2, width, height } };
+        });
+      return !(
+        packingBoxes.some((box, index) =>
+          [...stationary, ...packingBoxes.slice(index + 1)].some((other) =>
+            boxesNeedClearance(box, other)
+          )
+        ) ||
+        captions.some(({ owner, box }, index) =>
+          [
+            ...stationary,
+            ...row.filter((frame) => frame !== owner),
+            ...companions.map(({ node }) => node),
+            ...captions.slice(index + 1).map((caption) => caption.box),
+          ].some((other) => boxesNeedClearance(box, other, LABEL_CLEARANCE))
+        )
+      );
+    });
+    for (const { node } of companions) {
+      owners.set(node, undefined);
     }
   }
 }
 
-function boxesNeedClearance(a: Node, b: Node): boolean {
+function boxesNeedClearance(a: Node, b: Node, clearance = NODE_CLEARANCE): boolean {
   const dx = Math.abs(a.x! - b.x!) - (a.width! + b.width!) / 2;
   const dy = Math.abs(a.y! - b.y!) - (a.height! + b.height!) / 2;
-  return (dx < 0 && dy < NODE_CLEARANCE) || (dy < 0 && dx < NODE_CLEARANCE);
+  return (dx < 0 && dy < clearance - EPSILON) || (dy < 0 && dx < clearance - EPSILON);
 }
 
 /**
@@ -225,17 +381,16 @@ export function arrangeExternalSiblingFrameCycles(data: LayoutData): void {
     const { outer, source, target, outside } = cycle;
     const { along, across, acrossSize } = cycleAxes(cycle);
     const sign = outside[across]! < outer[across]! ? -1 : 1;
-    const before = { x: outside.x, y: outside.y };
-    outside[along] = (source[along]! + target[along]!) / 2;
-    outside[across] =
-      outer[across]! +
-      sign * ((outer[acrossSize]! + outside[acrossSize]!) / 2 + EXTERNAL_CYCLE_GAP);
-    if (
-      data.nodes.some((node) => node !== outside && boxesNeedClearance(outside, node)) ||
-      !externalCycleRoutes(cycle, data.nodes)
-    ) {
-      Object.assign(outside, before);
-    }
+    acceptLocalGeometryProposal([outside], () => {
+      outside[along] = (source[along]! + target[along]!) / 2;
+      outside[across] =
+        outer[across]! +
+        sign * ((outer[acrossSize]! + outside[acrossSize]!) / 2 + EXTERNAL_CYCLE_GAP);
+      return (
+        !data.nodes.some((node) => node !== outside && boxesNeedClearance(outside, node)) &&
+        Boolean(externalCycleRoutes(cycle, data.nodes))
+      );
+    });
   }
 }
 
@@ -283,14 +438,7 @@ function externalFrameCycles(data: LayoutData): ExternalFrameCycle[] {
       outer.parentId ||
       data.nodes.filter((node) => node.parentId === outer.id).length !== 2 ||
       [source, target, outer, outside].some(
-        (node) =>
-          node.dir !== undefined ||
-          !Number.isFinite(node.x) ||
-          !Number.isFinite(node.y) ||
-          !Number.isFinite(node.width) ||
-          !Number.isFinite(node.height) ||
-          node.width! <= 0 ||
-          node.height! <= 0
+        (node) => node.dir !== undefined || !measuredLocalNode(node)
       )
     ) {
       continue;
@@ -302,14 +450,7 @@ function externalFrameCycles(data: LayoutData): ExternalFrameCycle[] {
     if (
       links.length !== 3 ||
       !links.some((edge) => edge.start === target.id && edge.end === source.id) ||
-      links.some(
-        (edge) =>
-          edge.startSide !== undefined ||
-          edge.endSide !== undefined ||
-          (edge.minlen ?? 1) > 1 ||
-          edge.isLayoutOnly === true ||
-          (edge.label ?? edge.text ?? '').trim()
-      )
+      links.some((edge) => constrainedLocalEdge(edge) || (edge.label ?? edge.text ?? '').trim())
     ) {
       continue;
     }

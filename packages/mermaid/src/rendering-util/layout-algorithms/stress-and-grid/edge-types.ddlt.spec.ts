@@ -37,14 +37,14 @@ describe('stress-and-grid DDLT — edge types', () => {
     const foreignPathIntersectsLabel = labelsInTheCentralFan.some((labelEdge) =>
       layout.edges
         .filter((edge) => edge.id !== labelEdge.id)
-        .some((edge) => pathIntersectsLabel(edge.points, labelEdge))
+        .some((edge) => pathIntersectsLabel(edge.points!, labelEdge))
     );
     expect(foreignEdgeLabelOverlaps).toEqual([]);
     expect(foreignPathIntersectsLabel).toBe(false);
     expect(
       layout.edges
         .filter((edge) => (edge.label ?? edge.text ?? '').trim())
-        .every((edge) => pointIsOnPath({ x: edge.x!, y: edge.y! }, edge.points))
+        .every((edge) => pointIsOnPath({ x: edge.x!, y: edge.y! }, edge.points!))
     ).toBe(true);
     expect(sharedPathLength(layout, 'L_M1_C_0', 'L_R2_C_0')).toBe(0);
 

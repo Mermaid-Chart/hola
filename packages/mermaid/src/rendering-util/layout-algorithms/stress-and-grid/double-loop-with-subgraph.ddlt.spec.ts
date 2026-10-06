@@ -32,8 +32,8 @@ describe('stress-and-grid DDLT — double loop with side subgraphs', () => {
     );
 
     expect(hardIssues).toEqual([]);
-    expect(layout.edges.find((edge) => edge.id === 'L_T1_T3_0')?.points.length).toBeLessThanOrEqual(
-      4
-    );
+    expect(
+      layout.edges.find((edge) => edge.id === 'L_T1_T3_0')?.points?.length
+    ).toBeLessThanOrEqual(4);
   });
 });

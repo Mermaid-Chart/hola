@@ -1,4 +1,8 @@
 import type { Edge, LayoutData, Node } from '../../types.js';
+import {
+  captionDimensions,
+  estimateCaptionDimensions as labelDimensions,
+} from './captionGeometry.js';
 import { projectToSlantedNodeOutline } from '../layout-utils/slantedNodeOutline.js';
 import {
   isolatedDiamondCircleBundle,
@@ -8,6 +12,7 @@ import {
 import { nestedShortcutFan, nestedShortcutRoutes } from './nestedShortcutFan.js';
 import { cardinalDiamondFanPorts } from './cardinalDiamondFan.js';
 import { nestedFrameEntryRoutes } from './nestedFrameEntry.js';
+import { nestedLinearWorkflowPorts, nestedLinearWorkflowRoutes } from './nestedLinearWorkflow.js';
 import { externalSiblingFrameCycleRoutes } from './frameGrid.js';
 
 interface Point {
@@ -71,6 +76,15 @@ const EPSILON = 1e-6;
  * route using node-clearance and virtual-grid lines as its visibility graph.
  */
 export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): void {
+  // Local layout preferences must not become persistent user constraints.
+  // Route projected copies and commit only the resulting geometry/style.
+  const workflowPreferences = nestedLinearWorkflowPorts(data);
+  const outputEdges = new Map(data.edges.map((edge) => [edge.id, edge]));
+  const routingEdges = data.edges.map((edge) => {
+    const preference = workflowPreferences.get(edge.id);
+    return preference ? { ...edge, ...preference } : edge;
+  });
+  const routingData = { ...data, edges: routingEdges };
   const diamondCircleBundle = isolatedDiamondCircleBundle(data);
   const nodes = new Map(data.nodes.map((node) => [node.id, node]));
   const obstacles = [...nodes.values()]
@@ -79,15 +93,15 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
   const groupFrames = obstacles.filter((obstacle) => obstacle.node.isGroup === true);
   const symmetricDiamondFans = new Set(
     [...nodes.values()]
-      .filter((node) => isSymmetricDiamondFan(node, data.edges, nodes))
+      .filter((node) => isSymmetricDiamondFan(node, routingEdges, nodes))
       .map((node) => node.id)
   );
   const symmetricLateralDiamondFans = new Set(
     [...nodes.values()]
-      .filter((node) => isSymmetricDiamondFan(node, data.edges, nodes, 'H'))
+      .filter((node) => isSymmetricDiamondFan(node, routingEdges, nodes, 'H'))
       .map((node) => node.id)
   );
-  const ports = allocatePorts(data.edges, nodes);
+  const ports = allocatePorts(routingEdges, nodes);
   for (const [key, point] of cardinalDiamondFanPorts(data)) {
     ports.set(key, point);
   }
@@ -106,13 +120,21 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
     ports.set(`${edgeId}:start`, points[0]);
     ports.set(`${edgeId}:end`, points.at(-1)!);
   }
+  const workflowRoutes = nestedLinearWorkflowRoutes(data, ports);
   const routedPaths: Point[][] = [];
   // Labels need the same clearance as nodes. In particular, a short labelled
   // branch is commonly routed before a longer incoming edge; reserving its
   // measured area prevents that later edge from threading through the label.
   const labelObstacles: Rect[] = [];
 
-  for (const edge of [...data.edges].sort((a, b) => edgeSpan(a, nodes) - edgeSpan(b, nodes))) {
+  // Commit mutually checked nested-entry corridors first. Their labels and
+  // paths then participate in ordinary routing, irrespective of edge order or
+  // the length of an unrelated link.
+  const reserved = (edge: Edge) => nestedEntryRoutes.has(edge.id) || workflowRoutes.has(edge.id);
+  const orderedEdges = [...routingEdges].sort(
+    (a, b) => Number(reserved(b)) - Number(reserved(a)) || edgeSpan(a, nodes) - edgeSpan(b, nodes)
+  );
+  for (const edge of orderedEdges) {
     const source = edge.start ? nodes.get(edge.start) : undefined;
     const target = edge.end ? nodes.get(edge.end) : undefined;
     const sourceRect = source && rectFor(source);
@@ -154,7 +176,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
         edge.endSide ?? sideAtPort(targetRect, endPort, sideToward(target, source, 'end')),
         sourceRect,
         targetRect,
-        data.edges.filter(
+        routingEdges.filter(
           (candidate) => candidate.start === target.id || candidate.end === target.id
         ).length,
         routingObstacles,
@@ -170,7 +192,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
       target,
       startPort,
       endPort,
-      data.edges,
+      routingEdges,
       ports,
       nodes,
       routingObstacles,
@@ -181,6 +203,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
         ? selfLoop(sourceRect, gridSpacing, selfLoopSide(source, data.edges, nodes))
         : (externalCycleRoutes.get(edge.id) ??
           nestedEntryRoutes.get(edge.id)?.points ??
+          workflowRoutes.get(edge.id)?.points ??
           shortcutRoutes.get(edge.id) ??
           routeDiamondCircleBundle(
             sourceRect,
@@ -196,7 +219,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             targetRect,
             startPort,
             endPort,
-            data.edges,
+            routingEdges,
             nodes,
             routingObstacles
           ) ??
@@ -206,7 +229,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             targetRect,
             startPort,
             endPort,
-            data.edges,
+            routingEdges,
             routingObstacles,
             routedPaths
           ) ??
@@ -225,14 +248,14 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             edge,
             sourceRect,
             targetRect,
-            data.edges,
+            routingEdges,
             routingObstacles
           ) ??
           routeStraightReciprocalOfLabeledEdge(
             edge,
             sourceRect,
             targetRect,
-            data.edges,
+            routingEdges,
             routingObstacles,
             routedPaths
           ) ??
@@ -241,7 +264,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             target,
             startPort,
             endPort,
-            data,
+            routingData,
             nodes,
             routingObstacles,
             routedPaths
@@ -250,7 +273,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             edge,
             sourceRect,
             targetRect,
-            data.edges,
+            routingEdges,
             routingObstacles,
             routedPaths
           ) ??
@@ -260,7 +283,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             targetRect,
             startPort,
             endPort,
-            data.edges,
+            routingEdges,
             routingObstacles,
             routedPaths
           ) ??
@@ -283,7 +306,7 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             edge.endSide ?? sideAtPort(targetRect, endPort, sideToward(target, source, 'end')),
             sourceRect,
             targetRect,
-            data.edges.filter(
+            routingEdges.filter(
               (candidate) => candidate.start === target.id || candidate.end === target.id
             ).length,
             routingObstacles,
@@ -303,10 +326,11 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
     const label = (edge.label ?? edge.text ?? '').trim();
     const dominantLabelPoint = label
       ? (nestedEntryRoutes.get(edge.id)?.labelPoint ??
+        workflowRoutes.get(edge.id)?.labelPoint ??
         siblingFrameMemberRoute?.labelPoint ??
         pointAtDominantSegment(points))
       : undefined;
-    const dimensions = label ? labelDimensions(label) : undefined;
+    const dimensions = label ? measuredLabelDimensions(edge, label) : undefined;
     const dominantLabelStraddlesGroupBorder = Boolean(
       label &&
         dominantLabelPoint &&
@@ -354,6 +378,10 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
       label &&
       !hasGroupEndpoint &&
       !groupLabelRoute &&
+      // Reserved plans have already checked the measured caption against
+      // nodes, titles, borders and other paths. Do not replace them using a
+      // single-line text estimate that ignores renderer wrapping.
+      !reserved(edge) &&
       (labelOverlapsRoutedPath(labelPoint, label, routedPaths) ||
         routingObstacles.some(
           (obstacle) =>
@@ -388,18 +416,19 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
       const last = points.length - 1;
       points[last] = projectToSlantedNodeOutline(target, points[last], points[last - 1]);
     }
-    edge.points = points;
+    const output = outputEdges.get(edge.id)!;
+    output.points = points;
     routedPaths.push(points);
-    edge.x = labelPoint.x;
-    edge.y = labelPoint.y;
+    output.x = labelPoint.x;
+    output.y = labelPoint.y;
     if (label) {
-      labelObstacles.push(labelObstacle(labelPoint, label));
+      labelObstacles.push(labelObstacle(labelPoint, label, edge));
     }
     // Rounded corners retain the exact obstacle-avoiding polyline while
     // matching ELK's polished edge treatment.
-    edge.curve = 'rounded';
-    edge.roundedCornerRadius = Math.min(16, gridSpacing / 8);
-    edge.hasIntersectionPoints = true;
+    output.curve = 'rounded';
+    output.roundedCornerRadius = Math.min(16, gridSpacing / 8);
+    output.hasIntersectionPoints = true;
   }
 }
 
@@ -1296,8 +1325,8 @@ function routeLabelledLowerRightFan(
     : undefined;
 }
 
-function labelObstacle(point: Point, label: string): Rect {
-  const { width, height } = labelDimensions(label);
+function labelObstacle(point: Point, label: string, edge: Edge): Rect {
+  const { width, height } = measuredLabelDimensions(edge, label);
   return {
     // Routing only needs the bounds; this sentinel distinguishes a reserved
     // label from real node obstacles without changing the shared Node type.
@@ -1309,15 +1338,8 @@ function labelObstacle(point: Point, label: string): Rect {
   };
 }
 
-function labelDimensions(label: string): { width: number; height: number } {
-  const lines = label
-    .replace(/<br\s*\/?\s*>/giu, '\n')
-    .replace(/<[^>]+>/gu, '')
-    .split('\n');
-  return {
-    width: Math.max(40, ...lines.map((line) => line.trim().length * 8)),
-    height: Math.max(LABEL_HEIGHT, lines.length * LABEL_HEIGHT),
-  };
+function measuredLabelDimensions(edge: Edge, label: string): { width: number; height: number } {
+  return captionDimensions(label, edge, 'renderer');
 }
 
 function labelOverlapsRoutedPath(point: Point, label: string, routedPaths: Point[][]): boolean {

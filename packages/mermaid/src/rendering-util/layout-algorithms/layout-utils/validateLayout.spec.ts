@@ -617,7 +617,7 @@ describe('validateLayout new geometric issues', () => {
   });
 
   it('accepts a circle boundary port that lies inside its bounding box', () => {
-    const source = { ...mkNode('Source', 50, 50, 100, 100), shape: 'circle' };
+    const source: Node = { ...mkNode('Source', 50, 50, 100, 100), isGroup: false, shape: 'circle' };
     const target = mkNode('Target', 20, 180, 40, 40);
     // (20, 90) lies exactly on Source's circular outline, despite being inside
     // its rectangular bounds. The vertical run immediately leaves the circle.
@@ -633,12 +633,14 @@ describe('validateLayout new geometric issues', () => {
   });
 
   it('accepts the circular ports emitted for complete_graph_k5', () => {
-    const a = {
+    const a: Node = {
       ...mkNode('A', 160.32638931274414, 58.32638931274414, 64.65277862548828, 64.65277862548828),
+      isGroup: false,
       shape: 'circle',
     };
-    const c = {
+    const c: Node = {
       ...mkNode('C', 40.32638931274414, 178.32638931274414, 64.65277862548828, 64.65277862548828),
+      isGroup: false,
       shape: 'circle',
     };
     // Captured L_A_C_0 route: its diagonal circle ports sit inside the two
@@ -657,7 +659,7 @@ describe('validateLayout new geometric issues', () => {
 
   it('accepts a diamond vertex reached within layout precision', () => {
     const source = mkNode('Source', 50, 20, 40, 40);
-    const target = { ...mkNode('Target', 50, 150, 100, 100), shape: 'diam' };
+    const target: Node = { ...mkNode('Target', 50, 150, 100, 100), isGroup: false, shape: 'diam' };
     // The vertex is at (50, 100). The 0.1px residue is ordinary layout
     // precision, not an edge crossing through the diamond's interior.
     const e = mkEdge('e', 'Source', 'Target', [
@@ -685,7 +687,7 @@ describe('validateLayout new geometric issues', () => {
   it('still flags an edge that crosses the real interior of a circular obstacle', () => {
     const source = mkNode('Source', -120, 0, 40, 40);
     const target = mkNode('Target', 120, 0, 40, 40);
-    const obstacle = { ...mkNode('Obstacle', 0, 0, 80, 80), shape: 'circle' };
+    const obstacle: Node = { ...mkNode('Obstacle', 0, 0, 80, 80), isGroup: false, shape: 'circle' };
     const e = mkEdge('e', 'Source', 'Target', [
       { x: -100, y: 0 },
       { x: 100, y: 0 },

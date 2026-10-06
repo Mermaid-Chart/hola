@@ -14,6 +14,11 @@ import { arrangeNestedLinearWorkflow } from './nestedLinearWorkflow.js';
 import { arrangeTerminalFrameFan } from './terminalFrameFan.js';
 import { arrangeCardinalDiamondFans } from './cardinalDiamondFan.js';
 import { arrangeNestedFrameEntry } from './nestedFrameEntry.js';
+import {
+  acceptLocalGeometryProposal,
+  measuredLocalEdge,
+  measuredLocalNode,
+} from './localProposal.js';
 
 const COMPONENT_GUTTER = 120;
 const COMPACT_GRID_SPACING = 180;
@@ -2280,15 +2285,26 @@ function fitStressAndGridGroups(
 
 /** Refit only the containing frames; preserve the moved frame's own clearances. */
 function refitFrameAncestors(frame: Node, data: LayoutData, nodes: Map<string, Node>): void {
+  const ancestors = new Set(frameAncestorNodes(frame, nodes).map((node) => node.id));
+  if (ancestors.size > 0) {
+    fitStressAndGridGroups(data, GROUP_FRAME_PADDING, ancestors);
+  }
+}
+
+/** Ancestor refits belong to the same geometry transaction as their subtree. */
+function frameAncestorNodes(frame: Node, nodes: Map<string, Node>): Node[] {
+  const frames: Node[] = [];
   const ancestors = new Set<string>();
   let parentId = frame.parentId;
   while (parentId && !ancestors.has(parentId)) {
     ancestors.add(parentId);
-    parentId = nodes.get(parentId)?.parentId;
+    const parent = nodes.get(parentId);
+    if (parent) {
+      frames.push(parent);
+    }
+    parentId = parent?.parentId;
   }
-  if (ancestors.size > 0) {
-    fitStressAndGridGroups(data, GROUP_FRAME_PADDING, ancestors);
-  }
+  return frames;
 }
 
 /** An unconnected root leaf must not hug a fitted or expanded outer frame. */
@@ -2788,9 +2804,8 @@ function preferredSelfLoopSide(
           : 'bottom';
     usage.set(side, usage.get(side)! + 1);
   }
-  return (['left', 'top', 'right', 'bottom'] as const).sort(
-    (first, second) => usage.get(first)! - usage.get(second)!
-  )[0];
+  const sides: ('left' | 'top' | 'right' | 'bottom')[] = ['left', 'top', 'right', 'bottom'];
+  return sides.sort((first, second) => usage.get(first)! - usage.get(second)!)[0];
 }
 
 /**
@@ -2800,7 +2815,7 @@ function preferredSelfLoopSide(
  * a stable horizontal axis. Move the whole frame subtree: a group is a
  * coordinate frame, not an independently movable box.
  */
-function alignHorizontallyBridgedSiblingFrames(data: LayoutData): void {
+export function alignHorizontallyBridgedSiblingFrames(data: LayoutData): void {
   const nodes = new Map(data.nodes.map((node) => [node.id, node]));
   const alignedPairs = new Set<string>();
   for (const edge of data.edges) {
@@ -2809,10 +2824,14 @@ function alignHorizontallyBridgedSiblingFrames(data: LayoutData): void {
     const sourceGroup = source?.parentId ? nodes.get(source.parentId) : undefined;
     const targetGroup = target?.parentId ? nodes.get(target.parentId) : undefined;
     if (
+      !source ||
+      !target ||
       !sourceGroup?.isGroup ||
       !targetGroup?.isGroup ||
       sourceGroup === targetGroup ||
-      sourceGroup.parentId !== targetGroup.parentId
+      sourceGroup.parentId !== targetGroup.parentId ||
+      !measuredLocalEdge(edge) ||
+      [source, target, sourceGroup, targetGroup].some((node) => !measuredLocalNode(node))
     ) {
       continue;
     }
@@ -2836,21 +2855,22 @@ function alignHorizontallyBridgedSiblingFrames(data: LayoutData): void {
     const moved = data.nodes.filter(
       (node) => node === rightGroup || isDescendantOf(node, rightGroup.id, nodes)
     );
-    translateNodes(moved, 0, offsetY);
-
-    const stationaryLeaves = data.nodes.filter(
-      (node) => node.isGroup !== true && !moved.includes(node)
-    );
-    if (
-      moved.some(
-        (node) =>
-          node.isGroup !== true && stationaryLeaves.some((other) => nodeBoxesOverlap(node, other))
-      )
-    ) {
-      translateNodes(moved, 0, -offsetY);
-    } else {
+    acceptLocalGeometryProposal([...moved, ...frameAncestorNodes(rightGroup, nodes)], () => {
+      translateNodes(moved, 0, offsetY);
+      const stationaryLeaves = data.nodes.filter(
+        (node) => node.isGroup !== true && !moved.includes(node)
+      );
+      if (
+        moved.some(
+          (node) =>
+            node.isGroup !== true && stationaryLeaves.some((other) => nodeBoxesOverlap(node, other))
+        )
+      ) {
+        return false;
+      }
       refitFrameAncestors(rightGroup, data, nodes);
-    }
+      return true;
+    });
   }
 }
 
@@ -2912,7 +2932,10 @@ function separateDirectSiblingGroupFrames(data: LayoutData): void {
 }
 
 /** Pack private source frames around a sibling target, leaf or frame, with clear label gaps. */
-function arrangePrivateSiblingFrameConvergences(data: LayoutData, nodes: Map<string, Node>): void {
+export function arrangePrivateSiblingFrameConvergences(
+  data: LayoutData,
+  nodes: Map<string, Node>
+): void {
   for (const target of data.nodes.filter(
     (node) => node.parentId && !node.isDummy && !node.isEdgeLabel && !node.isLabelNode
   )) {
@@ -2934,7 +2957,8 @@ function arrangePrivateSiblingFrameConvergences(data: LayoutData, nodes: Map<str
           !frames.some((frame) => frame.id === edge.start) ||
           Boolean(edge.startSide) ||
           Boolean(edge.endSide) ||
-          (edge.minlen ?? 1) > 1
+          (edge.minlen ?? 1) > 1 ||
+          !measuredLocalEdge(edge)
       )
     ) {
       continue;
@@ -2967,82 +2991,80 @@ function arrangePrivateSiblingFrameConvergences(data: LayoutData, nodes: Map<str
     ) {
       continue;
     }
-    const previous = data.nodes.map((node) => ({
-      node,
-      x: node.x,
-      y: node.y,
-      width: node.width,
-      height: node.height,
-    }));
-    frames.sort((a, b) =>
-      Math.abs(a.x! - b.x!) <= GRID_ALIGNMENT_EPSILON
-        ? a.y! - b.y! || a.id.localeCompare(b.id)
-        : a.x! - b.x!
-    );
-    for (const [index, frame] of frames.entries()) {
-      const edge = incident.find((candidate) => candidate.start === frame.id)!;
-      const label = (edge.label ?? edge.text ?? '').trim();
-      const lines = label
-        .replace(/<br\s*\/?\s*>/giu, '\n')
-        .replace(/<[^>]+>/gu, '')
-        .split('\n');
-      const gap = label
-        ? Math.max(edge.width ?? 0, 40, ...lines.map((line) => line.trim().length * 8)) +
-          2 * GROUP_EXIT_LABEL_CLEARANCE
-        : DIRECT_GROUP_EDGE_GAP;
-      const nextX = target.x! + (index === 0 ? -1 : 1) * ((target.width! + frame.width!) / 2 + gap);
-      translateNodes(
-        data.nodes.filter((node) => node === frame || isDescendantOf(node, frame.id, nodes)),
-        nextX - frame.x!,
-        target.y! - frame.y!
+    // This pass refits every frame, not just the selected source frames.
+    // Snapshot the existing full write set, including all containing shells.
+    acceptLocalGeometryProposal(data.nodes, () => {
+      frames.sort((a, b) =>
+        Math.abs(a.x! - b.x!) <= GRID_ALIGNMENT_EPSILON
+          ? a.y! - b.y! || a.id.localeCompare(b.id)
+          : a.x! - b.x!
       );
-    }
-    fitStressAndGridGroups(data, GROUP_FRAME_PADDING);
-    const root = outermostAncestorGroup(target, nodes)!;
-    const outside = data.nodes.filter(
-      (node) => node !== root && !isDescendantOf(node, root.id, nodes)
-    );
-    const blockers = outside.filter((node) =>
-      nodeBoxesNeedClearance(root, node, GROUP_FRAME_PADDING)
-    );
-    if (blockers.length === 0) {
-      continue;
-    }
-    // An unrelated leaf can block expansion on one side. Shift the complete
-    // containing hierarchy to the nearest clear lane, never just its frame.
-    const candidates = blockers
-      .flatMap((node) => [
-        { x: node.x! + node.width! / 2 + GROUP_FRAME_PADDING - (root.x! - root.width! / 2), y: 0 },
-        { x: node.x! - node.width! / 2 - GROUP_FRAME_PADDING - (root.x! + root.width! / 2), y: 0 },
-        {
-          x: 0,
-          y: node.y! + node.height! / 2 + GROUP_FRAME_PADDING - (root.y! - root.height! / 2),
-        },
-        {
-          x: 0,
-          y: node.y! - node.height! / 2 - GROUP_FRAME_PADDING - (root.y! + root.height! / 2),
-        },
-      ])
-      .sort((a, b) => Math.abs(a.x) + Math.abs(a.y) - Math.abs(b.x) - Math.abs(b.y));
-    const subtree = data.nodes.filter(
-      (node) => node === root || isDescendantOf(node, root.id, nodes)
-    );
-    let accepted = false;
-    for (const offset of candidates) {
-      translateNodes(subtree, offset.x, offset.y);
-      if (
-        outside.every((node) => !nodeBoxesNeedClearance(root, node, GROUP_FRAME_PADDING - 1e-6))
-      ) {
-        accepted = true;
-        break;
+      for (const [index, frame] of frames.entries()) {
+        const edge = incident.find((candidate) => candidate.start === frame.id)!;
+        const label = (edge.label ?? edge.text ?? '').trim();
+        const lines = label
+          .replace(/<br\s*\/?\s*>/giu, '\n')
+          .replace(/<[^>]+>/gu, '')
+          .split('\n');
+        const gap = label
+          ? Math.max(edge.width ?? 0, 40, ...lines.map((line) => line.trim().length * 8)) +
+            2 * GROUP_EXIT_LABEL_CLEARANCE
+          : DIRECT_GROUP_EDGE_GAP;
+        const nextX =
+          target.x! + (index === 0 ? -1 : 1) * ((target.width! + frame.width!) / 2 + gap);
+        translateNodes(
+          data.nodes.filter((node) => node === frame || isDescendantOf(node, frame.id, nodes)),
+          nextX - frame.x!,
+          target.y! - frame.y!
+        );
       }
-      translateNodes(subtree, -offset.x, -offset.y);
-    }
-    if (!accepted) {
-      for (const { node, ...position } of previous) {
-        Object.assign(node, position);
+      fitStressAndGridGroups(data, GROUP_FRAME_PADDING);
+      const root = outermostAncestorGroup(target, nodes)!;
+      const outside = data.nodes.filter(
+        (node) => node !== root && !isDescendantOf(node, root.id, nodes)
+      );
+      const blockers = outside.filter((node) =>
+        nodeBoxesNeedClearance(root, node, GROUP_FRAME_PADDING)
+      );
+      if (blockers.length === 0) {
+        return true;
       }
-    }
+      // An unrelated leaf can block expansion on one side. Shift the complete
+      // containing hierarchy to the nearest clear lane, never just its frame.
+      const candidates = blockers
+        .flatMap((node) => [
+          {
+            x: node.x! + node.width! / 2 + GROUP_FRAME_PADDING - (root.x! - root.width! / 2),
+            y: 0,
+          },
+          {
+            x: node.x! - node.width! / 2 - GROUP_FRAME_PADDING - (root.x! + root.width! / 2),
+            y: 0,
+          },
+          {
+            x: 0,
+            y: node.y! + node.height! / 2 + GROUP_FRAME_PADDING - (root.y! - root.height! / 2),
+          },
+          {
+            x: 0,
+            y: node.y! - node.height! / 2 - GROUP_FRAME_PADDING - (root.y! + root.height! / 2),
+          },
+        ])
+        .sort((a, b) => Math.abs(a.x) + Math.abs(a.y) - Math.abs(b.x) - Math.abs(b.y));
+      const subtree = data.nodes.filter(
+        (node) => node === root || isDescendantOf(node, root.id, nodes)
+      );
+      for (const offset of candidates) {
+        translateNodes(subtree, offset.x, offset.y);
+        if (
+          outside.every((node) => !nodeBoxesNeedClearance(root, node, GROUP_FRAME_PADDING - 1e-6))
+        ) {
+          return true;
+        }
+        translateNodes(subtree, -offset.x, -offset.y);
+      }
+      return false;
+    });
   }
 }
 
@@ -3168,7 +3190,7 @@ function separateBridgedGroupFrames(data: LayoutData): void {
  * frames, instead of letting an unrelated orphan decide whether that bundle
  * leaves sideways, downwards, or through an unconnected member's row.
  */
-function alignPrivateParallelFrameBridge(
+export function alignPrivateParallelFrameBridge(
   sourceFrame: Node,
   targetFrame: Node,
   source: Node,
@@ -3195,7 +3217,8 @@ function alignPrivateParallelFrameBridge(
         (edge.label ?? edge.text ?? '').trim() ||
         edge.startSide !== undefined ||
         edge.endSide !== undefined ||
-        (edge.minlen ?? 1) > 1
+        (edge.minlen ?? 1) > 1 ||
+        !measuredLocalEdge(edge)
     ) ||
     children.some(
       (members) =>
@@ -3217,31 +3240,24 @@ function alignPrivateParallelFrameBridge(
     return;
   }
   const moved = [sourceFrame, targetFrame, ...children.flat()];
-  const previous = moved.map((node) => ({
-    node,
-    x: node.x!,
-    y: node.y!,
-    width: node.width!,
-    height: node.height!,
-  }));
-  prepareTwoLeafFrameRow(sourceFrame, data.nodes);
-  prepareTwoLeafFrameRow(targetFrame, data.nodes);
-  targetFrame.x = sourceFrame.x;
-  targetFrame.y =
-    sourceFrame.y! + (sourceFrame.height! + targetFrame.height!) / 2 + FRAMED_CYCLE_BRIDGE_GAP;
-  prepareTwoLeafFrameRow(targetFrame, data.nodes);
-  const stationary = data.nodes.filter((node) => node.isGroup !== true && !moved.includes(node));
-  if (
-    children
-      .flat()
-      .some((node) => stationary.some((other) => nodeBoxesNeedClearance(node, other, 30)))
-  ) {
-    for (const { node, ...position } of previous) {
-      Object.assign(node, position);
+  acceptLocalGeometryProposal([...moved, ...frameAncestorNodes(sourceFrame, nodes)], () => {
+    prepareTwoLeafFrameRow(sourceFrame, data.nodes);
+    prepareTwoLeafFrameRow(targetFrame, data.nodes);
+    targetFrame.x = sourceFrame.x;
+    targetFrame.y =
+      sourceFrame.y! + (sourceFrame.height! + targetFrame.height!) / 2 + FRAMED_CYCLE_BRIDGE_GAP;
+    prepareTwoLeafFrameRow(targetFrame, data.nodes);
+    const stationary = data.nodes.filter((node) => node.isGroup !== true && !moved.includes(node));
+    if (
+      children
+        .flat()
+        .some((node) => stationary.some((other) => nodeBoxesNeedClearance(node, other, 30)))
+    ) {
+      return false;
     }
-    return;
-  }
-  refitFrameAncestors(sourceFrame, data, nodes);
+    refitFrameAncestors(sourceFrame, data, nodes);
+    return true;
+  });
 }
 
 /** Keep a lone group exit adjacent to the stage it continues from. */
@@ -3280,7 +3296,7 @@ function alignSingleGroupExits(data: LayoutData): void {
         (group.width! / 2 +
           target.width! / 2 +
           labelledGroupExitGap(group, target, data.edges, nodes));
-    const nextY = source.y;
+    const nextY = source.y!;
     // A group is a coordinate frame, not an independent drawable node. Move
     // its full subtree together; moving only its frame leaves the members
     // behind and makes the renderer show them outside their declared subgraph.
@@ -3709,5 +3725,5 @@ function combineResults(results: GridLikeLayoutResult[]): GridLikeLayoutResult {
 }
 
 export const render = createCommonLayoutRenderer<GridLikeLayoutResult>({
-  runLayoutCore: runStressAndGridLayoutCore,
+  runLayoutCore: (data) => runStressAndGridLayoutCore(data),
 });
