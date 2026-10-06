@@ -245,6 +245,31 @@ clean-auto-merge finding rather than an upstream regression. Fixed by restoring
 dependency's version moves far enough to fall outside whatever range was
 accidentally committed.
 
+**That fix broke publishing, because `workspace:` only works if the publish step
+understands it.** Restoring `workspace:^` was correct for the _development_ tree —
+pnpm resolves it against the sibling package during `tsc`/`vitest`/`build` — but
+both `publish-alpha.yml` and `publish-beta.yml` ran plain `npm publish`, which has
+no concept of the `workspace:` protocol and ships the literal string. The result:
+`@mermaid-chart/mermaid@12.1.0-a.0`/`-b.0` were published with
+`"@mermaid-js/parser": "workspace:^"` as a **hard dependency**, unresolvable by any
+install outside this monorepo. The same thing had already happened, unnoticed, to
+`@mermaid-chart/layout-elk@1.0.1-b.0`'s `peerDependencies` — `aeb8a4af7`'s whole
+rationale ("pnpm substitutes the real version at pack time") assumed the actual
+publish step went through pnpm's packer. It never did. Fixed by switching both
+workflows to `pnpm publish --no-git-checks` (pnpm's default git checks require a
+branch literally named `master`), and guarded mechanically: `verify.sh`'s
+`publish-safety` step asserts both files invoke `pnpm publish --tag`, not
+`npm publish --tag`. A content-based check (pack a publishable package, inspect the
+tarball) cannot catch a regression of this — `pnpm pack` always substitutes
+`workspace:` correctly, regardless of what the real CI publish command does, so it
+would pass on a tree that ships broken just as happily as on a fixed one. Check the
+workflow files' own invocation instead, as `publish-safety` does.
+
+The republish itself needed its own alpha/beta counter bump — a version is
+immutable on the registry once published, broken or not, so there is no fixing
+`12.1.0-a.0`/`-b.0` in place. `version.mjs`'s normal "bumped alpha/beta N -> N+1"
+path on an unchanged upstream base is what produces the corrected version.
+
 **`.github/workflows/e2e.yml`** must keep three fork deltas that upstream does not
 carry. `guard.sh` asserts all three, but if you are merging by hand:
 
