@@ -147,26 +147,38 @@ jobs:
             name="$(jq -r '.name' <<<"$entry")"
             version="$(jq -r '.version' <<<"$entry")"
             echo "::group::publishing ${name}@${version}"
-            # `npm publish`, not `pnpm publish`. Safe here because the only
-            # workspace: protocol reference in these packages is a devDependency,
-            # which consumers never install (and which the already-published
-            # versions carry too).
+            # `pnpm publish`, not `npm publish`. pnpm substitutes a `workspace:`
+            # protocol dependency with the package's real resolved version at pack
+            # time; npm has no idea what `workspace:` means and ships the literal
+            # string. That shipped broken installs of @mermaid-chart/mermaid
+            # 12.1.0-a.0/-b.0 and @mermaid-chart/layout-elk 1.0.1-b.0 — the former
+            # carried `"@mermaid-js/parser": "workspace:^"` as a hard dependency
+            # (every consumer install fails to resolve it), the latter the same
+            # string in a peerDependency on @mermaid-chart/mermaid. Confirm this
+            # keeps working with `pnpm pack` from the package directory and
+            # reading `dependencies`/`peerDependencies` out of the tarball's
+            # package.json before changing this again.
             #
-            # --tag dev is load-bearing. `npm publish` moves `latest` regardless
-            # of semver ordering, and an alpha sorts BELOW the beta of the same
-            # base (prerelease ids compare alphabetically, so a < b). Publishing
-            # untagged would make an alpha the default install ahead of the beta
-            # that `main` publishes.
-            if ! ( cd "$dir" && npm publish --tag "$DIST_TAG" --registry="$GH_REGISTRY" ); then
+            # --no-git-checks: pnpm's default git checks require the current
+            # branch to be named "master" and the tree clean. Neither holds on a
+            # CI checkout of `develop`, and branch/version correctness is already
+            # CI's job, not this flag's.
+            #
+            # --tag dev is load-bearing. `npm publish`/`pnpm publish` both move
+            # `latest` regardless of semver ordering, and an alpha sorts BELOW the
+            # beta of the same base (prerelease ids compare alphabetically, so
+            # a < b). Publishing untagged would make an alpha the default install
+            # ahead of the beta that `main` publishes.
+            if ! ( cd "$dir" && pnpm publish --tag "$DIST_TAG" --registry="$GH_REGISTRY" --no-git-checks ); then
               echo "::endgroup::"
               # A 403 here is almost always the package's Actions-access grant.
               # It cannot be checked ahead of time: the packages REST API does
               # not expose those grants, so a publish attempt is the only test.
-              # Do not assume this was the registry. `npm publish` runs
+              # Do not assume this was the registry. `pnpm publish` runs
               # `prepublishOnly` first, so a failure here may never have reached
               # GitHub at all — run 32766156722 failed on docs:verify-version and
               # the 403 advice below sent the reader down the wrong path.
-              echo "::error title=Publish failed::${name}@${version} did not publish. Read the log above before assuming an auth problem: npm runs the package's own prepublishOnly hook first, and a failure there never contacts the registry. If it IS a 403 from ${GH_REGISTRY}, open the package's Settings -> Manage Actions access and give ${GITHUB_REPOSITORY} the *Write* role (repositories are added with Read by default, which cannot publish). Packages that do not exist yet need no grant — the first publish creates them."
+              echo "::error title=Publish failed::${name}@${version} did not publish. Read the log above before assuming an auth problem: pnpm runs the package's own prepublishOnly hook first, and a failure there never contacts the registry. If it IS a 403 from ${GH_REGISTRY}, open the package's Settings -> Manage Actions access and give ${GITHUB_REPOSITORY} the *Write* role (repositories are added with Read by default, which cannot publish). Packages that do not exist yet need no grant — the first publish creates them."
               exit 1
             fi
             echo "::endgroup::"
