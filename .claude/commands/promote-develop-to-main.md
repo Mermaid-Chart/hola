@@ -105,6 +105,15 @@ versions and in checking that the tree being promoted is actually good.
    that is the stale generated-docs trap — GUIDE.md section 7 has it.
    `rm -rf packages/mermaid/src/docs/config/setup` and re-run.
 
+   `verify.sh` now includes a `publish-safety` step that asserts
+   `publish-beta.yml` (and `publish-alpha.yml`) invoke `pnpm publish`, not `npm
+publish`. This is the gate that would have caught `12.1.0-b.0` publishing
+   broken — `npm publish` ships a `workspace:` protocol dependency as a literal,
+   unresolvable string; `pnpm publish` substitutes the real version at pack time.
+   It exists precisely because this promotion is the step that actually produces
+   the artifact consumers install under `latest` — see GUIDE.md section 5's
+   "cross-package deps" entry before touching either publish-\*.yml workflow.
+
 6. **Regenerate rather than trust the merge**, even though it was clean. A
    text-merged generated file matching neither side is the failure mode that has
    bitten every sync so far:
@@ -129,6 +138,15 @@ GitHub **auto-merge** enabled with `GITHUB_TOKEN`, the push may raise no event a
 all and the 06:10 UTC reconciler picks it up instead — that is expected, not a
 failure.
 
+A dist tag pointing at the new version is not proof the version is
+_installable_ — `12.1.0-b.0` published successfully, tagged `latest` correctly,
+and was still broken (GUIDE.md section 5). The `publish-safety` check in step 5
+is what should have caught that before this push ever happened; if it somehow
+didn't run (an older `verify.sh`, or it was skipped), spot-check after
+publishing: `npm view @mermaid-chart/mermaid@<version> dependencies
+--registry=https://npm.pkg.github.com` and confirm nothing in the output reads
+`workspace:`.
+
 ## Do not
 
 - Touch `main` or `develop` directly, or force-push anything.
@@ -139,3 +157,7 @@ failure.
 - Promote past a `main` that has diverged. Merge it back to `develop` first.
 - Substitute the `<MERMAID_RELEASE_VERSION>` docs placeholder. The beta line
   leaves it standing on purpose — see the note in `publish-beta.yml`.
+- Treat a green `verify.sh` as proof the beta will install correctly without
+  `publish-safety` actually having run — this promotion is what triggers the
+  real publish, and "the tree typechecks" and "the published package resolves"
+  are different guarantees (GUIDE.md section 5).

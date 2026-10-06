@@ -56,6 +56,15 @@ want to watch the resolution happen.
    imports, parameters and call arguments, and confirm each fork-only identifier
    still exists.
 
+   If that hunt turns up a cross-package dependency you need to fix (a stale
+   literal range, or restoring `workspace:^`), fixing it so the tree typechecks is
+   not the whole job — a `workspace:` protocol value only resolves correctly if
+   whatever eventually publishes the package understands it, and `npm publish`
+   does not. `verify.sh`'s `publish-safety` step (below) catches a regression of
+   the specific incident this happened to the fork once already; see GUIDE.md
+   section 5's "cross-package deps" entry for the full story before touching
+   either publish-\*.yml workflow or a `workspace:` dependency again.
+
 6. **Version and verify**, reusing the same scripts CI uses so there is one
    source of truth:
 
@@ -66,6 +75,10 @@ want to watch the resolution happen.
    BASE_BEFORE=<the pre-merge tip> UPSTREAM_SHA=$(git rev-parse os_repo/develop) \
      bash .github/fork-sync/guard.sh
    ```
+
+   `verify.sh --tier full` (and `--tier fast`) now includes a `publish-safety`
+   step that asserts `publish-alpha.yml`/`publish-beta.yml` invoke `pnpm publish`,
+   not `npm publish` — do not skip or weaken it to reach green.
 
 7. **Report** in the house format the guide describes: conflict resolutions with
    rationale, follow-on fixes the merge required, anything unresolved, and what
@@ -84,3 +97,8 @@ resolution needs a product decision.
   `generated/` directory. Regenerate instead.
 - Edit `.gitignore`, `.prettierignore`, eslint/cspell/tsconfig/vite/playwright
   config, or any exclude list, to make a failure disappear.
+- Assume a cross-package dependency fix is complete once `tsc`/`vitest` pass. A
+  `workspace:` protocol value that typechecks locally can still publish broken —
+  it did, twice (GUIDE.md section 5) — because that only resolves correctly
+  through `pnpm publish`, never `npm publish`. Confirm `publish-safety` in
+  `verify.sh` still passes; do not remove or narrow that check to get there.
