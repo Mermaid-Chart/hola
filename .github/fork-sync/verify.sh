@@ -63,6 +63,40 @@ fi
 # e.g. a new theme variable missing from the fork-only theme-mc.js.
 run typecheck pnpm --filter @mermaid-chart/mermaid exec tsc --noEmit -p tsconfig.json
 
+# --- publish safety ------------------------------------------------------------
+# pnpm substitutes a `workspace:` protocol dependency with the package's real
+# resolved version at pack time; plain `npm publish` has no idea what the
+# protocol means and ships the literal string, which no install outside this
+# monorepo can resolve. That is exactly how @mermaid-chart/mermaid@12.1.0-a.0/
+# -b.0 and @mermaid-chart/layout-elk@1.0.1-b.0 got published broken: both
+# publish-alpha.yml and publish-beta.yml ran `npm publish`.
+#
+# A content-based check here — e.g. `pnpm pack` every publishable package and
+# inspect the tarball's package.json — would NOT catch a regression of this:
+# `pnpm pack` always substitutes `workspace:` correctly, by definition, no
+# matter what the real CI publish step does. It would have passed on the
+# broken tree just as happily as on the fixed one, because it never runs the
+# command that actually shipped the bug. The only thing that distinguishes
+# "fixed" from "broken" here is which command the workflow files invoke — so
+# that is what this checks, directly.
+check_publish_safety() {
+  local f bad=0
+  for f in .github/workflows/publish-alpha.yml .github/workflows/publish-beta.yml; do
+    # Matches the actual invocation line (`... && pnpm publish --tag ...`), not
+    # this very comment's own mentions of "npm publish" in prose.
+    if grep -qE '\bnpm publish --tag\b' "$f"; then
+      echo "${f} invokes \`npm publish\`, which ships a \`workspace:\` protocol dependency as a literal, unresolvable string — see this check's own comment for the incident." >&2
+      bad=1
+    elif ! grep -qE '\bpnpm publish --tag\b' "$f"; then
+      echo "${f} invokes neither \`npm publish --tag\` nor \`pnpm publish --tag\` — has the publish step been renamed or restructured? Update this check to match." >&2
+      bad=1
+    fi
+  done
+  return "$bad"
+}
+
+run publish-safety check_publish_safety
+
 # --- unit tests --------------------------------------------------------------
 # Trap: local .claude/worktrees/** copies break the vite json-schema plugin and
 # inflate the run with phantom failures. A CI checkout has none, so a plain run
