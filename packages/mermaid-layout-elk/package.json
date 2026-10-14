@@ -1,6 +1,6 @@
 {
   "name": "@mermaid-chart/layout-elk",
-  "version": "1.0.1-a.1",
+  "version": "1.0.1-a.2",
   "description": "ELK layout engine for mermaid builds that do not bundle it (e.g. mermaid.tiny.js)",
   "module": "dist/mermaid-layout-elk.core.mjs",
   "types": "./types.d.ts",
@@ -54,6 +54,6 @@
     "dayjs": "^1.11.21",
     "dompurify": "^3.4.12",
     "elkjs": "^0.9.3",
-    "katex": "^0.16.47"
+    "katex": "^0.18.0"
   }
 }

@@ -52,7 +52,8 @@ export const withMinWidth = (bbox: DOMRect, minWidth: number): DOMRect => {
 export const labelHelper = async <T extends SVGGraphicsElement>(
   parent: D3Selection<T>,
   node: Node,
-  _classes?: string
+  _classes?: string,
+  { ignoreMinWidth = false }: { ignoreMinWidth?: boolean } = {}
 ) => {
   // Nodes carrying a stereotype render a stacked multi-section SVG label.
   if (node.stereotype !== undefined) {
@@ -90,8 +91,8 @@ export const labelHelper = async <T extends SVGGraphicsElement>(
   const isMarkdown = node.labelType === 'markdown';
   const isMindmapNode = (node.cssClasses ?? '').includes('mindmap-node');
   // An explicit node width wins over the diagram-level minimum; an empty label has
-  // nothing to widen.
-  const minLabelWidth = label && !node.width ? (node.minWidth ?? 0) : 0;
+  // nothing to widen. Shapes that size from both axes (circles) opt out of it.
+  const minLabelWidth = label && !node.width && !ignoreMinWidth ? (node.minWidth ?? 0) : 0;
   const text = await createText(
     labelEl,
     sanitizeText(decodeEntities(label), getConfig()),
