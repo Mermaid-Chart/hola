@@ -165,28 +165,26 @@ imports `'../helpers/util.ts'` and takes `({ page }, testInfo)`. Port it, keepin
 every case verbatim. Seen in `4c40dd406` (`sequenceDiagram-icon.spec.ts`,
 `sequenceDiagram-image.spec.ts`).
 
-**e2e is tiered: `pr-check` / `nightly-check` / `visual-check`, and the fork uses
-the tiers too.** Since the v12.2.0 sync (`6374155d0`) every fixture lives at
-`e2e/diagrams/<type>/<tier>/` and every spec at `e2e/rendering/<type>/<tier>/`. The fork's
-policy differs from upstream's label gates (see the `e2e.yml` and `nightly-e2e.yml`
-entries below): PRs to `develop` run `pr-check`, PRs to `main` run everything, and
-`nightly-check` runs nightly on `develop`. Each tier has its own Argos baseline.
+**e2e is tiered upstream: `pr-check` / `nightly-check` / `visual-check`.** Since the
+v12.2.0 sync (`6374155d0`) every fixture lives at `e2e/diagrams/<type>/<tier>/` and
+every spec at `e2e/rendering/<type>/<tier>/`. The fork keeps that layout but not
+upstream's tier gating. Every Alana PR to `develop` or `main` and every push to
+`develop` runs the full suite (see the `e2e.yml` entry below), so tier placement here
+is about staying merge-compatible with upstream, not about when a test runs.
 
 - **Fork-only coverage goes in `nightly-check/`**, as `.mmd` wherever the runner can
   express it. The fork's theme/look/layout sweeps, `mindmap-tidy-tree`, the extended
   theme tests and the `oldShapes` fill/stroke variants were all turned into fixtures
   under `nightly-check/<group>/`, each with a `description` naming the spec it came
   from. Specs that assert on the DOM or need `positions`, and so can't become
-  fixtures, go in `visual-check/` (`flowchart/visual-check/flowchart-fixed-layout.spec.ts`),
-  so every PR to `main` runs them.
+  fixtures, go in `visual-check/` (`flowchart/visual-check/flowchart-fixed-layout.spec.ts`).
 - **Don't add fork tests to upstream spec files.** Put them in a fork-only fixture
   instead. That is why the `oldShapes.spec.ts` additions became fixtures and the
   file went back to upstream's copy: a fork delta inside an upstream spec conflicts
   every time upstream touches the file.
-- **A spec or fixture outside any tier only runs on a full run (PRs to `main`), and is
-  uploaded with the `visual-check` build.** After
-  a merge, `find e2e -name '*.spec.*'` should show nothing outside a tier folder apart
-  from `e2e/helpers/` and `mmd-snapshots.spec.ts`.
+- **Keep specs inside a tier folder.** After a merge, `find e2e -name '*.spec.*'`
+  should show nothing outside a tier folder apart from `e2e/helpers/`,
+  `mmd-snapshots.spec.ts`, and anything upstream itself left untiered.
 - **Duplicates.** A fork fixture identical to an upstream one is a duplicate, so
   delete it (`13-should-render-the-short-input-form.mmd` was one).
 
@@ -312,38 +310,23 @@ carry. `guard.sh` asserts all three, but if you are merging by hand:
   134;
 - the `workflow_call` trigger. Upstream dropped it but kept the caller, so
   `pr-labeled.yml`'s "CI: full argos" label depends on the fork restoring it.
-- the `IS_ALANA_REPO` branch in `detect-scope`, which sets the fork's tier policy
-  and Argos outputs, the `argos-alana` job, and `main` in the push trigger.
-  Upstream's own `argos-batch` job stays gated to `mermaid-js/mermaid`. The policy:
+- the `IS_ALANA_REPO` branch in `detect-scope` and the `argos-alana` job. Alana
+  gets few PRs, so it runs the **full suite** on every PR to `develop` or `main`
+  and on every push to `develop` (docs-only PRs still skip). The merge queue runs
+  it too but doesn't upload. Upstream's label gates and its `argos-batch` job never
+  fire here.
 
-  | Run                             | Tests                  | Argos build(s), via `scripts/argos-upload-tier.sh`         |
-  | ------------------------------- | ---------------------- | ---------------------------------------------------------- |
-  | PR → `develop`                  | `pr-check`             | `develop-pr-check`, waits for review                       |
-  | push to `develop`               | `pr-check`             | `develop-pr-check`, auto-approved, the new baseline        |
-  | PR → `main`                     | full                   | `main-pr-check`, `main-nightly-check`, `main-visual-check` |
-  | push to `main`                  | full                   | all three, auto-approved, the whole main baseline          |
-  | merge queue, other targets      | as upstream / pr-check | none                                                       |
-  | `workflow_dispatch` on a branch | as a push there        | as a push there, so it refreshes the baseline              |
+  Argos holds **one build and one baseline, `develop`'s** (`scripts/argos-upload.sh`,
+  `--reference-branch develop`, no build name). A PR to `develop` is reviewed
+  against that baseline. A merge to `develop`, an auto-approved branch in the Argos
+  project settings, becomes the new baseline. A PR to `main` is also compared with
+  `develop`'s baseline. A promotion only changes package versions, so it should
+  show no diff, and `main` needs no baseline of its own. Every upload is a complete
+  run, never `--subset`, because Argos only accepts a complete build as a baseline.
 
-  This rests on two Argos facts. A build only compares against earlier builds with
-  the **same build name and mode**, and a **subset build can never become a
-  baseline**. So every tier on every branch is its own complete, non-subset build.
-  Approving `develop-pr-check` moves only the pr-check baseline. Nightly and visual
-  screenshots are never "removed" by a pr-check run. A full run on `main` replaces
-  all three main baselines. A screenshot's tier is the first tier segment in its
-  path. Anything untiered goes into `visual-check`. In the Argos project settings,
-  `develop` and `main` must be auto-approved branches, or the push builds never
-  become baselines.
-
-**`.github/workflows/nightly-e2e.yml`** is upstream-gated to `mermaid-js/mermaid`.
-The fork opens it to `Mermaid-Chart/alana-mermaid` and adds a `changes` job, which
-skips a scheduled run when `develop` is at the same commit as the last nightly that
-ran (passed or failed). It runs the `e2e` job on `2-core-advanced` with 6 shards.
-Its `argos-alana` job uploads the nightly-check tier as `develop-nightly-check` in
-Argos **monitoring** mode. Monitoring builds are never auto-approved, and each
-nightly is diffed against the last one a human approved. Upstream's `argos-upload`
-and Slack jobs stay upstream-only. `guard.sh` asserts the gate, the `changes` check,
-the runner and the upload.
+**`.github/workflows/nightly-e2e.yml`** stays upstream's copy and is inert here
+(gated to `mermaid-js/mermaid`). It would be redundant anyway, because every merge
+to `develop` already runs the full suite.
 
 **Applitools is upstream-only.** `e2e-applitools.yml` is gated off on the fork, and
 nothing in the fork's CI sets `USE_APPLI`.
