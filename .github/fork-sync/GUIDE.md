@@ -170,19 +170,21 @@ the tiers too.** Since the v12.2.0 sync (`6374155d0`) every fixture lives at
 `e2e/diagrams/<type>/<tier>/` and every spec at `e2e/rendering/<type>/<tier>/`. The fork's
 policy differs from upstream's label gates (see the `e2e.yml` and `nightly-e2e.yml`
 entries below): PRs to `develop` run `pr-check`, PRs to `main` run everything, and
-`nightly-check` runs nightly on `develop`.
+`nightly-check` runs nightly on `develop`. Each tier has its own Argos baseline.
 
 - **Fork-only coverage goes in `nightly-check/`**, as `.mmd` wherever the runner can
   express it. The fork's theme/look/layout sweeps, `mindmap-tidy-tree`, the extended
   theme tests and the `oldShapes` fill/stroke variants were all turned into fixtures
   under `nightly-check/<group>/`, each with a `description` naming the spec it came
-  from. Only specs that assert on the DOM or need `positions`
-  (`flowchart/nightly-check/flowchart-fixed-layout.spec.ts`) stay as specs.
+  from. Specs that assert on the DOM or need `positions`, and so can't become
+  fixtures, go in `visual-check/` (`flowchart/visual-check/flowchart-fixed-layout.spec.ts`),
+  so every PR to `main` runs them.
 - **Don't add fork tests to upstream spec files.** Put them in a fork-only fixture
   instead. That is why the `oldShapes.spec.ts` additions became fixtures and the
   file went back to upstream's copy: a fork delta inside an upstream spec conflicts
   every time upstream touches the file.
-- **A spec or fixture outside any tier only runs on a full run (PRs to `main`).** After
+- **A spec or fixture outside any tier only runs on a full run (PRs to `main`), and is
+  uploaded with the `visual-check` build.** After
   a merge, `find e2e -name '*.spec.*'` should show nothing outside a tier folder apart
   from `e2e/helpers/` and `mmd-snapshots.spec.ts`.
 - **Duplicates.** A fork fixture identical to an upstream one is a duplicate, so
@@ -310,18 +312,41 @@ carry. `guard.sh` asserts all three, but if you are merging by hand:
   134;
 - the `workflow_call` trigger. Upstream dropped it but kept the caller, so
   `pr-labeled.yml`'s "CI: full argos" label depends on the fork restoring it.
-- the `IS_ALANA_REPO` branch in `detect-scope`: PRs and merge-queue entries for
-  `develop` run the `pr-check` tier (docs-only changes still skip), and those for
-  `main` run the full suite. Upstream's label gates (`run pr tests` / `run release
-test`) never fire here. A push to `develop` still runs the full suite, because
-  that build is Argos's superset baseline.
+- the `IS_ALANA_REPO` branch in `detect-scope`, which sets the fork's tier policy
+  and Argos outputs, the `argos-alana` job, and `main` in the push trigger.
+  Upstream's own `argos-batch` job stays gated to `mermaid-js/mermaid`. The policy:
+
+  | Run                             | Tests                  | Argos build(s), via `scripts/argos-upload-tier.sh`         |
+  | ------------------------------- | ---------------------- | ---------------------------------------------------------- |
+  | PR → `develop`                  | `pr-check`             | `develop-pr-check`, waits for review                       |
+  | push to `develop`               | `pr-check`             | `develop-pr-check`, auto-approved, the new baseline        |
+  | PR → `main`                     | full                   | `main-pr-check`, `main-nightly-check`, `main-visual-check` |
+  | push to `main`                  | full                   | all three, auto-approved, the whole main baseline          |
+  | merge queue, other targets      | as upstream / pr-check | none                                                       |
+  | `workflow_dispatch` on a branch | as a push there        | as a push there, so it refreshes the baseline              |
+
+  This rests on two Argos facts. A build only compares against earlier builds with
+  the **same build name and mode**, and a **subset build can never become a
+  baseline**. So every tier on every branch is its own complete, non-subset build.
+  Approving `develop-pr-check` moves only the pr-check baseline. Nightly and visual
+  screenshots are never "removed" by a pr-check run. A full run on `main` replaces
+  all three main baselines. A screenshot's tier is the first tier segment in its
+  path. Anything untiered goes into `visual-check`. In the Argos project settings,
+  `develop` and `main` must be auto-approved branches, or the push builds never
+  become baselines.
 
 **`.github/workflows/nightly-e2e.yml`** is upstream-gated to `mermaid-js/mermaid`.
 The fork opens it to `Mermaid-Chart/alana-mermaid` and adds a `changes` job, which
 skips a scheduled run when `develop` is at the same commit as the last nightly that
-ran (passed or failed). It also runs the `e2e` job on `2-core-advanced` with 6 shards.
-Slack stays upstream-only, because the fork has no `SLACK_CHANNEL_IDS`. `guard.sh`
-asserts the gate, the `changes` check and the runner.
+ran (passed or failed). It runs the `e2e` job on `2-core-advanced` with 6 shards.
+Its `argos-alana` job uploads the nightly-check tier as `develop-nightly-check` in
+Argos **monitoring** mode. Monitoring builds are never auto-approved, and each
+nightly is diffed against the last one a human approved. Upstream's `argos-upload`
+and Slack jobs stay upstream-only. `guard.sh` asserts the gate, the `changes` check,
+the runner and the upload.
+
+**Applitools is upstream-only.** `e2e-applitools.yml` is gated off on the fork, and
+nothing in the fork's CI sets `USE_APPLI`.
 
 **e2e assets.** `e2e/diagrams/**` holds ~1224 `.mmd` fixtures, swept automatically
 by `e2e/rendering/mmd-snapshots.spec.ts` — new fixtures need no spec edit. But
