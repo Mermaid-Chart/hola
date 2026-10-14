@@ -126,7 +126,7 @@ describe('agentflow shape catalogue', () => {
     expect(db.getDiagnostics()).toStrictEqual([]);
   });
 
-  // #168: the `[/…/]` short form reaches the DB as `lean_right` (underscore),
+  // The `[/…/]` short form reaches the DB as `lean_right` (underscore),
   // which used to fall through to roundedRect with a SHAPE_UNSUPPORTED warning.
   it('treats the [/…/] short form as an input, same as shape: input', () => {
     const db = parse(`agentflow-beta TB
