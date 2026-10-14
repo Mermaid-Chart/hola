@@ -74,19 +74,32 @@ describe('insertEdge clips for the engine that drew the edge', () => {
     expect(drawn).toHaveLength(2);
   });
 
-  it('would empty a two-point route if it went by the configured layout instead', () => {
+  it('would reverse a two-point route if it went by the configured layout instead', () => {
     // The clipping written for dagre drops the first and last point, which leaves a
     // two-point route with nothing to meet. A bpmn diagram is always laid out in
     // swimlanes while `layout` resolves to the global default, so the two disagree and
     // this is what the argument above exists to prevent.
+    //
+    // Upstream asserts a TypeError here, because its dagre path slices the route down
+    // to nothing and then calls `intersect(undefined)`. This fork guards `points.length
+    // <= 2` and clips each endpoint toward the other instead, so the mismatch shows up
+    // as a reversed route rather than a crash. The guard is deliberate - restoring the
+    // crash to match upstream's assertion would be a regression - so the assertion
+    // tracks the fork's behaviour while testing the same thing: routing a two-point
+    // edge by the configured layout rather than the engine that drew it is wrong.
     document.body.innerHTML = '';
     const svg = select(document.body).append('svg');
 
     withConfiguredLayout('elk', () => {
-      expect(() =>
-        insertEdge(svg, twoPointEdge(), null, 'bpmn', shapeMeeting(), shapeMeeting(), 'd')
-      ).toThrow(TypeError);
+      insertEdge(svg, twoPointEdge(), null, 'bpmn', shapeMeeting(), shapeMeeting(), 'd');
     });
+
+    const drawn = JSON.parse(atob(svg.select('path').attr('data-points')));
+    // The swimlane path above yields [{0,0}, {0,100}]; going by the configured layout
+    // walks the endpoints in the opposite order.
+    expect(drawn).toHaveLength(2);
+    expect(drawn[0]).toMatchObject({ x: 0, y: 100 });
+    expect(drawn[1]).toMatchObject({ x: 0, y: 0 });
   });
 });
 
