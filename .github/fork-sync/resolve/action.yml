@@ -82,7 +82,7 @@ runs:
 
     - name: Claude Code
       id: claude
-      uses: anthropics/claude-code-action@c81e3bc69d1b18badbb63ba39581218f02421678 # v1.0.201
+      uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
       with:
         prompt: ${{ steps.render.outputs.text }}
         anthropic_api_key: ${{ inputs.anthropic_api_key }}
