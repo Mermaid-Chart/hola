@@ -23,7 +23,11 @@ name: Nightly E2E
 # run when develop has not moved since the last nightly that ran (passed or
 # failed). workflow_dispatch always runs. Alana runs on its private
 # 2-core-advanced runner with 6 shards, for the same heap reason as e2e.yml
-# (GUIDE.md section 5). Slack stays upstream-only.
+# (GUIDE.md section 5). Slack stays upstream-only. Alana uploads only the
+# nightly-check tier, as the `develop-nightly-check` Argos build in monitoring
+# mode (argos-alana below). Monitoring builds are never auto-approved, and each
+# one compares against the last nightly a human approved. pr-check has its own
+# develop-pr-check baseline, refreshed on every merge (e2e.yml).
 on:
   schedule:
     # 02:00 UTC daily — low-traffic time, adjust as needed.
@@ -163,7 +167,7 @@ jobs:
   argos-upload:
     if: >-
       ${{
-        (github.repository == 'mermaid-js/mermaid' || github.repository == 'Mermaid-Chart/alana-mermaid') &&
+        github.repository == 'mermaid-js/mermaid' &&
         needs.e2e.result == 'success'
       }}
     needs: e2e
@@ -242,6 +246,44 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+
+  # Alana-only. See the header and scripts/argos-upload-tier.sh.
+  argos-alana:
+    if: >-
+      ${{
+        github.repository == 'Mermaid-Chart/alana-mermaid' &&
+        needs.e2e.result == 'success'
+      }}
+    needs: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version-file: '.node-version'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download screenshot artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          pattern: nightly-screenshots-*
+          merge-multiple: true
+          path: e2e/screenshots
+
+      - name: Upload the nightly-check tier to Argos (monitoring)
+        env:
+          ARGOS_PARALLEL_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          echo '## Argos build' >> "$GITHUB_STEP_SUMMARY"
+          bash scripts/argos-upload-tier.sh e2e/screenshots nightly-check \
+            "${GITHUB_REF_NAME}-nightly-check" monitoring "$GITHUB_REF_NAME"
 
   # Reports this run's outcome to Slack so a failure or a visual diff doesn't
   # silently sit unnoticed in the Actions tab (see the no-Slack-yet note in

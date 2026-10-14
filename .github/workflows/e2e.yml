@@ -5,6 +5,9 @@ on:
     branches:
       - develop
       - master
+      # Alana's release line. A merge here runs the full suite and refreshes
+      # every main-* Argos baseline (argos-alana below).
+      - main
       - release/**
   pull_request:
   merge_group:
@@ -127,6 +130,11 @@ jobs:
       # that case (a skip due to a missing label must not silently count as
       # passing).
       required_tests_missing: ${{ steps.scope.outputs.required_tests_missing }}
+      # Alana-only (argos-alana below): which branch's Argos baselines this run
+      # reports against ('develop' or 'main'), and which tiers to upload, one
+      # Argos build per tier. Empty means no Argos upload.
+      argos_branch: ${{ steps.scope.outputs.argos_branch }}
+      argos_tiers: ${{ steps.scope.outputs.argos_tiers }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -199,6 +207,67 @@ jobs:
             set_output matrix "$E2E_SCOPED_MATRIX"
           }
 
+          # Alana-only tier policy. Tiers are folders under e2e/diagrams/<type>/
+          # and e2e/rendering/<type>/. Upstream's label gates never fire here.
+          #
+          #   PR or merge queue -> develop  pr-check (docs-only changes skip)
+          #   push to develop               pr-check, which becomes the new
+          #                                 develop-pr-check baseline
+          #   PR or merge queue -> main     full suite: pr-check + nightly-check
+          #                                 + visual-check, plus any spec outside
+          #                                 a tier
+          #   push to main                  full suite, which becomes the new
+          #                                 baseline for all three main tiers
+          #   workflow_dispatch on develop  as a push there (refresh the baseline),
+          #   or main, no spec glob         unless spec_pattern is set
+          #
+          # nightly-check also runs nightly on develop (nightly-e2e.yml). Argos
+          # builds are per branch and per tier (scripts/argos-upload-tier.sh), so
+          # approving one tier never touches another tier's baseline. Merge-queue
+          # runs don't upload, because the PR's own build is the one under review.
+          # Any other target falls through to the upstream logic below.
+          if [ "$IS_ALANA_REPO" = "true" ] && { [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] || [ -z "$SPEC_PATTERN_INPUT" ]; }; then
+            case "$GITHUB_EVENT_NAME" in
+              pull_request | merge_group) ALANA_BRANCH="${PR_BASE_REF:-${BASE_REF#refs/heads/}}" ;;
+              *) ALANA_BRANCH="$GITHUB_REF_NAME" ;;
+            esac
+            ALANA_UPLOAD=true
+            [ "$GITHUB_EVENT_NAME" = "merge_group" ] && ALANA_UPLOAD=false
+
+            if [ "$ALANA_BRANCH" = "main" ]; then
+              emit_full
+              if [ "$ALANA_UPLOAD" = "true" ]; then
+                set_output argos_branch main
+                set_output argos_tiers "pr-check,nightly-check,visual-check"
+              fi
+              echo "[detect-scope] ${GITHUB_EVENT_NAME} -> main — full suite (pr-check + nightly-check + visual-check)."
+              exit 0
+            fi
+
+            if [ "$ALANA_BRANCH" = "develop" ]; then
+              if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+                git fetch origin develop --depth=1 2>/dev/null || true
+                ALANA_MERGE_BASE=$(git merge-base HEAD origin/develop 2>/dev/null || true)
+                if [ -n "$ALANA_MERGE_BASE" ] &&
+                  [ "$(git diff --name-only "$ALANA_MERGE_BASE" HEAD | node scripts/e2e-diagram-scope.mjs || true)" = "SKIP" ]; then
+                  emit_skip
+                  echo "[detect-scope] PR -> develop — only docs/ignorable files changed, e2e skipped."
+                  exit 0
+                fi
+              fi
+              SPEC=$(node scripts/e2e-tier-scope.mjs pr-check)
+              set_output spec_pattern "$SPEC"
+              set_output matrix "$E2E_SCOPED_MATRIX"
+              set_output fixture_tier "pr-check"
+              if [ "$ALANA_UPLOAD" = "true" ]; then
+                set_output argos_branch develop
+                set_output argos_tiers "pr-check"
+              fi
+              echo "[detect-scope] ${GITHUB_EVENT_NAME} -> develop — pr-check tier: ${SPEC}"
+              exit 0
+            fi
+          fi
+
           # Manual runs can target a specific spec glob via the workflow_dispatch
           # input; an empty pattern runs the full suite.
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
@@ -209,37 +278,6 @@ jobs:
               emit_full
               echo "[detect-scope] Manual run — full suite."
             fi
-            exit 0
-          fi
-
-          # Alana-only tier policy for PRs and the merge queue. Tiers are folders
-          # under e2e/diagrams/<type>/ and e2e/rendering/<type>/:
-          #   - target main:    full suite, so pr-check + nightly-check +
-          #                     visual-check (fixture_tier left empty).
-          #   - target develop: the pr-check tier only. A docs-only change
-          #                     still skips. nightly-check runs once a night
-          #                     on develop instead (nightly-e2e.yml).
-          # Any other target branch falls through to the diff-based scoping below.
-          ALANA_BASE="${PR_BASE_REF:-${BASE_REF#refs/heads/}}"
-          if [ "$IS_ALANA_REPO" = "true" ] && [ "$ALANA_BASE" = "main" ]; then
-            emit_full
-            echo "[detect-scope] PR -> main — full suite (pr-check + nightly-check + visual-check)."
-            exit 0
-          fi
-          if [ "$IS_ALANA_REPO" = "true" ] && [ "$ALANA_BASE" = "develop" ]; then
-            git fetch origin develop --depth=1 2>/dev/null || true
-            ALANA_MERGE_BASE=$(git merge-base HEAD origin/develop 2>/dev/null || true)
-            if [ -n "$ALANA_MERGE_BASE" ] &&
-              [ "$(git diff --name-only "$ALANA_MERGE_BASE" HEAD | node scripts/e2e-diagram-scope.mjs || true)" = "SKIP" ]; then
-              emit_skip
-              echo "[detect-scope] PR -> develop — only docs/ignorable files changed, e2e skipped."
-              exit 0
-            fi
-            SPEC=$(node scripts/e2e-tier-scope.mjs pr-check)
-            set_output spec_pattern "$SPEC"
-            set_output matrix "$E2E_SCOPED_MATRIX"
-            set_output fixture_tier "pr-check"
-            echo "[detect-scope] PR -> develop — pr-check tier: ${SPEC}"
             exit 0
           fi
 
@@ -619,7 +657,7 @@ jobs:
   argos-batch:
     if: >-
       ${{
-        github.repository == 'Mermaid-Chart/alana-mermaid' &&
+        github.repository == 'mermaid-js/mermaid' &&
         (github.event_name == 'workflow_dispatch' || github.event_name != 'pull_request' || !startsWith(github.head_ref, 'renovate/')) &&
         needs.detect-scope.outputs.spec_pattern != 'SKIP' &&
         needs.e2e.result == 'success'
@@ -757,6 +795,53 @@ jobs:
             pnpm exec argos upload e2e/screenshots \
               --files "${globs[@]}" \
               --parallel --parallel-total "$K" --parallel-index "$i"
+          done
+
+  # Alana-only. Uploads each tier this run covered as its own Argos build, named
+  # <branch>-<tier> (see scripts/argos-upload-tier.sh). Upstream's argos-batch
+  # above stays gated to mermaid-js/mermaid. Alana never uses Applitools.
+  argos-alana:
+    if: >-
+      ${{
+        github.repository == 'Mermaid-Chart/alana-mermaid' &&
+        needs.detect-scope.outputs.argos_branch != '' &&
+        needs.e2e.result == 'success' &&
+        (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'renovate/'))
+      }}
+    needs: [detect-scope, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version-file: '.node-version'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download screenshot artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          pattern: screenshots-*
+          merge-multiple: true
+          path: e2e/screenshots
+
+      - name: Upload one Argos build per tier
+        env:
+          ARGOS_BRANCH: ${{ needs.detect-scope.outputs.argos_branch }}
+          ARGOS_TIERS: ${{ needs.detect-scope.outputs.argos_tiers }}
+          ARGOS_PARALLEL_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          echo '## Argos builds' >> "$GITHUB_STEP_SUMMARY"
+          IFS=',' read -ra tiers <<< "$ARGOS_TIERS"
+          for tier in "${tiers[@]}"; do
+            bash scripts/argos-upload-tier.sh e2e/screenshots "$tier" "${ARGOS_BRANCH}-${tier}" ci "$ARGOS_BRANCH"
           done
 
   e2e-required:

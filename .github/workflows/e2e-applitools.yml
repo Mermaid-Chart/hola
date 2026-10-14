@@ -22,6 +22,9 @@ env:
 
 jobs:
   e2e-applitools:
+    # Alana doesn't use Applitools; its visual review is Argos (e2e.yml,
+    # nightly-e2e.yml).
+    if: github.repository != 'Mermaid-Chart/alana-mermaid'
     runs-on: ubuntu-latest
     steps:
       - if: ${{ ! env.USE_APPLI }}
