@@ -17,6 +17,13 @@ name: Nightly E2E
 # mermaid-js/mermaid the same way; a fork wanting its own safe environment to
 # validate the Playwright/tier plumbing in would need to point this check at
 # its own repository instead.
+#
+# Alana fork delta: this also runs on Mermaid-Chart/alana-mermaid, which keeps
+# PRs to develop on pr-check only (e2e.yml). The `changes` job skips a scheduled
+# run when develop has not moved since the last nightly that ran (passed or
+# failed). workflow_dispatch always runs. Alana runs on its private
+# 2-core-advanced runner with 6 shards, for the same heap reason as e2e.yml
+# (GUIDE.md section 5). Slack stays upstream-only.
 on:
   schedule:
     # 02:00 UTC daily — low-traffic time, adjust as needed.
@@ -25,25 +32,66 @@ on:
 
 permissions:
   contents: read
+  # `changes` lists this workflow's earlier runs.
+  actions: read
 
 defaults:
   run:
     shell: bash
 
 env:
-  RUN_VISUAL_TEST: ${{ github.repository == 'mermaid-js/mermaid' }}
+  RUN_VISUAL_TEST: ${{ github.repository == 'mermaid-js/mermaid' || github.repository == 'Mermaid-Chart/alana-mermaid' }}
 
 jobs:
-  e2e:
-    if: github.repository == 'mermaid-js/mermaid'
+  # Decides whether tonight's run has anything new to test. It compares this
+  # run's commit with the commit of the last nightly that actually ran, meaning
+  # it completed and passed or failed. A cancelled run doesn't count, so the
+  # next night retries it. Manual dispatches always run.
+  changes:
+    if: github.repository == 'mermaid-js/mermaid' || github.repository == 'Mermaid-Chart/alana-mermaid'
     runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - name: Compare with the last nightly run
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "[changes] ${GITHUB_EVENT_NAME} — always runs."
+            exit 0
+          fi
+          # A run whose e2e job was skipped still concludes `success`, but it
+          # carries the same head_sha as the run it deferred to, so the
+          # comparison still holds.
+          LAST_SHA=$(gh api "repos/${REPO}/actions/workflows/nightly-e2e.yml/runs?branch=${GITHUB_REF_NAME}&status=completed&per_page=50" \
+            --jq "[.workflow_runs[] | select(.id != ${RUN_ID}) | select(.conclusion == \"success\" or .conclusion == \"failure\")][0].head_sha // \"\"")
+          if [ -n "$LAST_SHA" ] && [ "$LAST_SHA" = "$HEAD_SHA" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "[changes] ${GITHUB_REF_NAME} is still at ${HEAD_SHA}, as in the last nightly — skipping."
+            echo "Nightly skipped: no commits on \`${GITHUB_REF_NAME}\` since the last nightly run (\`${HEAD_SHA:0:9}\`)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "[changes] ${GITHUB_REF_NAME}: ${LAST_SHA:-none} -> ${HEAD_SHA} — running."
+          fi
+
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
+    # Alana's private 8 GiB runner, as in e2e.yml; upstream keeps ubuntu-latest.
+    runs-on: ${{ github.repository == 'Mermaid-Chart/alana-mermaid' && '2-core-advanced' || 'ubuntu-latest' }}
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        containers: [1, 2, 3, 4]
+        containers: ${{ fromJSON(github.repository == 'Mermaid-Chart/alana-mermaid' && '[1,2,3,4,5,6]' || '[1,2,3,4]') }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
@@ -115,7 +163,7 @@ jobs:
   argos-upload:
     if: >-
       ${{
-        github.repository == 'mermaid-js/mermaid' &&
+        (github.repository == 'mermaid-js/mermaid' || github.repository == 'Mermaid-Chart/alana-mermaid') &&
         needs.e2e.result == 'success'
       }}
     needs: e2e
@@ -201,8 +249,8 @@ jobs:
   # still posts (as a failure summary) when e2e or argos-upload didn't
   # succeed, instead of being skipped along with them.
   notify-slack:
-    if: always() && github.repository == 'mermaid-js/mermaid'
-    needs: [e2e, argos-upload]
+    if: always() && github.repository == 'mermaid-js/mermaid' && needs.changes.outputs.run == 'true'
+    needs: [changes, e2e, argos-upload]
     runs-on: ubuntu-latest
     steps:
       # Branches in bash rather than a nested GitHub Actions ternary so a
