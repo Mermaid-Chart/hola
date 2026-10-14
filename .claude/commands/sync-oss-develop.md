@@ -78,7 +78,20 @@ want to watch the resolution happen.
 
    `verify.sh --tier full` (and `--tier fast`) now includes a `publish-safety`
    step that asserts `publish-alpha.yml`/`publish-beta.yml` invoke `pnpm publish`,
-   not `npm publish` — do not skip or weaken it to reach green.
+   not `npm publish`, and that neither filters its push trigger by `paths:` — do
+   not skip or weaken it to reach green.
+
+   If `guard.sh` fails check 2 (spec files deleted) or 4 (net assertions down),
+   attribute every deleted spec before accepting it: `git cat-file -e
+<merge-base>:<path>` shows whether upstream owned it, and counting fork-added
+   `expect(` lines against the merge base shows what the fork loses. An upstream
+   restructure (v12.2.0 deleted 43 specs) fails these checks by design; a deletion
+   the resolution introduced is a real finding.
+
+   Upstream e2e is tiered (`pr-check` / `nightly-check` / `visual-check`). Fork-only
+   tests belong in `nightly-check/`, as `.mmd` fixtures where possible; never add
+   fork tests to an upstream spec file. A fork fixture identical to an upstream one
+   is a duplicate — delete it. GUIDE.md section 5 has the details.
 
 7. **Report** in the house format the guide describes: conflict resolutions with
    rationale, follow-on fixes the merge required, anything unresolved, and what
@@ -88,9 +101,36 @@ Unless `--dry-run` was passed, push the branch and open or update the PR against
 `develop` when everything is green. Stop and ask rather than guessing if a
 resolution needs a product decision.
 
+8. **After the PR merges, confirm the alpha actually published.** The sync is not
+   done when the PR merges; it is done when the new alpha is on the registry. The
+   v12.2.0 sync (#170) merged cleanly and published nothing for hours, because a
+   `paths:` filter on the push trigger only sees the first 300 files of a push.
+
+   ```bash
+   # Must be a merge commit, so upstream history stays in develop:
+   git fetch origin develop && git merge-base --is-ancestor os_repo/develop origin/develop
+   # A publish-alpha run must exist for the merge commit itself:
+   gh run list --workflow publish-alpha.yml --commit "$(git rev-parse origin/develop)"
+   ```
+
+   If no run exists, dispatch one (`gh workflow run publish-alpha.yml --ref
+develop -f dry_run=true` first, then for real once the plan is right) rather
+   than waiting for the 05:40 UTC reconciler, and report it. Check its log shows
+   `publish <name>@<version>` for every package `version.mjs` bumped.
+
 ## Do not
 
 - Touch `develop` directly, or force-push anything.
+- Amend, rebase or otherwise rewrite a commit that has already been pushed. Add a
+  new commit instead — rewriting forces the next push to need `--force`.
+- Merge the sync PR with squash or rebase. It must be a merge commit, or the next
+  sync re-merges every upstream commit.
+- Put a `paths:` filter back on the push trigger of `publish-alpha.yml` or
+  `publish-beta.yml`. `publish-safety` will fail if you do.
+- Run `e2e.yml`'s `detect-scope` script (or anything else with `git fetch
+--depth=1`) against the working clone to simulate it. It grafts shallow
+  boundaries into a full clone, after which ancestry checks lie. Simulate in a
+  scratch clone; if it happened, `git fetch --unshallow origin`.
 - Weaken, skip or delete a test to reach green. If a test cannot pass without
   changing product behaviour, that is a finding to report.
 - Hand-edit version numbers, `pnpm-lock.yaml`, anything under `docs/`, or any
