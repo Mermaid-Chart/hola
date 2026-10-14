@@ -14,7 +14,10 @@ export async function circle<T extends SVGGraphicsElement>(
 ) {
   const { labelStyles, nodeStyles } = styles2String(node);
   node.labelStyle = labelStyles;
-  const { shapeSvg, bbox, halfPadding } = await labelHelper(parent, node, getNodeClasses(node));
+  // A min width would inflate the radius on both axes, leaving short labels in a large, empty circle.
+  const { shapeSvg, bbox, halfPadding } = await labelHelper(parent, node, getNodeClasses(node), {
+    ignoreMinWidth: true,
+  });
 
   // Calculate radius based on look type
   const labelPadding = 16;
@@ -25,10 +28,11 @@ export async function circle<T extends SVGGraphicsElement>(
   // Fork delta, and the only one in this file: a fixed-layout node carries its own size
   // through `positions` (see `NodePosition`), so an explicit width wins over the
   // label-derived radius. Every other shape honours it in upstream's own code.
+  // The diagonal already contains the label, so neo needs only one padding step (as doubleCircle's inner ring).
   const radius = node.width
     ? node.width / 2
     : node.look === 'neo'
-      ? labelRadius + labelPadding * 2
+      ? labelRadius + labelPadding
       : labelRadius + padding;
 
   let circleElem;
