@@ -1,0 +1,12 @@
+%% Issue #168: the `[/…/]` short form is an input, drawn as the same
+%% parallelogram as `@{ shape: input }`. Before the fix it fell back to a
+%% rounded task box with a SHAPE_UNSUPPORTED warning.
+agentflow TB
+  flow f["Morning digest"]
+    every_morning[/"Every weekday 09:00"/]
+    request["Ad-hoc request"]@{ shape: input }
+    summarise["Summarise inbox"]@{ shape: task }
+
+    every_morning --> summarise
+    request --> summarise
+  end

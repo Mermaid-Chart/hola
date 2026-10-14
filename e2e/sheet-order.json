@@ -17,7 +17,8 @@
     "7b-should-render-multiple-connector-declarations.png",
     "8-should-redirect-cross-boundary-edges-to-the-collapsed-parent.png",
     "9-should-treat-an-empty-metadata-block-as-a-no-op.png",
-    "12-should-accept-the-plain-agentflow-header.png"
+    "12-should-accept-the-plain-agentflow-header.png",
+    "13-should-render-the-short-input-form.png"
   ],
   "diagrams/agentflow/handdrawn": [
     "should-render-every-container-kind.png",
