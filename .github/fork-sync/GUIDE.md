@@ -1,6 +1,6 @@
 # Syncing upstream OSS mermaid into this fork
 
-> Last verified against `os_repo/develop` (v12.1.0) on 2026-10-04. Fork tip ~1037
+> Last verified against `os_repo/develop` (v12.2.0) on 2026-10-14. Fork tip ~1037
 > commits ahead of upstream. Unit suite: ~7736 tests in ~368 files on `develop`.
 
 Two audiences read this: the CI resolver in
@@ -164,6 +164,21 @@ After any merge, run
 imports `'../helpers/util.ts'` and takes `({ page }, testInfo)`. Port it, keeping
 every case verbatim. Seen in `4c40dd406` (`sequenceDiagram-icon.spec.ts`,
 `sequenceDiagram-image.spec.ts`).
+
+**e2e is tiered upstream: `pr-check` / `nightly-check` / `visual-check`.** Since the
+v12.2.0 sync (`6374155d0`) every fixture lives at `e2e/diagrams/<type>/<tier>/` and
+every spec at `e2e/rendering/<type>/<tier>/`. Upstream's tier scoping
+(`MERMAID_E2E_FIXTURE_TIER`, `scripts/e2e-tier-scope.mjs`) only fires on
+`mermaid-js/mermaid`, so the fork still runs everything and a fixture or spec at the old
+flat path keeps working. But put new fork fixtures under a tier anyway, normally
+`pr-check/`. A fork fixture left at the flat path next to an identical upstream
+copy under a tier is a duplicate, so delete it (`13-should-render-the-short-input-form.mmd`
+was one). The same restructure turned many upstream specs into snapshot-only `.mmd`,
+deleting 43 spec files and 231 DOM assertions, all upstream-authored except one. The
+fork followed upstream. That sync failed `guard.sh` checks 2 and 4 by design,
+because the guard cannot tell an upstream deletion from a resolution's. Attribute
+each deleted spec (`git cat-file -e <merge-base>:<path>`, and count fork-added
+`expect(` lines against the merge base) before accepting such a failure.
 
 **Fork-only DOM contracts on new render paths.** Every actor renderer in
 `sequence/svgDraw.js` tags its group with `data-et`/`data-type`/`data-id` and its
