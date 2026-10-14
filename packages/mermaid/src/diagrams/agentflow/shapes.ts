@@ -17,7 +17,6 @@ export const SHAPE_ALIASES: ReadonlyMap<string, string> = new Map([
   ['task', 'roundedRect'],
   ['tool', 'subroutine'],
   ['input', 'lean-right'],
-  // The `[/…/]` short form parses to `lean_right`; fold it onto the same id.
   ['lean_right', 'lean-right'],
   ['decision', 'diamond'],
   ['refdoc', 'lin-doc'],
