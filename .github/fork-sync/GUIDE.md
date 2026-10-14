@@ -295,6 +295,14 @@ tarball) cannot catch a regression of this — `pnpm pack` always substitutes
 would pass on a tree that ships broken just as happily as on a fixed one. Check the
 workflow files' own invocation instead, as `publish-safety` does.
 
+**The publish workflows must not filter `push` by path.** GitHub matches `paths:`
+against only the first 300 files of a push. The v12.2.0 sync (#170) changed thousands
+of files, so its `package.json` version bumps fell outside that window, and
+`publish-alpha.yml` never started. The new alpha waited for the 05:40 UTC reconciler.
+Both publish workflows now run on every push to their branch. The plan step skips
+any version already on the registry before installing anything, so a no-op run
+costs seconds. Don't reintroduce a `paths` filter.
+
 The republish itself needed its own alpha/beta counter bump — a version is
 immutable on the registry once published, broken or not, so there is no fixing
 `12.1.0-a.0`/`-b.0` in place. `version.mjs`'s normal "bumped alpha/beta N -> N+1"
