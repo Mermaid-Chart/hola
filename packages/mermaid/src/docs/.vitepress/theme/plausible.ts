@@ -1,7 +1,7 @@
 import type {
   PlausibleConfig,
   PlausibleEventOptions,
-} from '@plausible-analytics/tracker/plausible.js';
+} from '@plausible-analytics/tracker';
 
 interface PlausibleTracker {
   init: (config: PlausibleConfig) => void;
@@ -25,7 +25,7 @@ const loadTracker = async () => {
   if (typeof window === 'undefined') {
     return null;
   }
-  trackerPromise ??= import('@plausible-analytics/tracker/plausible.js');
+  trackerPromise ??= import('@plausible-analytics/tracker');
   return trackerPromise;
 };
 
