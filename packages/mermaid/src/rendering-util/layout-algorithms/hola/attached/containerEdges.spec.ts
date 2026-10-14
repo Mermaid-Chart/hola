@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Edge, LayoutData, Node } from '../../../types.js';
 import type { Bounds } from '../core/model.js';
-import { polylineHitsBounds } from './geometry.js';
+import { polylineHitsBounds, polylineCrossesSegment } from './geometry.js';
 import {
   preserveContainerTerminalRuns,
   rerouteEdgesAroundForeignFrames,
@@ -190,4 +190,131 @@ describe('post-frame subgraph routing', () => {
       Math.hypot(inboundAtNat.x - outboundAtNat.x, inboundAtNat.y - outboundAtNat.y)
     ).toBeGreaterThanOrEqual(8);
   });
+});
+
+it('replaces a clipped frame corner with a clear interior-face bridge inside an ancestor', () => {
+  const nodes = [
+    group('parent', 170, 120, 340, 240),
+    group('frame', 100, 160, 160, 100, 'parent'),
+    leaf('target', 180, 70, 'parent'),
+  ];
+  const bridge = edge('frame-target', 'frame', 'target', [
+    { x: 180, y: 110 },
+    { x: 180, y: 95 },
+  ]);
+  const data: LayoutData = { nodes, edges: [bridge], config: {} };
+  straightenAlignedContainerBridges(
+    [{ edge: bridge, startContainer: 'frame' }],
+    new Map([
+      ['parent', { minX: 0, minY: 0, maxX: 340, maxY: 240 }],
+      ['frame', { minX: 20, minY: 110, maxX: 180, maxY: 210 }],
+    ]),
+    nodes,
+    data.edges,
+    resolveGridAttachedOptions(data)
+  );
+  expect(bridge.points).toHaveLength(2);
+  expect(bridge.points![0].x).toBeLessThanOrEqual(154.4);
+  expect(bridge.points![0].x).toBeGreaterThan(140);
+  expect(bridge.points![0].x).toBe(bridge.points![1].x);
+});
+
+describe('safe restored ports', () => {
+  for (const rotation of [0, 90, 180, 270]) {
+    for (const reverse of [false, true]) {
+      it(`repairs both terminals at ${rotation} degrees, reversed=${reverse}`, () => {
+        const turn = (point: { x: number; y: number }) =>
+          rotation === 90
+            ? { x: -point.y, y: point.x }
+            : rotation === 180
+              ? { x: -point.x, y: -point.y }
+              : rotation === 270
+                ? { x: point.y, y: -point.x }
+                : point;
+        const nodes = [
+          group('parent', 170, 120, 400, 300),
+          group('frame', 100, 160, 160, 100, 'parent'),
+          leaf('target', 280, 70, 'parent'),
+        ].map((node) => ({
+          ...node,
+          ...turn({ x: node.x!, y: node.y! }),
+          width: rotation % 180 ? node.height : node.width,
+          height: rotation % 180 ? node.width : node.height,
+        }));
+        const points = [
+          { x: 180, y: 110 },
+          { x: 210, y: 110 },
+          { x: 210, y: 95 },
+          { x: 240, y: 95 },
+        ].map(turn);
+        const bridge = edge(
+          'frame-target',
+          reverse ? 'target' : 'frame',
+          reverse ? 'frame' : 'target',
+          reverse ? [...points].reverse() : points
+        );
+        const data: LayoutData = { nodes, edges: [bridge], config: {} };
+        const frames = new Map(
+          nodes
+            .filter((node) => node.isGroup)
+            .map((node) => [
+              node.id,
+              {
+                minX: node.x - node.width! / 2,
+                maxX: node.x + node.width! / 2,
+                minY: node.y - node.height! / 2,
+                maxY: node.y + node.height! / 2,
+              },
+            ])
+        );
+        rerouteEdgesAroundForeignFrames(
+          data.edges,
+          frames,
+          nodes,
+          resolveGridAttachedOptions(data)
+        );
+        const atFrame = reverse ? bridge.points!.at(-1)! : bridge.points![0];
+        const atLeaf = reverse ? bridge.points![0] : bridge.points!.at(-1)!;
+        const corners = (xs: number[], ys: number[]) =>
+          xs.flatMap((x) => ys.map((y) => turn({ x, y })));
+        const distance = (point: { x: number; y: number }, points: { x: number; y: number }[]) =>
+          Math.min(...points.map((other) => Math.hypot(point.x - other.x, point.y - other.y)));
+        expect(distance(atFrame, corners([20, 180], [110, 210]))).toBeGreaterThanOrEqual(8);
+        expect(distance(atLeaf, corners([240, 320], [45, 95]))).toBeGreaterThanOrEqual(8);
+      });
+    }
+  }
+});
+
+it('coordinates a frame connector with an ordinary route crossing its corridor', () => {
+  const nodes = [
+    group('frame', 200, 200, 100, 100),
+    leaf('sink', 200, 80),
+    leaf('outside', 400, 80),
+    leaf('router', 0, 330),
+  ];
+  const connector = edge('frame-sink', 'frame', 'sink', [
+    { x: 200, y: 150 },
+    { x: 200, y: 105 },
+  ]);
+  const through = edge('outside-router', 'outside', 'router', [
+    { x: 400, y: 105 },
+    { x: 400, y: 125 },
+    { x: 0, y: 125 },
+    { x: 0, y: 305 },
+  ]);
+  const data: LayoutData = { nodes, edges: [through, connector], config: {} };
+  rerouteEdgesAroundForeignFrames(
+    data.edges,
+    new Map([['frame', { minX: 150, minY: 150, maxX: 250, maxY: 250 }]]),
+    nodes,
+    resolveGridAttachedOptions(data)
+  );
+  expect(
+    connector
+      .points!.slice(1)
+      .some((point, index) =>
+        polylineCrossesSegment(through.points!, { a: connector.points![index], b: point })
+      )
+  ).toBe(false);
 });

@@ -14,8 +14,18 @@ import { arrangeNestedLinearWorkflow } from './nestedLinearWorkflow.js';
 import { arrangeTerminalFrameFan } from './terminalFrameFan.js';
 import { arrangeCardinalDiamondFans } from './cardinalDiamondFan.js';
 import { arrangeNestedFrameEntry } from './nestedFrameEntry.js';
+import { BlockState } from '../layout-utils/ipsep-cola/solver/blocks.js';
+import { project } from '../layout-utils/ipsep-cola/solver/project.js';
+import type { SeparationConstraint } from '../layout-utils/ipsep-cola/solver/types.js';
+import {
+  GROUP_GROUP_PADDING,
+  isSoftIssueType,
+  nodeGroupClearanceOf,
+  validateLayout,
+} from '../layout-utils/validateLayout.js';
 import {
   acceptLocalGeometryProposal,
+  constrainedLocalEdge,
   measuredLocalEdge,
   measuredLocalNode,
 } from './localProposal.js';
@@ -76,7 +86,6 @@ export function runStressAndGridLayoutCore(
 
   if (components.length <= 1) {
     const result = runGridLikeLayoutCore(data4Layout, gridOptionsFor(data4Layout, overrides));
-    compactVacantGridRows(data4Layout, result.options);
     alignSymmetricDecisionBranches(data4Layout);
     alignNearAxisGroupEdges(data4Layout);
     // Moving a decision onto an internal group row may have invalidated the
@@ -120,7 +129,10 @@ export function runStressAndGridLayoutCore(
     separateDetachedLeavesFromFrames(data4Layout);
     compactRootFrameBands(data4Layout, result.options.rankSpacing);
     arrangeExternalSiblingFrameCycles(data4Layout);
+    separateSettledFrameBoxes(data4Layout);
     routeStressAndGridEdges(data4Layout, result.options.gridSpacing);
+    refineSettledAxisAlignments(data4Layout, result.options.gridSpacing);
+    compactUnframedVerticalBands(data4Layout, result.options);
     orderParentFramesBeforeChildren(data4Layout.nodes);
     return result;
   }
@@ -128,7 +140,6 @@ export function runStressAndGridLayoutCore(
   const results = components.map((component) => {
     const componentData = { ...data4Layout, ...component };
     const result = runGridLikeLayoutCore(componentData, gridOptionsFor(componentData, overrides));
-    compactVacantGridRows(componentData, result.options);
     alignSymmetricDecisionBranches(componentData);
     alignNearAxisGroupEdges(componentData);
     alignSymmetricDecisionBranches(componentData);
@@ -170,16 +181,364 @@ export function runStressAndGridLayoutCore(
     separateDetachedLeavesFromFrames(componentData);
     compactRootFrameBands(componentData, result.options.rankSpacing);
     arrangeExternalSiblingFrameCycles(componentData);
+    separateSettledFrameBoxes(componentData);
     return { componentData, result };
   });
 
   packComponents(results.map(({ componentData }) => componentData));
   for (const { componentData, result } of results) {
     routeStressAndGridEdges(componentData, result.options.gridSpacing);
+    refineSettledAxisAlignments(componentData, result.options.gridSpacing);
+    compactUnframedVerticalBands(componentData, result.options);
   }
   orderParentFramesBeforeChildren(data4Layout.nodes);
 
   return combineResults(results.map(({ result }) => result));
+}
+
+/**
+ * Soft grid snapping can leave neighbours almost on the same row or column.
+ * Align whole coordinate components, not one endpoint at a time: moving a
+ * member alone would break a straight chain that already uses its coordinate.
+ * The final routed drawing is the acceptance gate, so a cosmetic preference
+ * cannot introduce a hard violation, a crossing, or extra bends.
+ */
+function refineSettledAxisAlignments(data: LayoutData, gridSpacing: number): void {
+  const nodes = new Map(data.nodes.map((node) => [node.id, node]));
+  const freeNodes = data.nodes.filter(
+    (node) =>
+      node.isGroup !== true &&
+      !node.isDummy &&
+      !node.isEdgeLabel &&
+      !node.isLabelNode &&
+      node.dir === undefined &&
+      measuredLocalNode(node) &&
+      /^(rect|squareRect|cylinder)$/.test(node.shape ?? '') &&
+      // A shared bridge couples several containers' ports and corridors.
+      // Its placement belongs to the container solve, not a local snap.
+      data.edges.filter((edge) => {
+        const otherId =
+          edge.start === node.id ? edge.end : edge.end === node.id ? edge.start : undefined;
+        const other = otherId ? nodes.get(otherId) : undefined;
+        return other !== undefined && other.parentId !== node.parentId;
+      }).length <= 1 &&
+      !frameAncestorNodes(node, nodes).some((frame) => frame.dir !== undefined) &&
+      !data.edges.some(
+        (edge) =>
+          (edge.start === node.id || edge.end === node.id) &&
+          (constrainedLocalEdge(edge) ||
+            edge.start === edge.end ||
+            Boolean((edge.label ?? edge.text ?? '').trim()) ||
+            nodes.get(edge.start ?? '')?.isGroup === true ||
+            nodes.get(edge.end ?? '')?.isGroup === true)
+      )
+  );
+  // A follower of an anchored junction has no free local neighbourhood to
+  // align with. Keep its established ports instead of rerouting that junction.
+  const free = new Set(freeNodes);
+  const movable = freeNodes.filter((node) => {
+    const incident = data.edges.filter((edge) => edge.start === node.id || edge.end === node.id);
+    return (
+      incident.length === 0 ||
+      incident.some((edge) => {
+        const other = nodes.get(edge.start === node.id ? edge.end! : edge.start!);
+        return other !== undefined && free.has(other);
+      })
+    );
+  });
+  const eligible = new Set(movable);
+  const pairs = data.edges.flatMap((edge): [Node, Node][] => {
+    const source = nodes.get(edge.start ?? '');
+    const target = nodes.get(edge.end ?? '');
+    return source && target && eligible.has(source) && eligible.has(target)
+      ? [[source, target]]
+      : [];
+  });
+  // Siblings can share a row/column without a direct edge: either they have
+  // the same neighbour, or they are immediate members of the same frame.
+  const peers = new Map<string, Set<Node>>();
+  const addPeer = (key: string, node: Node) => {
+    if (!eligible.has(node)) {
+      return;
+    }
+    const members = peers.get(key) ?? new Set<Node>();
+    members.add(node);
+    peers.set(key, members);
+  };
+  for (const node of movable) {
+    if (node.parentId) {
+      addPeer(`frame:${node.parentId}`, node);
+    }
+  }
+  for (const edge of data.edges) {
+    const source = nodes.get(edge.start ?? '');
+    const target = nodes.get(edge.end ?? '');
+    if (source && target) {
+      addPeer(`neighbour:${source.id}`, target);
+      addPeer(`neighbour:${target.id}`, source);
+    }
+  }
+  for (const peersOnGrid of peers.values()) {
+    const members = [...peersOnGrid];
+    for (let i = 0; i < members.length; i++) {
+      for (let j = i + 1; j < members.length; j++) {
+        pairs.push([members[i], members[j]]);
+      }
+    }
+  }
+  const tolerance = gridSpacing / 4;
+  const proposals: { axis: 'x' | 'y'; members: Node[]; coordinate: number }[] = [];
+  const coordinateComponents: Record<'x' | 'y', Map<Node, Node[]>> = {
+    x: new Map(),
+    y: new Map(),
+  };
+  for (const axis of ['x', 'y'] as const) {
+    const across = axis === 'x' ? 'y' : 'x';
+    const components = new Map(movable.map((node) => [node, [node]]));
+    const nearby = pairs
+      .filter(
+        ([a, b]) =>
+          Math.abs(a[axis]! - b[axis]!) <= tolerance &&
+          Math.abs(a[across]! - b[across]!) > tolerance &&
+          // Containers are independent packing units. Preserve an existing
+          // cross-frame line, but do not impose a new one on their contents.
+          (a.parentId === b.parentId || Math.abs(a[axis]! - b[axis]!) <= 1e-6)
+      )
+      .sort(([a, b], [c, d]) => Math.abs(a[axis]! - b[axis]!) - Math.abs(c[axis]! - d[axis]!));
+    for (const [a, b] of nearby) {
+      const first = components.get(a)!;
+      const second = components.get(b)!;
+      if (first === second) {
+        continue;
+      }
+      const members = [...first, ...second];
+      const coordinates = members.map((member) => member[axis]!);
+      // Bound the entire component's spread, not just successive pair gaps.
+      if (Math.max(...coordinates) - Math.min(...coordinates) > tolerance) {
+        continue;
+      }
+      for (const member of members) {
+        components.set(member, members);
+      }
+    }
+    for (const members of new Set(components.values())) {
+      const coordinate = members.reduce((sum, member) => sum + member[axis]!, 0) / members.length;
+      if (members.some((member) => Math.abs(member[axis]! - coordinate) > 1e-6)) {
+        proposals.push({ axis, members, coordinate });
+      }
+    }
+    coordinateComponents[axis] = components;
+  }
+  // Preserve each affected frame's existing insets, including reserved title
+  // and label space. A blanket refit would discard specialised clearances.
+  const frames = [
+    ...new Set(
+      proposals.flatMap(({ members }) =>
+        members.flatMap((member) => frameAncestorNodes(member, nodes))
+      )
+    ),
+  ].sort((a, b) => groupDepth(b, nodes) - groupDepth(a, nodes));
+  const frameInsets = frames.map((frame) => {
+    const children = data.nodes.filter((node) => node.parentId === frame.id);
+    return {
+      frame,
+      children,
+      left:
+        Math.min(...children.map((node) => node.x! - node.width! / 2)) -
+        (frame.x! - frame.width! / 2),
+      right:
+        frame.x! +
+        frame.width! / 2 -
+        Math.max(...children.map((node) => node.x! + node.width! / 2)),
+      top:
+        Math.min(...children.map((node) => node.y! - node.height! / 2)) -
+        (frame.y! - frame.height! / 2),
+      bottom:
+        frame.y! +
+        frame.height! / 2 -
+        Math.max(...children.map((node) => node.y! + node.height! / 2)),
+    };
+  });
+
+  const applyProposals = (selected: typeof proposals) => {
+    for (const { axis, members, coordinate } of selected) {
+      for (const member of members) {
+        member[axis] = coordinate;
+      }
+    }
+    for (const inset of frameInsets) {
+      const left =
+        Math.min(...inset.children.map((node) => node.x! - node.width! / 2)) - inset.left;
+      const right =
+        Math.max(...inset.children.map((node) => node.x! + node.width! / 2)) + inset.right;
+      const top = Math.min(...inset.children.map((node) => node.y! - node.height! / 2)) - inset.top;
+      const bottom =
+        Math.max(...inset.children.map((node) => node.y! + node.height! / 2)) + inset.bottom;
+      const titleWidth = inset.frame.labelBBox?.width ?? 0;
+      inset.frame.x = (left + right) / 2;
+      inset.frame.y = (top + bottom) / 2;
+      inset.frame.width = Math.max(right - left, titleWidth + inset.left + inset.right);
+      inset.frame.height = bottom - top;
+    }
+  };
+  // Most local alignments are compatible. Route the batch once; only a
+  // rejected batch needs the more expensive per-component fallback.
+  if (
+    proposals.length > 0 &&
+    !acceptRoutedAlignment(data, gridSpacing, () => applyProposals(proposals), true)
+  ) {
+    for (const proposal of proposals) {
+      acceptRoutedAlignment(data, gridSpacing, () => applyProposals([proposal]), true);
+    }
+  }
+
+  // Accept terminals independently: one blocked leaf must not discard safe
+  // row/column alignments. Align across the edge, then remove surplus cells
+  // along a free straight branch. Neither move may split an established
+  // coordinate component, and every proposal is checked after rerouting.
+  for (const leaf of movable) {
+    if (leaf.parentId) {
+      continue;
+    }
+    const incident = data.edges.filter((edge) => edge.start === leaf.id || edge.end === leaf.id);
+    if (incident.length !== 1) {
+      continue;
+    }
+    const edge = incident[0];
+    const neighbour = nodes.get(edge.start === leaf.id ? edge.end! : edge.start!);
+    if (!neighbour || !eligible.has(neighbour) || neighbour.parentId !== leaf.parentId) {
+      continue;
+    }
+    const axes: ('x' | 'y')[] = ['x', 'y'];
+    axes.sort((a, b) => Math.abs(leaf[a]! - neighbour[a]!) - Math.abs(leaf[b]! - neighbour[b]!));
+    const axis = axes[0];
+    const delta = Math.abs(leaf[axis]! - neighbour[axis]!);
+    if (
+      delta > 1e-6 &&
+      delta <= gridSpacing &&
+      coordinateComponents[axis].get(leaf)!.length === 1
+    ) {
+      acceptRoutedAlignment(data, gridSpacing, () => {
+        leaf[axis] = neighbour[axis];
+      });
+    }
+    const along = axis === 'x' ? 'y' : 'x';
+    const size = along === 'x' ? 'width' : 'height';
+    const minimumDistance = (leaf[size]! + neighbour[size]!) / 2 + (data.nodeSpacing ?? 50);
+    const step = Math.max(gridSpacing, minimumDistance);
+    const span = leaf[along]! - neighbour[along]!;
+    if (
+      Math.abs(leaf[axis]! - neighbour[axis]!) > 1e-6 ||
+      Math.abs(span) <= step + tolerance ||
+      coordinateComponents[along].get(leaf)!.length !== 1
+    ) {
+      continue;
+    }
+    const direction = Math.sign(span);
+    const ideal = neighbour[along]! + direction * step;
+    // Reuse a nearby settled grid line before introducing a new one. This
+    // keeps a compact leaf coherent with other rows/columns in its container.
+    const coordinates = [
+      ...new Set(
+        movable
+          .filter((node) => node !== leaf && node.parentId === leaf.parentId)
+          .map((node) => node[along]!)
+          .filter((coordinate) => {
+            const distance = direction * (coordinate - neighbour[along]!);
+            return (
+              distance >= minimumDistance &&
+              distance <= step &&
+              Math.abs(coordinate - ideal) <= tolerance
+            );
+          })
+      ),
+    ].sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal));
+    coordinates.push(ideal);
+    for (const coordinate of coordinates) {
+      if (
+        acceptRoutedAlignment(
+          data,
+          gridSpacing,
+          () => {
+            leaf[along] = coordinate;
+          },
+          true
+        )
+      ) {
+        break;
+      }
+    }
+  }
+}
+
+/** Commit positions and routes together, including rollback on an exception. */
+function acceptRoutedAlignment(
+  data: LayoutData,
+  gridSpacing: number,
+  propose: () => void,
+  allowEqualQuality = false
+): boolean {
+  const before = validateLayout(data);
+  const hardIssueKey = (issue: (typeof before.issues)[number]) =>
+    JSON.stringify([issue.type, issue.edgeId, issue.nodeIds]);
+  const previousHardIssues = new Map<string, number>();
+  for (const issue of before.issues.filter((issue) => !isSoftIssueType(issue.type))) {
+    const key = hardIssueKey(issue);
+    previousHardIssues.set(key, (previousHardIssues.get(key) ?? 0) + 1);
+  }
+  const routeFields = [
+    'points',
+    'x',
+    'y',
+    'curve',
+    'roundedCornerRadius',
+    'hasIntersectionPoints',
+  ] as const;
+  const previousRoutes = data.edges.map((edge) => ({
+    edge,
+    properties: routeFields.map((field) => Object.getOwnPropertyDescriptor(edge, field)),
+  }));
+  let accepted = false;
+  try {
+    accepted = acceptLocalGeometryProposal(data.nodes, () => {
+      propose();
+      routeStressAndGridEdges(data, gridSpacing);
+      const after = validateLayout(data);
+      return (
+        after.issues.every((issue) => {
+          if (isSoftIssueType(issue.type)) {
+            return true;
+          }
+          const key = hardIssueKey(issue);
+          const remaining = previousHardIssues.get(key) ?? 0;
+          previousHardIssues.set(key, remaining - 1);
+          return remaining > 0;
+        }) &&
+        after.breakdown.crossings <= before.breakdown.crossings &&
+        after.breakdown.totalPoints <= before.breakdown.totalPoints &&
+        after.breakdown.totalBendPenalty <= before.breakdown.totalBendPenalty &&
+        (after.breakdown.totalPoints < before.breakdown.totalPoints ||
+          after.score > before.score ||
+          (allowEqualQuality &&
+            after.score >= before.score &&
+            after.breakdown.totalPoints <= before.breakdown.totalPoints))
+      );
+    });
+  } finally {
+    if (!accepted) {
+      for (const { edge, properties } of previousRoutes) {
+        routeFields.forEach((field, index) => {
+          const property = properties[index];
+          if (property) {
+            Object.defineProperty(edge, field, property);
+          } else {
+            delete edge[field];
+          }
+        });
+      }
+    }
+  }
+  return accepted;
 }
 
 /**
@@ -3137,7 +3496,7 @@ function reserveSiblingFrameLabelClearance(
  * geometry. This is deliberately post-fit: child-only spacing cannot account
  * for a renderer-measured title extending above the lower frame.
  */
-function separateBridgedGroupFrames(data: LayoutData): void {
+export function separateBridgedGroupFrames(data: LayoutData): void {
   const nodes = new Map(data.nodes.map((node) => [node.id, node]));
   const arrangedPairs = new Set<string>();
   for (const edge of data.edges) {
@@ -3148,6 +3507,7 @@ function separateBridgedGroupFrames(data: LayoutData): void {
     if (
       !source ||
       !target ||
+      constrainedLocalEdge(edge) ||
       !sourceGroup?.isGroup ||
       !targetGroup?.isGroup ||
       sourceGroup === targetGroup ||
@@ -3161,27 +3521,240 @@ function separateBridgedGroupFrames(data: LayoutData): void {
       continue;
     }
 
-    const pair = `${sourceGroup.id}:${targetGroup.id}`;
-    if (!arrangedPairs.has(pair)) {
-      arrangedPairs.add(pair);
-      alignPrivateParallelFrameBridge(sourceGroup, targetGroup, source, target, data, nodes);
-    }
-    if (!horizontalBoxesOverlap(sourceGroup, targetGroup)) {
+    const pair = JSON.stringify([sourceGroup.id, targetGroup.id].sort());
+    if (arrangedPairs.has(pair)) {
       continue;
     }
-
-    const sourceBottom = sourceGroup.y! + sourceGroup.height! / 2;
-    const targetTop = targetGroup.y! - targetGroup.height! / 2;
+    arrangedPairs.add(pair);
+    alignPrivateParallelFrameBridge(sourceGroup, targetGroup, source, target, data, nodes);
+    // A return arc does not reverse the solved order of two containers. Only
+    // vertically staged boxes need a vertical bridge corridor; a thin overlap
+    // between side-by-side fitted borders is handled by final box separation.
+    if (
+      !horizontalBoxesOverlap(sourceGroup, targetGroup) ||
+      Math.abs(sourceGroup.y! - targetGroup.y!) < Math.abs(sourceGroup.x! - targetGroup.x!)
+    ) {
+      continue;
+    }
+    const [upper, lower] = [sourceGroup, targetGroup].sort(
+      (a, b) => a.y! - b.y! || a.id.localeCompare(b.id)
+    );
+    const sourceBottom = upper.y! + upper.height! / 2;
+    const targetTop = lower.y! - lower.height! / 2;
     const shift = sourceBottom + FRAMED_CYCLE_BRIDGE_GAP - targetTop;
     if (shift <= 0) {
       continue;
     }
     const moved = data.nodes.filter(
-      (node) => node === targetGroup || isDescendantOf(node, targetGroup.id, nodes)
+      (node) => node === lower || isDescendantOf(node, lower.id, nodes)
     );
-    translateNodes(moved, 0, shift);
-    refitFrameAncestors(targetGroup, data, nodes);
+    const affected = [...moved, ...frameAncestorNodes(lower, nodes)];
+    acceptLocalGeometryProposal(affected, () => {
+      translateNodes(moved, 0, shift);
+      refitFrameAncestors(lower, data, nodes);
+      return affected.every((node) =>
+        data.nodes.every(
+          (other) =>
+            node === other ||
+            affected.includes(other) ||
+            isDescendantOf(node, other.id, nodes) ||
+            isDescendantOf(other, node.id, nodes) ||
+            !nodeBoxesNeedClearance(
+              node,
+              other,
+              frameBoxClearance(
+                node,
+                other,
+                Math.max(GROUP_FRAME_PADDING, nodeGroupClearanceOf(data))
+              )
+            )
+        )
+      );
+    });
   }
+}
+
+function frameBoxClearance(a: Node, b: Node, leafClearance = GROUP_FRAME_PADDING): number {
+  // Leave room for rendered strokes/rough outlines as well as the validator's
+  // 20px frame / 30px foreign-leaf minimum.
+  return a.isGroup && b.isGroup
+    ? GROUP_GROUP_PADDING + 4
+    : a.isGroup || b.isGroup
+      ? leafClearance
+      : 0;
+}
+
+/**
+ * The solver uses compact frames, while final titles/padding and local passes
+ * can grow them. Restore separation only after those bounds have settled.
+ * Sibling containers are rigid packing units, never independent rectangles.
+ * Axis constraints keep the existing geometric order, not semantic edge order:
+ * the latter can be cyclic even when the member-level graph is acyclic.
+ */
+export function separateSettledFrameBoxes(data: LayoutData): void {
+  if (!data.nodes.some((node) => node.isGroup)) {
+    return;
+  }
+  const nodes = new Map(data.nodes.map((node) => [node.id, node]));
+  const nodeFrameClearance = nodeGroupClearanceOf(data);
+  for (const node of data.nodes) {
+    const seen = new Set([node.id]);
+    let parentId = node.parentId;
+    while (parentId) {
+      if (seen.has(parentId) || !nodes.get(parentId)?.isGroup) {
+        return;
+      }
+      seen.add(parentId);
+      parentId = nodes.get(parentId)!.parentId;
+    }
+  }
+  const parents = [...new Set(data.nodes.map((node) => node.parentId))].sort(
+    (a, b) =>
+      (b ? groupDepth(nodes.get(b)!, nodes) + 1 : 0) -
+      (a ? groupDepth(nodes.get(a)!, nodes) + 1 : 0)
+  );
+  acceptLocalGeometryProposal(data.nodes, () => {
+    for (const parentId of parents) {
+      const members = data.nodes.filter((node) => node.parentId === parentId);
+      if (members.length < 2 || !members.some((node) => node.isGroup)) {
+        continue;
+      }
+      // Extra stroke margin is useful during a repair, but it must not repack
+      // an already valid layout and squeeze its solved labels or alignments.
+      if (
+        !members.some((node, index) =>
+          members
+            .slice(index + 1)
+            .some((other) =>
+              nodeBoxesNeedClearance(
+                node,
+                other,
+                (node.isGroup && other.isGroup
+                  ? GROUP_GROUP_PADDING
+                  : node.isGroup || other.isGroup
+                    ? nodeFrameClearance
+                    : 0) - 1e-6
+              )
+            )
+        )
+      ) {
+        continue;
+      }
+      const original = {
+        x: members.map((node) => node.x!),
+        y: members.map((node) => node.y!),
+      };
+      const positions = { x: [...original.x], y: [...original.y] };
+      const constraints: Record<'x' | 'y', SeparationConstraint[]> = { x: [], y: [] };
+      const constrained = new Set<string>();
+      let settled = false;
+      // Each iteration adds a previously absent pair/axis constraint. Ordering
+      // every axis by its original coordinates makes each set acyclic.
+      for (let iteration = 0; iteration <= members.length * (members.length - 1); iteration++) {
+        let additions = 0;
+        let collisions = 0;
+        for (let i = 0; i < members.length; i++) {
+          for (let j = i + 1; j < members.length; j++) {
+            const a = { ...members[i], x: positions.x[i], y: positions.y[i] };
+            const b = { ...members[j], x: positions.x[j], y: positions.y[j] };
+            const clearance = frameBoxClearance(
+              a,
+              b,
+              Math.max(GROUP_FRAME_PADDING, nodeFrameClearance)
+            );
+            if (!nodeBoxesNeedClearance(a, b, clearance - 1e-6)) {
+              continue;
+            }
+            collisions++;
+            const gaps = {
+              x: (a.width! + b.width!) / 2 + clearance + 1e-6,
+              y: (a.height! + b.height!) / 2 + clearance + 1e-6,
+            };
+            const axis = (['x', 'y'] as const)
+              .filter((axis) => !constrained.has(`${i}:${j}:${axis}`))
+              .sort(
+                (first, second) =>
+                  gaps[first] -
+                  Math.abs(a[first] - b[first]) -
+                  (gaps[second] - Math.abs(a[second] - b[second]))
+              )[0];
+            if (!axis) {
+              continue;
+            }
+            const [left, right] = original[axis][i] <= original[axis][j] ? [i, j] : [j, i];
+            constraints[axis].push({ left, right, gap: gaps[axis] });
+            constrained.add(`${i}:${j}:${axis}`);
+            additions++;
+          }
+        }
+        if (collisions === 0) {
+          settled = true;
+          break;
+        }
+        if (additions === 0) {
+          return false;
+        }
+        for (const axis of ['x', 'y'] as const) {
+          positions[axis] = project(
+            new BlockState(original[axis]),
+            original[axis],
+            constraints[axis]
+          );
+        }
+      }
+      if (!settled) {
+        return false;
+      }
+      let changed = false;
+      for (const [index, member] of members.entries()) {
+        const dx = positions.x[index] - member.x!;
+        const dy = positions.y[index] - member.y!;
+        if (Math.abs(dx) <= 1e-6 && Math.abs(dy) <= 1e-6) {
+          continue;
+        }
+        changed = true;
+        translateNodes(
+          data.nodes.filter((node) => node === member || isDescendantOf(node, member.id, nodes)),
+          dx,
+          dy
+        );
+      }
+      if (changed && parentId) {
+        // Grow containing shells without discarding existing label corridors
+        // or specialised insets. A settled outer bucket is processed last.
+        for (const parent of [
+          nodes.get(parentId)!,
+          ...frameAncestorNodes(nodes.get(parentId)!, nodes),
+        ]) {
+          const children = data.nodes.filter((node) => node.parentId === parent.id);
+          const left = Math.min(
+            parent.x! - parent.width! / 2,
+            ...children.map((node) => node.x! - node.width! / 2 - GROUP_FRAME_PADDING)
+          );
+          const right = Math.max(
+            parent.x! + parent.width! / 2,
+            ...children.map((node) => node.x! + node.width! / 2 + GROUP_FRAME_PADDING)
+          );
+          const top = Math.min(
+            parent.y! - parent.height! / 2,
+            ...children.map(
+              (node) =>
+                node.y! - node.height! / 2 - GROUP_FRAME_PADDING - (parent.labelBBox?.height ?? 0)
+            )
+          );
+          const bottom = Math.max(
+            parent.y! + parent.height! / 2,
+            ...children.map((node) => node.y! + node.height! / 2 + GROUP_FRAME_PADDING)
+          );
+          parent.x = (left + right) / 2;
+          parent.y = (top + bottom) / 2;
+          parent.width = right - left;
+          parent.height = bottom - top;
+        }
+      }
+    }
+    return true;
+  });
 }
 
 /**
@@ -3606,44 +4179,89 @@ function needsCompactGrid(data: LayoutData): boolean {
   );
 }
 
-function compactVacantGridRows(data: LayoutData, options: GridLikeOptions): void {
-  // Moving leaves inside a frame would require fitting that frame again, so
-  // retain the solver's frame layout for grouped diagrams.
-  if (data.nodes.some((node) => node.isGroup === true)) {
+function compactUnframedVerticalBands(data: LayoutData, options: GridLikeOptions): void {
+  // A frame owns title, member and routing clearances. Keep its layout under
+  // the container-specific solve rather than compressing its internal bands.
+  if (data.nodes.some((node) => node.isGroup === true || node.dir !== undefined)) {
     return;
   }
-
   const leaves = data.nodes.filter((node) => node.isGroup !== true);
-  const rowTolerance = options.gridSpacing / 3;
-
-  // Grid snapping can retain a whole unused grid lane after the force solve.
-  // Remove it only when the node boxes on either side still keep the diagram's
-  // requested rank clearance. Routes are generated after this pass.
-  while (true) {
-    const rows = gridRows(leaves, rowTolerance);
-    let compacted = false;
-
-    for (let index = 1; index < rows.length; index++) {
-      const above = rows[index - 1];
-      const below = rows[index];
-      const centerDistance = below.center - above.center;
-      const boxGap = below.top - above.bottom;
-      if (centerDistance < options.gridSpacing * 1.5 || boxGap <= options.rankSpacing) {
-        continue;
-      }
-
-      const shift = Math.min(options.gridSpacing, boxGap - options.rankSpacing);
-      for (const node of leaves) {
-        if (node.y! >= below.firstCenter - rowTolerance) {
-          node.y! -= shift;
-        }
-      }
-      compacted = true;
-      break;
+  // Freeze row membership before compacting. Re-binning with a width-derived
+  // grid tolerance would merge short-height rows once they move closer.
+  const rows = gridRows(leaves, GRID_ALIGNMENT_EPSILON);
+  const outDegree = new Map<string, number>();
+  for (const edge of data.edges) {
+    if (edge.start) {
+      outDegree.set(edge.start, (outDegree.get(edge.start) ?? 0) + 1);
     }
-
-    if (!compacted) {
-      return;
+  }
+  // Forks own their settled rank bands. A simple continuation or a paired
+  // return owns only its caption corridor, which can be rechecked in isolation.
+  const simpleCaptionCorridor = (edge: Edge) =>
+    edge.start !== edge.end &&
+    (((outDegree.get(edge.start!) ?? 0) <= 1 && (outDegree.get(edge.end!) ?? 0) <= 1) ||
+      data.edges.some(
+        (other) => other !== edge && other.start === edge.end && other.end === edge.start
+      ));
+  const bands = rows.slice(1).flatMap((below, index) => {
+    const above = rows[index];
+    const crossingEdges = data.edges.filter((edge) => {
+      const ys = (edge.points ?? []).map((point) => point.y);
+      return Math.max(...ys) > above.bottom && Math.min(...ys) < below.top;
+    });
+    // A measured caption needs its own height plus clearance, not an entire
+    // width-derived grid cell. Unmeasured captions and longer bypasses retain
+    // their solved corridor; caller-owned ports/minlen remain constraints.
+    const captioned = crossingEdges.filter((edge) => (edge.label ?? edge.text ?? '').trim());
+    const protectedBand = crossingEdges.some(
+      (edge) =>
+        constrainedLocalEdge(edge) ||
+        ((edge.label ?? edge.text ?? '').trim()
+          ? ![edge.width, edge.height].every((size) => Number.isFinite(size) && size! > 0) ||
+            (edge.points?.length ?? 0) > 4 ||
+            !simpleCaptionCorridor(edge)
+          : (edge.points?.length ?? 0) > 2)
+    );
+    if (protectedBand) {
+      return [];
+    }
+    const clearance = Math.max(
+      options.rankSpacing,
+      ...captioned.map((edge) => edge.height! + 2 * ISOLATED_LABEL_CLEARANCE)
+    );
+    const shift = below.top - above.bottom - clearance;
+    const nodeHeight = Math.max(...[...above.nodes, ...below.nodes].map((node) => node.height!));
+    // A modest gap is already readable and may belong to a settled workflow.
+    // Remove surplus bands, not small differences between clearance policies.
+    if (shift <= nodeHeight) {
+      return [];
+    }
+    return [{ above, below, index: index + 1, shift, clearance }];
+  });
+  if (bands.length === 0) {
+    return;
+  }
+  const apply = (selected: typeof bands) => {
+    for (const [index, row] of rows.entries()) {
+      const shift = selected
+        .filter((band) => band.index <= index)
+        .reduce((sum, band) => sum + band.shift, 0);
+      for (const node of row.nodes) {
+        node.y! -= shift;
+      }
+    }
+  };
+  // Empty space is not part of the validator score. Equal-score proposals
+  // may therefore commit, but new hard issues, crossings or bends may not.
+  if (!acceptRoutedAlignment(data, options.gridSpacing, () => apply(bands), true)) {
+    for (const band of bands) {
+      const gap =
+        Math.min(...band.below.nodes.map((node) => node.y! - node.height! / 2)) -
+        Math.max(...band.above.nodes.map((node) => node.y! + node.height! / 2));
+      const shift = gap - band.clearance;
+      if (shift > 1e-6) {
+        acceptRoutedAlignment(data, options.gridSpacing, () => apply([{ ...band, shift }]), true);
+      }
     }
   }
 }
@@ -3652,7 +4270,6 @@ function gridRows(nodes: Node[], tolerance: number) {
   const sorted = [...nodes].sort((left, right) => left.y! - right.y!);
   const rows: {
     center: number;
-    firstCenter: number;
     top: number;
     bottom: number;
     nodes: Node[];
@@ -3663,7 +4280,6 @@ function gridRows(nodes: Node[], tolerance: number) {
     if (!row || node.y! - row.center > tolerance) {
       rows.push({
         center: node.y!,
-        firstCenter: node.y!,
         top: node.y! - node.height! / 2,
         bottom: node.y! + node.height! / 2,
         nodes: [node],

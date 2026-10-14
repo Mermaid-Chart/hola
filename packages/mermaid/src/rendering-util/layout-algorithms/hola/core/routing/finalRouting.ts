@@ -9,7 +9,7 @@
  */
 
 import type { HolaNode, Point, Side } from '../model.js';
-import { nodeBounds } from '../model.js';
+import { nodeBounds, oppositeSide } from '../model.js';
 import type { HolaOptions } from '../options.js';
 import type { DiagnosticCollector } from '../diagnostics.js';
 import type {
@@ -35,6 +35,9 @@ import { silhouetteBand } from '../adapter/silhouette.js';
 export interface FinalEdge {
   /** The original Mermaid edge id. */
   originalEdgeId: string;
+  /** This component still has frame terminals to fit after routing its leaves. */
+  hasFrameTerminal?: boolean;
+  isLayoutOnly?: boolean;
   source: string;
   target: string;
   /** Ordered bends this route must pass through. */
@@ -117,41 +120,56 @@ export function routeFinalEdges(
   diagnostics: DiagnosticCollector,
   componentId: string
 ): FinalRoutingResult {
-  const first = routePass(nodes, edges, options);
-  const plan = planPorts(nodes, first.edges, options, edges);
+  // Frame endpoints are leaf representatives here; their real ports are fitted
+  // later. Keep that component's established side choices until those ports exist.
+  const degree = new Map<string, number>();
+  for (const edge of edges) {
+    if (!edge.isLayoutOnly) {
+      degree.set(edge.source, (degree.get(edge.source) ?? 0) + 1);
+      degree.set(edge.target, (degree.get(edge.target) ?? 0) + 1);
+    }
+  }
+  const fanLeaves = new Set(
+    edges.some((edge) => edge.hasFrameTerminal)
+      ? []
+      : [...degree].filter(([, count]) => count === 1).map(([id]) => id)
+  );
+  const first = routePass(nodes, edges, options, undefined, fanLeaves);
+  const plan = planPorts(nodes, first.edges, options, edges, fanLeaves);
 
   let chosen = first;
-  if (plan.size > 0) {
-    const second = routePass(nodes, edges, options, plan);
-    if (second.failed.length <= first.failed.length) {
-      chosen = second;
-    } else {
-      // A dense core can leave one locked route with no usable visibility path.
-      // Do not let that single failure discard the ports successfully planned for
-      // every other edge: retain the first pass only for the edge that the locked
-      // pass could not route. The first pass already proved that replacement route
-      // is drawable, while the remaining routes keep their distinct planned ports.
-      const firstById = new Map(first.edges.map((route) => [route.originalEdgeId, route]));
-      const firstFailures = new Set(first.failed);
-      const secondFailures = new Set(second.failed);
-      const recovered = new Set<string>();
-      const edges = second.edges.map((route) => {
-        if (!secondFailures.has(route.originalEdgeId) || firstFailures.has(route.originalEdgeId)) {
-          return route;
-        }
-        const original = firstById.get(route.originalEdgeId);
-        if (!original) {
-          return route;
-        }
-        recovered.add(route.originalEdgeId);
-        return original;
-      });
-      if (recovered.size > 0) {
-        chosen = {
-          edges,
-          failed: second.failed.filter((edgeId) => !recovered.has(edgeId)),
-        };
+  // Check fan discovery with every occupied segment restored, even when no
+  // ports needed spreading. Other components can skip the redundant pass.
+  const second =
+    plan.size > 0 || fanLeaves.size > 1 ? routePass(nodes, edges, options, plan, fanLeaves) : first;
+  if (second.failed.length <= first.failed.length) {
+    chosen = second;
+  } else {
+    // A dense core can leave one locked route with no usable visibility path.
+    // Do not let that single failure discard the ports successfully planned for
+    // every other edge: retain the first pass only for the edge that the locked
+    // pass could not route. The first pass already proved that replacement route
+    // is drawable, while the remaining routes keep their distinct planned ports.
+    const firstById = new Map(first.edges.map((route) => [route.originalEdgeId, route]));
+    const firstFailures = new Set(first.failed);
+    const secondFailures = new Set(second.failed);
+    const recovered = new Set<string>();
+    const edges = second.edges.map((route) => {
+      if (!secondFailures.has(route.originalEdgeId) || firstFailures.has(route.originalEdgeId)) {
+        return route;
       }
+      const original = firstById.get(route.originalEdgeId);
+      if (!original) {
+        return route;
+      }
+      recovered.add(route.originalEdgeId);
+      return original;
+    });
+    if (recovered.size > 0) {
+      chosen = {
+        edges,
+        failed: second.failed.filter((edgeId) => !recovered.has(edgeId)),
+      };
     }
   }
 
@@ -187,13 +205,15 @@ interface OccupiedSegment {
   source: string;
   target: string;
   segment: Segment;
+  isLayoutOnly?: boolean;
 }
 
 function routePass(
   nodes: Map<string, HolaNode>,
   edges: FinalEdge[],
   options: HolaOptions,
-  plan?: Map<string, PortPlan>
+  plan?: Map<string, PortPlan>,
+  fanLeaves: ReadonlySet<string> = new Set()
 ): FinalRoutingResult {
   const config = finalRouterConfig(options);
   const obstacles: RouterObstacle[] = [...nodes.values()]
@@ -237,33 +257,79 @@ function routePass(
       continue;
     }
 
+    // A bundle needs a shared corridor rather than independent cheapest elbows.
+    // Prefer opposing faces across the larger clear gap between its endpoints.
+    const bundleAxis =
+      Math.abs(target.x - source.x) - (source.width + target.width) / 2 >=
+      Math.abs(target.y - source.y) - (source.height + target.height) / 2
+        ? 'x'
+        : 'y';
+    const bundleSourceSide: Side | undefined =
+      edge.parallelCount > 1 && edge.mandatoryWaypoints.length === 0
+        ? bundleAxis === 'x'
+          ? target.x > source.x
+            ? 'right'
+            : 'left'
+          : target.y > source.y
+            ? 'bottom'
+            : 'top'
+        : undefined;
+    const bundleTargetSide = bundleSourceSide ? oppositeSide(bundleSourceSide) : undefined;
     const assigned = plan?.get(edge.originalEdgeId);
     const parallel = parallelOffset(edge, options);
     const request = {
       edgeId: edge.originalEdgeId,
+      accountForTerminalBends:
+        !edge.isLayoutOnly &&
+        edges.some(
+          (other) =>
+            other !== edge &&
+            !sameEndpointPair(edge, other) &&
+            sharesAlignedFan(edge, other, nodes, fanLeaves)
+        ),
       source: obstacleById.get(edge.source)!,
       target: obstacleById.get(edge.target)!,
       mandatoryWaypoints: edge.mandatoryWaypoints,
       obstacles,
       // A parallel bundle is one visual object. Letting each sibling score the
       // preceding sibling as an obstacle makes it flee into a different face,
-      // producing a tangle of unrelated detours. Their common corridor is chosen
-      // independently of one another; the subsequent port-planning pass gives
-      // each one a distinct, ordered lane inside that corridor.
+      // producing a tangle of unrelated detours. Score provisional siblings
+      // independently; port planning and geometric nesting separate their lanes.
       existingSegments: existing
-        .filter((occupied) => !sameEndpointPair(edge, occupied))
+        .filter(
+          (occupied) =>
+            !sameEndpointPair(edge, occupied) &&
+            // Aligned fan members may share a provisional corridor during side
+            // discovery; the port planning pass separates it. Penalising it
+            // sends a converging edge to another side and creates an avoidable
+            // crossing. The locked-port pass restores every occupied segment.
+            (plan !== undefined || !sharesAlignedFan(edge, occupied, nodes, fanLeaves))
+        )
         .map((occupied) => occupied.segment),
       sourcePortOffset: assigned?.source ? assigned.source.offset : parallel,
       targetPortOffset: assigned?.target ? assigned.target.offset : parallel,
-      lockedSourceSide: assigned?.source?.side ?? edge.lockedSourceSide,
-      lockedTargetSide: assigned?.target?.side ?? edge.lockedTargetSide,
+      lockedSourceSide: assigned?.source?.side ?? edge.lockedSourceSide ?? bundleSourceSide,
+      lockedTargetSide: assigned?.target?.side ?? edge.lockedTargetSide ?? bundleTargetSide,
     };
     // A direct candidate is considered before the visibility search. The latter
     // correctly sees that two centres 0.5px apart are not collinear and produces
     // a four-point jog; a shared boundary coordinate is still a perfectly valid
     // straight connector when its corridor is clear.
     const direct = assigned ? undefined : nearAlignedDirectRoute(request, edge, config);
-    const alternatives = direct ? [] : routeAlternatives(request, config);
+    let alternatives = direct ? [] : routeAlternatives(request, config);
+    // Opposing faces are a bundle preference, not a reason to lose an edge.
+    // An obstructed terminal may require another corridor; explicit side locks
+    // and already settled port assignments still take precedence.
+    if (!direct && alternatives.length === 0 && bundleSourceSide && !assigned) {
+      alternatives = routeAlternatives(
+        {
+          ...request,
+          lockedSourceSide: edge.lockedSourceSide,
+          lockedTargetSide: edge.lockedTargetSide,
+        },
+        config
+      );
+    }
 
     // A layout may know that a particular external channel keeps two branches at
     // one shared endpoint from crossing. It is a preference: if another box or
@@ -416,11 +482,55 @@ function ownedSegments(points: Point[], edge: FinalEdge): OccupiedSegment[] {
     source: edge.source,
     target: edge.target,
     segment,
+    isLayoutOnly: edge.isLayoutOnly,
   }));
 }
 
+/** Aligned siblings can choose a common corridor before their ports are spread. */
+function sharesAlignedFan(
+  edge: FinalEdge,
+  occupied: Pick<OccupiedSegment, 'source' | 'target' | 'isLayoutOnly'>,
+  nodes: Map<string, HolaNode>,
+  fanLeaves: ReadonlySet<string>
+): boolean {
+  if (
+    edge.isLayoutOnly ||
+    occupied.isLayoutOnly ||
+    occupied.source === occupied.target ||
+    edge.source === edge.target
+  ) {
+    return false;
+  }
+  for (const shared of [edge.source, edge.target]) {
+    if (shared !== occupied.source && shared !== occupied.target) {
+      continue;
+    }
+    const other = nodes.get(edge.source === shared ? edge.target : edge.source);
+    const previous = nodes.get(occupied.source === shared ? occupied.target : occupied.source);
+    const centre = nodes.get(shared);
+    if (
+      other &&
+      previous &&
+      centre &&
+      fanLeaves.has(other.id) &&
+      fanLeaves.has(previous.id) &&
+      (other.x - centre.x) * (previous.x - centre.x) +
+        (other.y - centre.y) * (previous.y - centre.y) >
+        0 &&
+      (Math.abs(other.x - previous.x) <= NEAR_ALIGNMENT_EPSILON ||
+        Math.abs(other.y - previous.y) <= NEAR_ALIGNMENT_EPSILON)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Parallelism is topological, so the Mermaid declaration direction does not matter. */
-function sameEndpointPair(edge: FinalEdge, occupied: OccupiedSegment): boolean {
+function sameEndpointPair(
+  edge: FinalEdge,
+  occupied: Pick<OccupiedSegment, 'source' | 'target'>
+): boolean {
   return (
     (edge.source === occupied.source && edge.target === occupied.target) ||
     (edge.source === occupied.target && edge.target === occupied.source)
@@ -436,6 +546,7 @@ interface MiddleLaneRoute {
   targetAxis: number;
   /** The transverse coordinate at the left or top endpoint of the corridor. */
   nearTransverse: number;
+  farTransverse: number;
   lane: number;
 }
 
@@ -518,19 +629,23 @@ function separateParallelMiddleLanes(
       high,
       Math.max(options.treeFanPortSpacing, options.routingClearance)
     );
-    // The upper (or leftmost) physical endpoint takes the lane nearest the far
-    // side of the corridor. This nesting keeps terminal horizontal (or vertical)
-    // runs from cutting through another bundle member's middle run, and remains
-    // correct when Mermaid happened to reverse an undirected edge internally.
+    // Nest tracks in the direction of the transverse displacement. Mirror the
+    // order when the far endpoint lies above or left of the near endpoint; the
+    // original Mermaid arrow direction does not change this physical ordering.
     const ordered = [...lanes].sort(
       (first, second) => first.nearTransverse - second.nearTransverse
     );
-    corridorLanes.reverse();
+    if (ordered[0].farTransverse > ordered[0].nearTransverse) {
+      corridorLanes.reverse();
+    }
     const candidates = ordered.map((lane, index) => ({
       lane,
       points: withMiddleLane(lane, corridorLanes[index]),
     }));
-    if (!parallelLanesAreClear(candidates, group, obstacles, config)) {
+    const foreignSegments = result
+      .filter((route) => !group.includes(route))
+      .flatMap((route) => segmentsOf(route.points));
+    if (!parallelLanesAreClear(candidates, group, obstacles, config, foreignSegments)) {
       continue;
     }
     for (const candidate of candidates) {
@@ -557,6 +672,7 @@ function middleLaneOf(route: RoutedFinalEdge): MiddleLaneRoute | undefined {
       sourceAxis: source.x,
       targetAxis: target.x,
       nearTransverse: sourceIsNear ? source.y : target.y,
+      farTransverse: sourceIsNear ? target.y : source.y,
       lane: firstBend.x,
     };
   }
@@ -572,6 +688,7 @@ function middleLaneOf(route: RoutedFinalEdge): MiddleLaneRoute | undefined {
       sourceAxis: source.y,
       targetAxis: target.y,
       nearTransverse: sourceIsNear ? source.x : target.x,
+      farTransverse: sourceIsNear ? target.x : source.x,
       lane: firstBend.y,
     };
   }
@@ -602,7 +719,8 @@ function parallelLanesAreClear(
   candidates: { lane: MiddleLaneRoute; points: Point[] }[],
   group: RoutedFinalEdge[],
   obstacles: { id: string; rect: { x: number; y: number; width: number; height: number } }[],
-  config: RouterConfig
+  config: RouterConfig,
+  foreignSegments: Segment[]
 ): boolean {
   const endpoints = new Set([group[0].source, group[0].target]);
   for (const candidate of candidates) {
@@ -624,6 +742,21 @@ function parallelLanesAreClear(
         }
       }
     }
+  }
+
+  const interference = (points: Point[]) =>
+    segmentsOf(points).reduce(
+      (sum, segment) =>
+        sum +
+        countCrossings(segment.a, segment.b, foreignSegments) +
+        countCollinearOverlaps(segment.a, segment.b, foreignSegments),
+      0
+    );
+  if (
+    candidates.reduce((sum, candidate) => sum + interference(candidate.points), 0) >
+    group.reduce((sum, route) => sum + interference(route.points), 0)
+  ) {
+    return false;
   }
 
   for (let index = 0; index < candidates.length; index++) {
@@ -737,7 +870,8 @@ function planPorts(
   nodes: Map<string, HolaNode>,
   routed: RoutedFinalEdge[],
   options: HolaOptions,
-  inputEdges: readonly FinalEdge[]
+  inputEdges: readonly FinalEdge[],
+  fanLeaves: ReadonlySet<string>
 ): Map<string, PortPlan> {
   interface End {
     edgeId: string;
@@ -774,6 +908,55 @@ function planPorts(
   }
 
   const plan = new Map<string, PortPlan>();
+  const bundleEndpoints = new Set(
+    inputEdges
+      .filter((edge) => !edge.isLayoutOnly && edge.parallelCount > 1 && edge.source !== edge.target)
+      .flatMap((edge) => [edge.source, edge.target])
+  );
+  const protectedPorts = new Set(bundleEndpoints);
+  for (const edge of inputEdges) {
+    if (bundleEndpoints.has(edge.source) || bundleEndpoints.has(edge.target)) {
+      protectedPorts.add(edge.source);
+      protectedPorts.add(edge.target);
+    }
+  }
+  const incidence = new Map<string, number>();
+  for (const edge of inputEdges) {
+    if (edge.isLayoutOnly || edge.source === edge.target) {
+      continue;
+    }
+    for (const id of [edge.source, edge.target]) {
+      incidence.set(id, (incidence.get(id) ?? 0) + 1);
+    }
+  }
+  // Preserve singleton faces around a bundle. Re-choosing one at a shared node
+  // can occupy a neighbouring route's already planned port. Other cores retain
+  // their freedom to change faces as the settled routes claim their corridors.
+  for (const edge of routed) {
+    if (edge.isSelfLoop || !edge.sourceSide || !edge.targetSide) {
+      continue;
+    }
+    const source = nodes.get(edge.source);
+    const target = nodes.get(edge.target);
+    const start = edge.points[0];
+    const end = edge.points.at(-1);
+    if (!source || !target || !start || !end) {
+      continue;
+    }
+    const offset = (node: HolaNode, point: Point, side: Side) =>
+      side === 'left' || side === 'right' ? point.y - node.y : point.x - node.x;
+    const sourcePort =
+      protectedPorts.has(edge.source) && incidence.get(edge.source)! > 1
+        ? { side: edge.sourceSide, offset: offset(source, start, edge.sourceSide) }
+        : undefined;
+    const targetPort =
+      protectedPorts.has(edge.target) && incidence.get(edge.target)! > 1
+        ? { side: edge.targetSide, offset: offset(target, end, edge.targetSide) }
+        : undefined;
+    if (sourcePort || targetPort) {
+      plan.set(edge.originalEdgeId, { source: sourcePort, target: targetPort });
+    }
+  }
   const edgeById = new Map(inputEdges.map((edge) => [edge.originalEdgeId, edge]));
   for (const group of groups.values()) {
     if (group.ends.length < 2) {
@@ -822,7 +1005,24 @@ function planPorts(
       .map((end, index) => ({ end, index }))
       .sort((a, b) => {
         const delta = raw[a.index] - raw[b.index];
-        return delta !== 0 ? delta : a.end.edgeId.localeCompare(b.end.edgeId);
+        if (!fanLeaves.has(a.end.otherId) || !fanLeaves.has(b.end.otherId)) {
+          return delta !== 0 ? delta : a.end.edgeId.localeCompare(b.end.edgeId);
+        }
+        if (Math.abs(delta) > 1e-6) {
+          return delta;
+        }
+        // Equal far-side coordinates still have a geometric order. A farther
+        // predecessor must use the outer lane; otherwise its run cuts across
+        // the nearer predecessor's terminal. Mirror the order across the node.
+        const approachAxis = vertical ? 'x' : 'y';
+        const aDistance = Math.abs(
+          (nodes.get(a.end.otherId)?.[approachAxis] ?? node[approachAxis]) - node[approachAxis]
+        );
+        const bDistance = Math.abs(
+          (nodes.get(b.end.otherId)?.[approachAxis] ?? node[approachAxis]) - node[approachAxis]
+        );
+        const nestingOrder = Math.sign(centre - raw[a.index]) * (aDistance - bDistance);
+        return nestingOrder !== 0 ? nestingOrder : a.end.edgeId.localeCompare(b.end.edgeId);
       });
 
     // A label on a vertical route extends along x; one on a horizontal route

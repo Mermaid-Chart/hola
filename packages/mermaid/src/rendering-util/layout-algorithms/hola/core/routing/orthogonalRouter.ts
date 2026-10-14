@@ -34,6 +34,14 @@ export interface RouterObstacle {
 
 export interface OrthogonalRouteRequest {
   edgeId: string;
+  /** Include fixed terminal turns when coordinating a fan of leaf connectors. */
+  accountForTerminalBends?: boolean;
+  /** Count crossings that lie exactly on visibility-grid junctions. */
+  accountForVertexCrossings?: boolean;
+  /** Additional visibility lines; the path need not visit these guide points. */
+  guidePoints?: Point[];
+  /** Boundaries may be crossed, but should not become parallel routing rails. */
+  boundarySegments?: Segment[];
   source: RouterObstacle;
   target: RouterObstacle;
   allowedSourceSides?: Side[];
@@ -220,6 +228,37 @@ export function countCrossings(a: Point, b: Point, segments: Segment[]): number 
   return count;
 }
 
+/** Charge a straight passage through a grid vertex once, on departure. */
+function countVertexCrossings(
+  before: Point,
+  here: Point,
+  after: Point,
+  segments: Segment[]
+): number {
+  const horizontal =
+    Math.abs(before.y - here.y) < EPSILON &&
+    Math.abs(after.y - here.y) < EPSILON &&
+    (here.x - before.x) * (after.x - here.x) > EPSILON;
+  const vertical =
+    Math.abs(before.x - here.x) < EPSILON &&
+    Math.abs(after.x - here.x) < EPSILON &&
+    (here.y - before.y) * (after.y - here.y) > EPSILON;
+  if (!horizontal && !vertical) {
+    return 0;
+  }
+  return segments.filter((segment) =>
+    horizontal
+      ? Math.abs(segment.a.x - segment.b.x) < EPSILON &&
+        Math.abs(here.x - segment.a.x) < EPSILON &&
+        here.y > Math.min(segment.a.y, segment.b.y) + EPSILON &&
+        here.y < Math.max(segment.a.y, segment.b.y) - EPSILON
+      : Math.abs(segment.a.y - segment.b.y) < EPSILON &&
+        Math.abs(here.y - segment.a.y) < EPSILON &&
+        here.x > Math.min(segment.a.x, segment.b.x) + EPSILON &&
+        here.x < Math.max(segment.a.x, segment.b.x) - EPSILON
+  ).length;
+}
+
 /**
  * How many already-routed segments this move would run along, sharing a stretch of
  * the same line rather than merely touching at a point.
@@ -279,7 +318,7 @@ function buildGrid(
     }
   };
 
-  for (const p of exactPoints) {
+  for (const p of [...exactPoints, ...(request.guidePoints ?? [])]) {
     remember(xs, p.x);
     remember(ys, p.y);
   }
@@ -379,7 +418,13 @@ function searchGrid(
   to: Point,
   blocked: (a: Point, b: Point) => boolean,
   existingSegments: Segment[],
-  config: RouterConfig
+  config: RouterConfig,
+  initialAxis = 0,
+  terminalAxis = 0,
+  departure?: Point,
+  arrival?: Point,
+  accountForVertexCrossings = false,
+  boundarySegments: Segment[] = []
 ): { points: Point[]; cost: number; crossings: number } | null {
   const sx = grid.indexX.get(round(from.x));
   const sy = grid.indexY.get(round(from.y));
@@ -397,9 +442,16 @@ function searchGrid(
   const heuristic = (xi: number, yi: number): number =>
     Math.abs(grid.xs[xi] - to.x) + Math.abs(grid.ys[yi] - to.y);
 
-  const start: SearchNode = { xi: sx, yi: sy, axis: 0, g: 0, f: heuristic(sx, sy), parent: null };
+  const start: SearchNode = {
+    xi: sx,
+    yi: sy,
+    axis: initialAxis,
+    g: 0,
+    f: heuristic(sx, sy),
+    parent: null,
+  };
   open.push(start);
-  bestG.set(key(sx, sy, 0), 0);
+  bestG.set(key(sx, sy, initialAxis), 0);
 
   let expansions = 0;
   const crossingsAt = new Map<SearchNode, number>();
@@ -411,7 +463,14 @@ function searchGrid(
     if (current.xi === tx && current.yi === ty) {
       return {
         points: reconstruct(current, grid),
-        cost: current.g,
+        cost:
+          current.g +
+          (current.parent === null &&
+          initialAxis !== 0 &&
+          terminalAxis !== 0 &&
+          initialAxis !== terminalAxis
+            ? config.bendPenalty
+            : 0),
         crossings: crossingsAt.get(current) ?? 0,
       };
     }
@@ -433,20 +492,76 @@ function searchGrid(
         continue;
       }
       const there: Point = { x: grid.xs[n.xi], y: grid.ys[n.yi] };
+      // Preserve the fixed runway: reversing along a stub can erase it during
+      // simplification and reject a side pair even though a valid detour exists.
+      if (
+        current.parent === null &&
+        departure &&
+        n.axis === initialAxis &&
+        (there.x - here.x) * departure.x + (there.y - here.y) * departure.y < 0
+      ) {
+        continue;
+      }
+      if (
+        n.xi === tx &&
+        n.yi === ty &&
+        arrival &&
+        n.axis === terminalAxis &&
+        (there.x - here.x) * arrival.x + (there.y - here.y) * arrival.y < 0
+      ) {
+        continue;
+      }
       if (blocked(here, there)) {
         continue;
       }
       const distance = Math.abs(there.x - here.x) + Math.abs(there.y - here.y);
       const bend = current.axis !== 0 && current.axis !== n.axis ? config.bendPenalty : 0;
       const crossed =
-        existingSegments.length > 0 ? countCrossings(here, there, existingSegments) : 0;
+        existingSegments.length > 0
+          ? countCrossings(here, there, existingSegments) +
+            (accountForVertexCrossings && current.parent
+              ? countVertexCrossings(
+                  { x: grid.xs[current.parent.xi], y: grid.ys[current.parent.yi] },
+                  here,
+                  there,
+                  existingSegments
+                )
+              : 0)
+          : 0;
       // Running *along* an already-routed segment is at least as bad as crossing it:
       // the two are drawn on top of each other and read as one thicker line. A
       // crossing count cannot see it, because it only looks at perpendicular
       // segments, and the detour that avoids it is usually one grid step sideways.
       const shared =
         existingSegments.length > 0 ? countCollinearOverlaps(here, there, existingSegments) : 0;
-      const g = current.g + distance + bend + (crossed + shared) * config.crossingPenalty;
+      // The last move also joins the target's fixed terminal run. Charge that
+      // turn while searching, so a cheap body cannot hide two extra stub bends.
+      const terminalBend =
+        n.xi === tx && n.yi === ty && terminalAxis !== 0 && n.axis !== terminalAxis
+          ? config.bendPenalty
+          : 0;
+      const boundaryHugs = boundarySegments.filter((segment) => {
+        const horizontal = n.axis === 1;
+        const sameAxis = horizontal
+          ? Math.abs(segment.a.y - segment.b.y) < EPSILON
+          : Math.abs(segment.a.x - segment.b.x) < EPSILON;
+        if (!sameAxis) {
+          return false;
+        }
+        const gap = horizontal ? Math.abs(here.y - segment.a.y) : Math.abs(here.x - segment.a.x);
+        const overlap = horizontal
+          ? Math.min(Math.max(here.x, there.x), Math.max(segment.a.x, segment.b.x)) -
+            Math.max(Math.min(here.x, there.x), Math.min(segment.a.x, segment.b.x))
+          : Math.min(Math.max(here.y, there.y), Math.max(segment.a.y, segment.b.y)) -
+            Math.max(Math.min(here.y, there.y), Math.min(segment.a.y, segment.b.y));
+        return gap < config.clearance - EPSILON && overlap > EPSILON;
+      }).length;
+      const g =
+        current.g +
+        distance +
+        bend +
+        terminalBend +
+        (crossed + shared + boundaryHugs) * config.crossingPenalty;
       const nk = key(n.xi, n.yi, n.axis);
       if (g >= (bestG.get(nk) ?? Infinity) - EPSILON) {
         continue;
@@ -576,7 +691,41 @@ export function routeWithSides(
   let crossings = 0;
 
   for (let i = 0; i < legPoints.length - 1; i++) {
-    const leg = searchGrid(grid, legPoints[i], legPoints[i + 1], blocked, existing, config);
+    const previous = assembled.at(-2);
+    const last = assembled.at(-1)!;
+    const incomingAxis = !request.accountForTerminalBends
+      ? 0
+      : i === 0
+        ? sourceSide === 'left' || sourceSide === 'right'
+          ? 1
+          : 2
+        : previous && Math.abs(last.x - previous.x) > EPSILON
+          ? 1
+          : previous && Math.abs(last.y - previous.y) > EPSILON
+            ? 2
+            : 0;
+    const outgoingAxis =
+      request.accountForTerminalBends && i === legPoints.length - 2
+        ? targetSide === 'left' || targetSide === 'right'
+          ? 1
+          : 2
+        : 0;
+    const leg = searchGrid(
+      grid,
+      legPoints[i],
+      legPoints[i + 1],
+      blocked,
+      existing,
+      config,
+      incomingAxis,
+      outgoingAxis,
+      request.accountForTerminalBends && i === 0 ? outwardStep(sourceSide, 1) : undefined,
+      request.accountForTerminalBends && i === legPoints.length - 2
+        ? outwardStep(targetSide, -1)
+        : undefined,
+      request.accountForVertexCrossings,
+      request.boundarySegments
+    );
     if (leg === null) {
       return null;
     }

@@ -25,14 +25,26 @@
  * the choice has to be made before anything has a position. It affects which side
  * the route approaches from and nothing else: the route is cut at the frame either
  * way.
+ *
+ * Fitting a frame can leave that trimmed endpoint on a corner or consume its
+ * terminal run. The final routing pass chooses ports from the interior of each
+ * face, treats sibling frames as obstacles, and coordinates the visible edges
+ * against the fitted geometry. Ancestor frames remain traversable boundaries.
  */
 
 import type { Point } from '../../../../types.js';
 import type { Edge, LayoutData, Node } from '../../../types.js';
-import { nodeBounds, type Bounds, type Rect } from '../core/model.js';
+import { nodeBounds, type Bounds, type Rect, type Side } from '../core/model.js';
 import type { GridAttachedOptions } from './options.js';
 import type { RouterConfig, RouterObstacle } from '../core/routing/orthogonalRouter.js';
-import { routeAlternatives } from '../core/routing/orthogonalRouter.js';
+import {
+  routeAlternatives,
+  obstaclePort,
+  segmentsOf,
+  countCrossings,
+  countCollinearOverlaps,
+} from '../core/routing/orthogonalRouter.js';
+import { sampleSilhouette, silhouetteBand } from '../core/adapter/silhouette.js';
 import { polylineCrossesSegment, polylineHitsBounds } from './geometry.js';
 import { FULL_ROUNDED_CORNER_RUN } from './roundedCorners.js';
 
@@ -270,6 +282,19 @@ function clearStraightBridge(
   edges: readonly Edge[],
   clearance: number
 ): Point[] | undefined {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const sourceObstacle = (byId.get(sourceId)?.isGroup !== true
+    ? endpointObstacle(sourceId, byId)
+    : undefined) ?? {
+    id: sourceId,
+    rect: rectOfBounds(source),
+  };
+  const targetObstacle = (byId.get(targetId)?.isGroup !== true
+    ? endpointObstacle(targetId, byId)
+    : undefined) ?? {
+    id: targetId,
+    rect: rectOfBounds(target),
+  };
   const bridges = alignedStraightBridges(source, target);
   for (const bridge of bridges) {
     for (const coordinate of bridgeCoordinates(
@@ -280,9 +305,16 @@ function clearStraightBridge(
       frames,
       nodes,
       edges,
-      clearance
+      clearance,
+      sourceObstacle,
+      targetObstacle
     )) {
-      const route = bridge.route(coordinate);
+      const [sourceSide, targetSide] = bridgeSides(bridge);
+      const axis = bridge.axis === 'vertical' ? 'x' : 'y';
+      const route = [
+        obstaclePort(sourceObstacle, sourceSide, coordinate - sourceObstacle.rect[axis]),
+        obstaclePort(targetObstacle, targetSide, coordinate - targetObstacle.rect[axis]),
+      ];
       if (straightBridgeIsClear(route, sourceId, targetId, edge, frames, nodes, edges, clearance)) {
         return route;
       }
@@ -359,6 +391,17 @@ function alignedStraightBridges(source: Bounds, target: Bounds): StraightBridge[
   });
 }
 
+function bridgeSides(bridge: StraightBridge): [Side, Side] {
+  const [source, target] = bridge.route((bridge.low + bridge.high) / 2);
+  return bridge.axis === 'vertical'
+    ? target.y >= source.y
+      ? ['bottom', 'top']
+      : ['top', 'bottom']
+    : target.x >= source.x
+      ? ['right', 'left']
+      : ['left', 'right'];
+}
+
 /**
  * Centre lanes read best. Obstacle edges add escape lanes so a single block in
  * the middle does not throw away a perfectly valid straight connection beside it.
@@ -371,10 +414,24 @@ function bridgeCoordinates(
   frames: ReadonlyMap<string, Bounds>,
   nodes: readonly Node[],
   edges: readonly Edge[],
-  clearance: number
+  clearance: number,
+  source: RouterObstacle,
+  target: RouterObstacle
 ): number[] {
-  const low = bridge.low + clearance;
-  const high = bridge.high - clearance;
+  const [sourceSide, targetSide] = bridgeSides(bridge);
+  const axis = bridge.axis === 'vertical' ? 'x' : 'y';
+  const sourceBand = portBand(source, sourceSide);
+  const targetBand = portBand(target, targetSide);
+  const low = Math.max(
+    bridge.low,
+    source.rect[axis] + sourceBand.min,
+    target.rect[axis] + targetBand.min
+  );
+  const high = Math.min(
+    bridge.high,
+    source.rect[axis] + sourceBand.max,
+    target.rect[axis] + targetBand.max
+  );
   if (low > high) {
     return [];
   }
@@ -467,12 +524,9 @@ function straightBridgeIsClear(
       return false;
     }
   }
+  const permitted = permittedFrameIds(edge, new Map(nodes.map((node) => [node.id, node])));
   for (const [id, bounds] of frames) {
-    if (
-      id !== sourceId &&
-      id !== targetId &&
-      polylineHitsBounds(route, expand(bounds, clearance))
-    ) {
+    if (!permitted.has(id) && polylineHitsBounds(route, expand(bounds, clearance))) {
       return false;
     }
   }
@@ -512,7 +566,8 @@ function expand(bounds: Bounds, amount: number): Bounds {
 }
 
 /**
- * Re-route every visible edge that passes through a frame neither endpoint owns.
+ * Repair visible connections after fitting frames, including trimmed corner ports.
+ * Re-route edges that pass through a frame neither endpoint owns.
  *
  * Container edges are the conspicuous case because they are restored after the
  * topology route was drawn, but ordinary leaf-to-leaf edges can make the same
@@ -526,12 +581,63 @@ export function rerouteEdgesAroundForeignFrames(
   options: GridAttachedOptions
 ): void {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const hasFrameTerminal = (edge: Edge) =>
+    nodeById.get(edge.start ?? '')?.isGroup === true ||
+    nodeById.get(edge.end ?? '')?.isGroup === true;
+  const frameRoutes = edges.filter((edge) => !edge.isLayoutOnly && hasFrameTerminal(edge));
   const reroute = edges.filter((edge) => {
     if (edge.isLayoutOnly || !edge.points || edge.points.length < 2) {
       return false;
     }
     const foreignFrames = framesForOtherSubgraphs(edge, frames, nodeById);
-    return foreignFrames.some(({ bounds }) => polylineHitsBounds(edge.points!, bounds));
+    const points = edge.points;
+    const source = endpointObstacle(edge.start, nodeById);
+    const target = endpointObstacle(edge.end, nodeById);
+    const start = points[0];
+    const end = points.at(-1)!;
+    const sourceNeighbour = points.find(
+      (point) => Math.hypot(point.x - start.x, point.y - start.y) > EPS
+    );
+    const targetNeighbour = [...points]
+      .reverse()
+      .find((point) => Math.hypot(point.x - end.x, point.y - end.y) > EPS);
+    const crossingCandidates = hasFrameTerminal(edge) ? edges : frameRoutes;
+    const crossesFrameRoute = crossingCandidates.some(
+      (other) =>
+        other !== edge &&
+        !other.isLayoutOnly &&
+        other.points &&
+        segmentsOf(points).some(
+          (segment) => countCrossings(segment.a, segment.b, segmentsOf(other.points!)) > 0
+        )
+    );
+    const shortFrameTerminal =
+      hasFrameTerminal(edge) &&
+      points.length > 2 &&
+      options.roundShortTerminalTurns &&
+      ((sourceNeighbour !== undefined &&
+        Math.hypot(start.x - sourceNeighbour.x, start.y - sourceNeighbour.y) <
+          MIN_FRAME_TERMINAL_RUN - EPS) ||
+        (targetNeighbour !== undefined &&
+          Math.hypot(end.x - targetNeighbour.x, end.y - targetNeighbour.y) <
+            MIN_FRAME_TERMINAL_RUN - EPS));
+    return (
+      shortFrameTerminal ||
+      crossesFrameRoute ||
+      foreignFrames.some(({ bounds }) =>
+        polylineHitsBounds(
+          points,
+          expand(bounds, frameRoutes.length > 0 ? options.routingClearance : 0)
+        )
+      ) ||
+      (frames.size > 0 &&
+        ((source !== undefined &&
+          sourceNeighbour !== undefined &&
+          unsafeTerminalPort(source, start, sourceNeighbour)) ||
+          (target !== undefined &&
+            targetNeighbour !== undefined &&
+            unsafeTerminalPort(target, end, targetNeighbour))))
+    );
   });
   const rerouted = new Set(reroute);
   const reservedPorts = new Map<string, Point[]>();
@@ -548,7 +654,9 @@ export function rerouteEdgesAroundForeignFrames(
       nodeById,
       foreignFrames,
       options,
-      reservedPorts
+      reservedPorts,
+      edges,
+      frames
     );
     if (rerouted) {
       // The post-frame router runs after container endpoints were trimmed. It
@@ -624,7 +732,9 @@ function routeAroundForeignFrames(
   nodes: ReadonlyMap<string, Node>,
   foreignFrames: readonly FrameObstacle[],
   options: GridAttachedOptions,
-  reservedPorts: ReadonlyMap<string, readonly Point[]> = new Map()
+  reservedPorts: ReadonlyMap<string, readonly Point[]> = new Map(),
+  edges: readonly Edge[] = [],
+  frames: ReadonlyMap<string, Bounds> = new Map()
 ): Point[] | undefined {
   const source = endpointObstacle(edge.start, nodes);
   const target = endpointObstacle(edge.end, nodes);
@@ -651,49 +761,114 @@ function routeAroundForeignFrames(
   obstacles.set(source.id, source);
   obstacles.set(target.id, target);
 
+  const guidePoints = [...frames.values()].flatMap((bounds) => [
+    { x: bounds.minX - options.routingClearance, y: bounds.minY - options.routingClearance },
+    { x: bounds.maxX + options.routingClearance, y: bounds.maxY + options.routingClearance },
+  ]);
+  const bounds = [...obstacles.values()].map((obstacle) => nodeBounds(obstacle.rect));
+  const outerDetour =
+    2 *
+      (Math.max(...bounds.map((bound) => bound.maxX)) -
+        Math.min(...bounds.map((bound) => bound.minX)) +
+        Math.max(...bounds.map((bound) => bound.maxY)) -
+        Math.min(...bounds.map((bound) => bound.minY))) +
+    8 * options.routingBendPenalty;
+  const permitted = permittedFrameIds(edge, nodes);
+  const boundarySegments = [...frames]
+    .filter(([id]) => permitted.has(id) && id !== edge.start && id !== edge.end)
+    .flatMap(([, bounds]) =>
+      segmentsOf([
+        { x: bounds.minX, y: bounds.minY },
+        { x: bounds.maxX, y: bounds.minY },
+        { x: bounds.maxX, y: bounds.maxY },
+        { x: bounds.minX, y: bounds.maxY },
+        { x: bounds.minX, y: bounds.minY },
+      ])
+    );
   const config: RouterConfig = {
     clearance: options.routingClearance,
     bendPenalty: options.routingBendPenalty,
-    crossingPenalty: options.routingCrossingPenalty,
+    crossingPenalty: Math.max(options.routingCrossingPenalty, outerDetour),
     maxExpansions: options.routingMaxExpansions,
     minTerminalLegLength: options.roundShortTerminalTurns ? FULL_ROUNDED_CORNER_RUN : undefined,
   };
   const portSeparation = Math.max(PORT_SEPARATION, config.clearance);
   let best: Point[] | undefined;
   let bestCost = Infinity;
+  let bestConflicts = Infinity;
   let fallback: Point[] | undefined;
   let fallbackDistance = -Infinity;
   let fallbackCost = Infinity;
-  for (const sourcePortOffset of portOffsets(source, foreignFrames, config.clearance)) {
-    for (const targetPortOffset of portOffsets(target, foreignFrames, config.clearance)) {
-      const alternatives = routeAlternatives(
-        {
-          edgeId: edge.id,
-          source,
+  const existing = edges
+    .filter((other) => other !== edge && !other.isLayoutOnly && other.points)
+    .flatMap((other) => segmentsOf(other.points!));
+  const sides: Side[] = ['top', 'bottom', 'left', 'right'];
+  for (const sourceSide of sides) {
+    for (const targetSide of sides) {
+      for (const sourcePortOffset of portOffsets(
+        source,
+        sourceSide,
+        foreignFrames,
+        config.clearance,
+        reservedPorts.get(source.id)
+      )) {
+        for (const targetPortOffset of portOffsets(
           target,
-          obstacles: [...obstacles.values()],
-          sourcePortOffset,
-          targetPortOffset,
-        },
-        config
-      );
-      for (const candidate of alternatives) {
-        const distance = routePortClearance(candidate.points, source, target, reservedPorts);
-        if (
-          distance > fallbackDistance + EPS ||
-          (Math.abs(distance - fallbackDistance) < EPS && candidate.cost < fallbackCost)
-        ) {
-          fallback = candidate.points;
-          fallbackDistance = distance;
-          fallbackCost = candidate.cost;
-        }
-        if (distance >= portSeparation && candidate.cost < bestCost) {
-          best = candidate.points;
-          bestCost = candidate.cost;
+          targetSide,
+          foreignFrames,
+          config.clearance,
+          reservedPorts.get(target.id)
+        )) {
+          const alternatives = routeAlternatives(
+            {
+              edgeId: edge.id,
+              source,
+              target,
+              obstacles: [...obstacles.values()],
+              lockedSourceSide: sourceSide,
+              lockedTargetSide: targetSide,
+              sourcePortOffset,
+              targetPortOffset,
+              existingSegments: existing,
+              accountForVertexCrossings: true,
+              guidePoints,
+              boundarySegments,
+            },
+            config
+          );
+          for (const candidate of alternatives) {
+            const distance = routePortClearance(candidate.points, source, target, reservedPorts);
+            const conflicts =
+              segmentsOf(candidate.points).reduce(
+                (sum, segment) =>
+                  sum +
+                  countCrossings(segment.a, segment.b, existing) +
+                  countCollinearOverlaps(segment.a, segment.b, existing),
+                0
+              ) + ancestorRailConflicts(candidate.points, edge, frames, nodes, config.clearance);
+            if (
+              distance > fallbackDistance + EPS ||
+              (Math.abs(distance - fallbackDistance) < EPS && candidate.cost < fallbackCost)
+            ) {
+              fallback = candidate.points;
+              fallbackDistance = distance;
+              fallbackCost = candidate.cost;
+            }
+            if (
+              distance >= portSeparation &&
+              (conflicts < bestConflicts ||
+                (conflicts === bestConflicts && candidate.cost < bestCost))
+            ) {
+              best = candidate.points;
+              bestCost = candidate.cost;
+              bestConflicts = conflicts;
+            }
+          }
         }
       }
     }
   }
+
   return best ?? fallback;
 }
 
@@ -758,7 +933,7 @@ function endpointObstacle(
   }
   const node = nodes.get(id);
   if (node && node.isGroup !== true && isMeasurable(node)) {
-    return { id: `node:${id}`, rect: rectOfNode(node) };
+    return { id: `node:${id}`, rect: rectOfNode(node), silhouette: sampleSilhouette(node) };
   }
   const group = node && node.isGroup === true ? node : undefined;
   if (!group || !isMeasurable(group)) {
@@ -767,20 +942,107 @@ function endpointObstacle(
   return { id: `${FRAME_OBSTACLE_PREFIX}${id}`, rect: rectOfNode(group) };
 }
 
+/** A permitted ancestor may contain a route; its border is still not a routing rail. */
+function ancestorRailConflicts(
+  points: Point[],
+  edge: Edge,
+  frames: ReadonlyMap<string, Bounds>,
+  nodes: ReadonlyMap<string, Node>,
+  clearance: number
+): number {
+  const ancestors = permittedFrameIds(edge, nodes);
+  let conflicts = 0;
+  for (const [id, bounds] of frames) {
+    if (!ancestors.has(id) || id === edge.start || id === edge.end) {
+      continue;
+    }
+    for (const segment of segmentsOf(points)) {
+      const horizontal = Math.abs(segment.a.y - segment.b.y) < EPS;
+      const low = horizontal
+        ? Math.min(segment.a.x, segment.b.x)
+        : Math.min(segment.a.y, segment.b.y);
+      const high = horizontal
+        ? Math.max(segment.a.x, segment.b.x)
+        : Math.max(segment.a.y, segment.b.y);
+      const overlap =
+        Math.min(high, horizontal ? bounds.maxX : bounds.maxY) -
+        Math.max(low, horizontal ? bounds.minX : bounds.minY);
+      const coordinate = horizontal ? segment.a.y : segment.a.x;
+      const distance = Math.min(
+        Math.abs(coordinate - (horizontal ? bounds.minY : bounds.minX)),
+        Math.abs(coordinate - (horizontal ? bounds.maxY : bounds.maxX))
+      );
+      if (overlap > clearance && distance < clearance - EPS) {
+        conflicts++;
+      }
+    }
+  }
+  return conflicts;
+}
+
+/** The usable interior of one face, shared by discovery and terminal validation. */
+function portBand(obstacle: RouterObstacle, side: Side): { min: number; max: number } {
+  const length = side === 'left' || side === 'right' ? obstacle.rect.height : obstacle.rect.width;
+  // Leave an inset on both large frames and small nodes. For short faces the
+  // quarter-side cap preserves a usable span instead of squeezing it to a point.
+  const margin = Math.min(length / 4, Math.max(PORT_SEPARATION, length * 0.16));
+  const outline = obstacle.silhouette
+    ? silhouetteBand(obstacle.silhouette, obstacle.rect, side)
+    : { min: -length / 2, max: length / 2 };
+  return {
+    min: Math.max(-length / 2 + margin, outline.min),
+    max: Math.min(length / 2 - margin, outline.max),
+  };
+}
+
+function unsafeTerminalPort(obstacle: RouterObstacle, point: Point, neighbour: Point): boolean {
+  const dx = neighbour.x - point.x;
+  const dy = neighbour.y - point.y;
+  if (Math.abs(dx) > EPS && Math.abs(dy) > EPS) {
+    return true;
+  }
+  const side: Side = Math.abs(dx) > EPS ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'bottom' : 'top';
+  const offset =
+    side === 'left' || side === 'right' ? point.y - obstacle.rect.y : point.x - obstacle.rect.x;
+  const band = portBand(obstacle, side);
+  const expected = obstaclePort(obstacle, side, offset);
+  return (
+    offset < band.min - EPS ||
+    offset > band.max + EPS ||
+    Math.hypot(point.x - expected.x, point.y - expected.y) > 0.5
+  );
+}
+
 function portOffsets(
   obstacle: RouterObstacle,
+  side: Side,
   foreignFrames: readonly FrameObstacle[],
-  clearance: number
+  clearance: number,
+  reserved: readonly Point[] = []
 ): number[] {
   const spacing = Math.max(PORT_SEPARATION, clearance);
-  const offsets = new Set<number>([0, -spacing, spacing, -2 * spacing, 2 * spacing]);
+  const band = portBand(obstacle, side);
+  const offsets = new Set<number>([
+    0,
+    -spacing,
+    spacing,
+    -2 * spacing,
+    2 * spacing,
+    band.min,
+    band.max,
+  ]);
+  const verticalFace = side === 'left' || side === 'right';
   for (const { bounds } of foreignFrames) {
-    offsets.add(bounds.minX - obstacle.rect.x - clearance - 1);
-    offsets.add(bounds.maxX - obstacle.rect.x + clearance + 1);
-    offsets.add(bounds.minY - obstacle.rect.y - clearance - 1);
-    offsets.add(bounds.maxY - obstacle.rect.y + clearance + 1);
+    const centre = verticalFace ? obstacle.rect.y : obstacle.rect.x;
+    offsets.add((verticalFace ? bounds.minY : bounds.minX) - centre - clearance - 1);
+    offsets.add((verticalFace ? bounds.maxY : bounds.maxX) - centre + clearance + 1);
   }
-  return [...offsets];
+  for (const point of reserved) {
+    const offset = verticalFace ? point.y - obstacle.rect.y : point.x - obstacle.rect.x;
+    offsets.add(offset - spacing);
+    offsets.add(offset + spacing);
+  }
+  return [...offsets].filter((offset) => offset >= band.min - EPS && offset <= band.max + EPS);
 }
 
 function isMeasurable(

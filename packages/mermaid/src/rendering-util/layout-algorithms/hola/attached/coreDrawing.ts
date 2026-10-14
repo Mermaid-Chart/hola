@@ -219,6 +219,8 @@ export function routeCoreEdges(
       const original = flat.originalEdges.get(originalEdgeId);
       finalEdges.push({
         originalEdgeId,
+        hasFrameTerminal: flat.frameTerminalEdgeIds?.has(originalEdgeId),
+        isLayoutOnly: original?.isLayoutOnly,
         source: original?.start ?? edge.source,
         target: original?.end ?? edge.target,
         mandatoryWaypoints: [],
@@ -309,8 +311,8 @@ export function preferOutsideSharedEndpointCorridors(
             : undefined;
       if (
         !otherEndpoint ||
-        otherEndpoint.x <= left + ROUTE_ALIGNMENT_EPSILON ||
-        otherEndpoint.x >= right - ROUTE_ALIGNMENT_EPSILON
+        otherEndpoint.x < left - ROUTE_ALIGNMENT_EPSILON ||
+        otherEndpoint.x > right + ROUTE_ALIGNMENT_EPSILON
       ) {
         continue;
       }

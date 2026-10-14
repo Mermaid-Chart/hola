@@ -1,0 +1,353 @@
+{
+  "source": "e2e/platform/dev-diagrams/test-dataset/MESSY hairy subgraphs.mmd",
+  "variants": {
+    "classic-default": {
+      "G2": {
+        "labelBBox": {
+          "width": 19.21875,
+          "height": 24
+        }
+      },
+      "G1": {
+        "labelBBox": {
+          "width": 19.21875,
+          "height": 24
+        }
+      },
+      "N00": {
+        "width": 87,
+        "height": 54
+      },
+      "N11": {
+        "width": 87,
+        "height": 54
+      },
+      "N12": {
+        "width": 87,
+        "height": 54
+      },
+      "N13": {
+        "width": 87,
+        "height": 54
+      },
+      "N21": {
+        "width": 87,
+        "height": 54
+      },
+      "N22": {
+        "width": 87,
+        "height": 54
+      },
+      "N01": {
+        "width": 87,
+        "height": 54
+      },
+      "N02": {
+        "width": 87,
+        "height": 54
+      },
+      "N03": {
+        "width": 87,
+        "height": 54
+      },
+      "N04": {
+        "width": 87,
+        "height": 54
+      },
+      "N05": {
+        "width": 87,
+        "height": 54
+      }
+    },
+    "classic-redux-color": {
+      "G2": {
+        "labelBBox": {
+          "width": 18.6875,
+          "height": 21
+        }
+      },
+      "G1": {
+        "labelBBox": {
+          "width": 18.6875,
+          "height": 21
+        }
+      },
+      "N00": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N11": {
+        "width": 84.65625,
+        "height": 51
+      },
+      "N12": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N13": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N21": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N22": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N01": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N02": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N03": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N04": {
+        "width": 85.6875,
+        "height": 51
+      },
+      "N05": {
+        "width": 85.6875,
+        "height": 51
+      }
+    },
+    "neo-default": {
+      "G2": {
+        "labelBBox": {
+          "width": 19.21875,
+          "height": 24
+        }
+      },
+      "G1": {
+        "labelBBox": {
+          "width": 19.21875,
+          "height": 24
+        }
+      },
+      "N00": {
+        "width": 59,
+        "height": 48
+      },
+      "N11": {
+        "width": 59,
+        "height": 48
+      },
+      "N12": {
+        "width": 59,
+        "height": 48
+      },
+      "N13": {
+        "width": 59,
+        "height": 48
+      },
+      "N21": {
+        "width": 59,
+        "height": 48
+      },
+      "N22": {
+        "width": 59,
+        "height": 48
+      },
+      "N01": {
+        "width": 59,
+        "height": 48
+      },
+      "N02": {
+        "width": 59,
+        "height": 48
+      },
+      "N03": {
+        "width": 59,
+        "height": 48
+      },
+      "N04": {
+        "width": 59,
+        "height": 48
+      },
+      "N05": {
+        "width": 59,
+        "height": 48
+      }
+    },
+    "neo-redux-color": {
+      "G2": {
+        "labelBBox": {
+          "width": 18.6875,
+          "height": 21
+        }
+      },
+      "G1": {
+        "labelBBox": {
+          "width": 18.6875,
+          "height": 21
+        }
+      },
+      "N00": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N11": {
+        "width": 56.65625,
+        "height": 45
+      },
+      "N12": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N13": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N21": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N22": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N01": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N02": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N03": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N04": {
+        "width": 57.6875,
+        "height": 45
+      },
+      "N05": {
+        "width": 57.6875,
+        "height": 45
+      }
+    },
+    "handDrawn-default": {
+      "G2": {
+        "labelBBox": {
+          "width": 19.21875,
+          "height": 24
+        }
+      },
+      "G1": {
+        "labelBBox": {
+          "width": 19.21875,
+          "height": 24
+        }
+      },
+      "N00": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N11": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N12": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N13": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N21": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N22": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N01": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N02": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N03": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N04": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      },
+      "N05": {
+        "width": 89.5943374633789,
+        "height": 57.18074417114258
+      }
+    },
+    "handDrawn-redux-color": {
+      "G2": {
+        "labelBBox": {
+          "width": 18.6875,
+          "height": 21
+        }
+      },
+      "G1": {
+        "labelBBox": {
+          "width": 18.6875,
+          "height": 21
+        }
+      },
+      "N00": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N11": {
+        "width": 87.0363998413086,
+        "height": 54.467674255371094
+      },
+      "N12": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N13": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N21": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N22": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N01": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N02": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N03": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N04": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      },
+      "N05": {
+        "width": 88.09221649169922,
+        "height": 53.76920700073242
+      }
+    }
+  }
+}

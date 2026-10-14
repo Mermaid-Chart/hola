@@ -62,7 +62,7 @@ import { decompose } from '../core/decomposition/peelCoreAndTrees.js';
 import type { DecomposedTree } from '../core/decomposition/peelCoreAndTrees.js';
 import { DiagnosticCollector } from '../core/diagnostics.js';
 import type { HolaDiagnostic } from '../core/diagnostics.js';
-import type { Bounds, Cardinal, Direction, HolaGraph, HolaNode, Rect } from '../core/model.js';
+import type { Bounds, Cardinal, Direction, HolaGraph, HolaNode } from '../core/model.js';
 import { nodeBounds, pointBounds, rectsOverlap, unionBounds } from '../core/model.js';
 import { layoutForGrowth, ROTATION_FOR_GROWTH } from '../core/placement/placeTrees.js';
 import { layoutTree, transformTreeLayout } from '../core/trees/symmetricTreeLayout.js';
@@ -169,6 +169,11 @@ export function runGridAttachedLayoutCore(
   // Before the topology: an edge naming a container is moved onto one of its members
   // so the graph keeps it. Put back, and cut at the frame, once everything is drawn.
   const containerEdges = redirectContainerEdges(data);
+  // Frame terminals are planned separately after the leaf solve. Moving a core
+  // line cannot yet prove that those future terminal runs retain clearance.
+  if (containerEdges.redirected.length > 0) {
+    options.settleCoreGridLines = false;
+  }
   for (const edge of containerEdges.unresolvable) {
     diagnostics.report({
       code: 'GRID_ATTACHED_SUBGRAPH_EDGE_UNRESOLVED',
@@ -181,6 +186,7 @@ export function runGridAttachedLayoutCore(
   }
 
   const flat = flattenFlowchart(data, diagnostics);
+  flat.frameTerminalEdgeIds = new Set(containerEdges.redirected.map(({ edge }) => edge.id));
 
   if (flat.graph.nodes.size === 0) {
     return {
@@ -279,7 +285,7 @@ export function runGridAttachedLayoutCore(
   // Container routes are cut only now, after their endpoints and frames have their
   // final coordinates. A label placed before that cut can be left on the tiny run
   // that meets a frame, which is exactly where the frame title is painted.
-  repositionLabelsAwayFromFrameTitles(flat, data.edges, drawnNodes, frameBoxes, subgraphs, options);
+  repositionLabelsAfterFrameRouting(flat, data.edges, drawnNodes, frameBoxes, subgraphs, options);
   clearStraightLabelsFromFrameBorders(
     data.edges,
     data.nodes,
@@ -816,8 +822,14 @@ function layoutPureTreeComponent(
     coreNodeId: pureTree.rootId,
   };
   const rootNode = transformed.nodes.get(pureTree.rootId);
-  const rootRect: Rect = rootNode
-    ? { x: rootNode.x, y: rootNode.y, width: rootNode.width, height: rootNode.height }
+  const rootRect = rootNode
+    ? {
+        x: rootNode.x,
+        y: rootNode.y,
+        width: rootNode.width,
+        height: rootNode.height,
+        silhouette: pureTree.graph.nodes.get(pureTree.rootId)?.silhouette,
+      }
     : { x: 0, y: 0, width: 0, height: 0 };
 
   const attachment: Attachment = {
@@ -1542,6 +1554,7 @@ interface RenderedMiddleLane {
   sourceAxis: number;
   targetAxis: number;
   nearTransverse: number;
+  farTransverse: number;
   lane: number;
 }
 
@@ -1607,12 +1620,27 @@ function separateRenderedParallelMiddleLanes(
     const ordered = [...lanes].sort(
       (first, second) => first.nearTransverse - second.nearTransverse
     );
-    tracks.reverse();
+    if (ordered[0].farTransverse > ordered[0].nearTransverse) {
+      tracks.reverse();
+    }
     const candidates = ordered.map((lane, index) => ({
       edge: lane.edge,
       points: withRenderedMiddleLane(lane, tracks[index]),
     }));
-    if (!renderedLanesClearNodes(candidates, group, nodes, options.routingClearance)) {
+    const foreign = edges.filter((edge) => !group.includes(edge));
+    const worsensCrossings =
+      candidates.reduce(
+        (sum, candidate) => sum + countRouteCrossings(candidate.points, candidate.edge, foreign),
+        0
+      ) > group.reduce((sum, edge) => sum + countRouteCrossings(edge.points!, edge, foreign), 0);
+    const crossesSibling = candidates.some((candidate, index) =>
+      candidates.slice(index + 1).some((other) => routesCross(candidate.points, other.points))
+    );
+    if (
+      worsensCrossings ||
+      crossesSibling ||
+      !renderedLanesClearNodes(candidates, group, nodes, options.routingClearance)
+    ) {
       continue;
     }
 
@@ -1640,6 +1668,7 @@ function renderedMiddleLaneOf(edge: Edge): RenderedMiddleLane | undefined {
       sourceAxis: source.x,
       targetAxis: target.x,
       nearTransverse: source.x <= target.x ? source.y : target.y,
+      farTransverse: source.x <= target.x ? target.y : source.y,
       lane: firstBend.x,
     };
   }
@@ -1654,6 +1683,7 @@ function renderedMiddleLaneOf(edge: Edge): RenderedMiddleLane | undefined {
       sourceAxis: source.y,
       targetAxis: target.y,
       nearTransverse: source.y <= target.y ? source.x : target.x,
+      farTransverse: source.y <= target.y ? target.x : source.x,
       lane: firstBend.y,
     };
   }
@@ -2013,11 +2043,11 @@ function writeLabels(
 
 /**
  * Frames are fitted only after all components have been packed, whereas labels
- * are initially placed within their individual components. Re-place them once
- * against the final title bands, so an edge entering a nested frame cannot cover
- * the frame's title without making the frame itself larger or dishonest.
+ * are initially placed within their individual components. Frame routing can
+ * replace those routes even when the frame has no measured title. Re-place labels
+ * on the final routes against both the title bands and the frame borders.
  */
-function repositionLabelsAwayFromFrameTitles(
+function repositionLabelsAfterFrameRouting(
   flat: FlattenResult,
   edges: Edge[],
   nodes: Node[],
@@ -2025,23 +2055,42 @@ function repositionLabelsAwayFromFrameTitles(
   subgraphs: SubgraphModel,
   options: GridAttachedOptions
 ): void {
-  const titleBands: Bounds[] = [];
+  if (frames.size === 0) {
+    return;
+  }
+  const frameBands: Bounds[] = [];
+  const borderHalfWidth = 0.5;
   for (const [id, bounds] of frames) {
     const titleHeight = subgraphs.byId.get(id)?.titleHeight ?? 0;
-    if (titleHeight <= 0) {
-      continue;
-    }
-    titleBands.push({
-      minX: bounds.minX,
-      maxX: bounds.maxX,
-      minY: bounds.minY,
-      // The browser title has a small top inset. Reserving the whole title band
-      // plus the normal inner padding keeps the label visibly clear of it.
-      maxY: bounds.minY + titleHeight + options.groupPadding,
-    });
-  }
-  if (titleBands.length === 0) {
-    return;
+    frameBands.push(
+      {
+        minX: bounds.minX - borderHalfWidth,
+        maxX: bounds.maxX + borderHalfWidth,
+        minY: bounds.minY - borderHalfWidth,
+        // Headings need their whole title band, including the browser's inset.
+        maxY:
+          bounds.minY +
+          Math.max(borderHalfWidth, titleHeight + (titleHeight > 0 ? options.groupPadding : 0)),
+      },
+      {
+        minX: bounds.minX - borderHalfWidth,
+        maxX: bounds.maxX + borderHalfWidth,
+        minY: bounds.maxY - borderHalfWidth,
+        maxY: bounds.maxY + borderHalfWidth,
+      },
+      {
+        minX: bounds.minX - borderHalfWidth,
+        maxX: bounds.minX + borderHalfWidth,
+        minY: bounds.minY,
+        maxY: bounds.maxY,
+      },
+      {
+        minX: bounds.maxX - borderHalfWidth,
+        maxX: bounds.maxX + borderHalfWidth,
+        minY: bounds.minY,
+        maxY: bounds.maxY,
+      }
+    );
   }
 
   const requests = edges.flatMap((edge) => {
@@ -2058,7 +2107,7 @@ function repositionLabelsAwayFromFrameTitles(
         ]
       : [];
   });
-  writeLabels(flat, requests, nodes, edges, options, titleBands);
+  writeLabels(flat, requests, nodes, edges, options, frameBands);
 }
 
 // ---------------------------------------------------------------------------

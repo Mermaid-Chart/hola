@@ -50,6 +50,8 @@ import type { Edge } from '../../../types.js';
 import type { Cardinal, Direction, HolaGraph, Rect, Side, Silhouette } from '../core/model.js';
 import { oppositeSide, sideOfCardinal } from '../core/model.js';
 import { silhouetteBand, silhouettePort } from '../core/adapter/silhouette.js';
+import { routeAlternatives } from '../core/routing/orthogonalRouter.js';
+import type { RouterObstacle, Segment } from '../core/routing/orthogonalRouter.js';
 import { spreadPorts } from '../core/routing/finalRouting.js';
 import { routeRankEdgeTowards, rootTree } from '../core/trees/symmetricTreeLayout.js';
 import type { TreeLayout } from '../core/trees/symmetricTreeLayout.js';
@@ -171,6 +173,11 @@ export function routeComponentTrees(
       insetTerminals(leg);
     }
   }
+  // Pure trees own every obstacle in these requests. Attached trees also have
+  // core obstacles outside the requests, so retain their fixed fan corridors.
+  if (requests.every(({ tree }) => tree.rootCopyId === tree.coreNodeId)) {
+    routeShapedParallelLegs(legs, options);
+  }
   escapeSaturatedRootPorts(legs, reserved, options);
   if (options.roundShortTerminalTurns) {
     centreShortTerminalTurns(legs, 2 * options.treeBendSpacing);
@@ -183,6 +190,98 @@ export function routeComponentTrees(
     fromRoot: leg.fromRoot,
     points: leg.points,
   }));
+}
+
+/**
+ * A tapered node offers only one extremal port on each side. Parallel connectors
+ * should use separate sides rather than crowding a short sloped or curved face.
+ * Reuse the obstacle router, keeping the tree placement and all other legs fixed.
+ */
+function routeShapedParallelLegs(legs: Leg[], options: GridAttachedOptions): void {
+  const bundles = new Map<string, Leg[]>();
+  const obstacles = new Map<string, RouterObstacle>();
+  for (const leg of legs) {
+    obstacles.set(leg.parentId, {
+      id: leg.parentId,
+      rect: leg.parent,
+      silhouette: leg.parent.silhouette,
+    });
+    obstacles.set(leg.childId, {
+      id: leg.childId,
+      rect: leg.child,
+      silhouette: leg.child.silhouette,
+    });
+    const key = `${leg.parentId}\u0000${leg.childId}`;
+    const bundle = bundles.get(key) ?? [];
+    bundle.push(leg);
+    bundles.set(key, bundle);
+  }
+  const segments = (points: Point[]): Segment[] =>
+    points.slice(1).map((b, index) => ({ a: points[index], b }));
+  for (const bundle of bundles.values()) {
+    if (
+      bundle.length < 2 ||
+      !bundle.some(
+        (leg) => leg.parent.silhouette !== undefined || leg.child.silhouette !== undefined
+      )
+    ) {
+      continue;
+    }
+    const otherLegs = legs.filter((leg) => !bundle.includes(leg));
+    const existing = otherLegs.flatMap((leg) => segments(leg.points));
+    const ports = new Map<string, Point[]>();
+    const reserve = (id: string, point: Point): void => {
+      const occupied = ports.get(id) ?? [];
+      occupied.push(point);
+      ports.set(id, occupied);
+    };
+    for (const leg of otherLegs) {
+      reserve(leg.parentId, leg.points[0]);
+      reserve(leg.childId, leg.points.at(-1)!);
+    }
+    const portIsFree = (id: string, point: Point): boolean =>
+      (ports.get(id) ?? []).every(
+        (occupied) => Math.hypot(point.x - occupied.x, point.y - occupied.y) >= FAN_PORT_MARGIN
+      );
+    const chosen: Point[][] = [];
+    for (const leg of bundle) {
+      const candidates = routeAlternatives(
+        {
+          edgeId: leg.originalEdgeId,
+          source: obstacles.get(leg.parentId)!,
+          target: obstacles.get(leg.childId)!,
+          obstacles: [...obstacles.values()],
+          existingSegments: existing,
+        },
+        {
+          clearance: Math.max(
+            options.routingClearance,
+            options.roundShortTerminalTurns ? FULL_ROUNDED_CORNER_RUN : 0
+          ),
+          bendPenalty: options.routingBendPenalty,
+          crossingPenalty: options.routingCrossingPenalty,
+          maxExpansions: options.routingMaxExpansions,
+        }
+      );
+      const candidate = candidates.find(
+        ({ points }) =>
+          portIsFree(leg.parentId, points[0]) && portIsFree(leg.childId, points.at(-1)!)
+      );
+      if (!candidate) {
+        break;
+      }
+      chosen.push(candidate.points);
+      reserve(leg.parentId, candidate.points[0]);
+      reserve(leg.childId, candidate.points.at(-1)!);
+      existing.push(...segments(candidate.points));
+    }
+    // Keep the fan if no complete, distinct-port assignment fits the obstacles.
+    if (chosen.length === bundle.length) {
+      bundle.forEach((leg, index) => {
+        leg.points = chosen[index];
+      });
+    }
+  }
 }
 
 /**

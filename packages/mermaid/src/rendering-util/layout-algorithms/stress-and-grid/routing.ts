@@ -14,6 +14,7 @@ import { cardinalDiamondFanPorts } from './cardinalDiamondFan.js';
 import { nestedFrameEntryRoutes } from './nestedFrameEntry.js';
 import { nestedLinearWorkflowPorts, nestedLinearWorkflowRoutes } from './nestedLinearWorkflow.js';
 import { externalSiblingFrameCycleRoutes } from './frameGrid.js';
+import { constrainedLocalEdge } from './localProposal.js';
 
 interface Point {
   x: number;
@@ -26,6 +27,10 @@ interface Rect {
   right: number;
   top: number;
   bottom: number;
+  /** Endpoint containers may be crossed, but their borders are not lanes. */
+  openFrame?: boolean;
+  /** A clearance buffer is not a rendered node border. */
+  clearanceOnly?: boolean;
 }
 
 interface Bounds {
@@ -37,6 +42,11 @@ interface Bounds {
 
 type Side = 'top' | 'right' | 'bottom' | 'left';
 type Axis = 'H' | 'V';
+interface TerminalDirections {
+  startSide: Side;
+  endSide: Side;
+  turnPenalty: number;
+}
 
 const CLEARANCE = 20;
 // Adjacent ports must stay visibly distinct once rounded edge strokes and
@@ -131,8 +141,28 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
   // paths then participate in ordinary routing, irrespective of edge order or
   // the length of an unrelated link.
   const reserved = (edge: Edge) => nestedEntryRoutes.has(edge.id) || workflowRoutes.has(edge.id);
+  // Equal-span reciprocal edges must not depend on insertion order. Reserve
+  // the plain centreline first; the captioned partner can then choose an
+  // outside label corridor instead of forcing the return edge to cross it.
+  const reciprocalAnchors = new Set(
+    routingEdges.filter((edge) => {
+      const source = nodes.get(edge.start ?? '');
+      const target = nodes.get(edge.end ?? '');
+      return (
+        source &&
+        target &&
+        source !== target &&
+        (Math.abs(source.x! - target.x!) <= EPSILON ||
+          Math.abs(source.y! - target.y!) <= EPSILON) &&
+        isPlainReciprocalOfCaption(edge, routingEdges)
+      );
+    })
+  );
   const orderedEdges = [...routingEdges].sort(
-    (a, b) => Number(reserved(b)) - Number(reserved(a)) || edgeSpan(a, nodes) - edgeSpan(b, nodes)
+    (a, b) =>
+      Number(reserved(b)) - Number(reserved(a)) ||
+      edgeSpan(a, nodes) - edgeSpan(b, nodes) ||
+      Number(reciprocalAnchors.has(b)) - Number(reciprocalAnchors.has(a))
   );
   for (const edge of orderedEdges) {
     const source = edge.start ? nodes.get(edge.start) : undefined;
@@ -156,6 +186,15 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
     const hasGroupEndpoint = source.isGroup === true || target.isGroup === true;
     const startPort = ports.get(`${edge.id}:start`)!;
     const endPort = ports.get(`${edge.id}:end`)!;
+    const reciprocalCentreline = [...reciprocalAnchors].some((anchor) => {
+      const points = outputEdges.get(anchor.id)?.points;
+      return (
+        anchor.start === edge.end &&
+        anchor.end === edge.start &&
+        points?.length === 2 &&
+        routedPaths.includes(points)
+      );
+    });
     // Specialized workflow/label corridors must not silently replace a
     // diamond's globally allocated port with a rectangular side or vertex.
     const preserveDiamondPorts = (candidate: Point[]): Point[] => {
@@ -287,7 +326,14 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             routingObstacles,
             routedPaths
           ) ??
-          routeWithLabelClearance(edge, sourceRect, targetRect, routingObstacles, routedPaths) ??
+          routeWithLabelClearance(
+            edge,
+            sourceRect,
+            targetRect,
+            routingObstacles,
+            routedPaths,
+            reciprocalCentreline
+          ) ??
           routeSymmetricDiamondFan(
             source,
             target,
@@ -314,6 +360,56 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
             routedPaths
           ));
     points = separateSharedRouteLane(preserveDiamondPorts(points), routingObstacles, routedPaths);
+    // Local route templates can become invalid after final frame fitting and
+    // separation. Keep their preference only while both endpoint boxes remain
+    // solid; otherwise route again from the globally allocated ports.
+    const shortApproach =
+      points.length > 2 &&
+      [
+        [points[0], points[1]],
+        [points.at(-1)!, points.at(-2)!],
+      ].some(([a, b]) => Math.hypot(a.x - b.x, a.y - b.y) < CLEARANCE - EPSILON);
+    const hugsFrame = groupFrames.some((frame) =>
+      points.slice(1).some((point, index) => segmentHugsRectBorder(points[index], point, frame))
+    );
+    const openFrames = groupFrames
+      .filter((frame) => isEndpointContainer(frame.node, source, target, nodes))
+      .map((frame) => ({ ...frame, openFrame: true }));
+    const reentersFrame = points
+      .slice(1)
+      .some(
+        (point, index) =>
+          !allowsFrameTransition(points[index], point, points[0], points.at(-1)!, openFrames)
+      );
+    const crowdedLane = points.slice(1).some(
+      (point, index) =>
+        // Straight parallel bundles already own ordered, validated ports.
+        // Do not replace them with turns merely for the router's extra margin.
+        points.length > 2 && routeConflictsWithLane(points[index], point, routedPaths)
+    );
+    if (
+      source !== target &&
+      (openFrames.length > 0 || hasGroupEndpoint) &&
+      (!routeAvoidsEndpointBoxes(points, sourceRect, targetRect) ||
+        shortApproach ||
+        hugsFrame ||
+        reentersFrame ||
+        crowdedLane)
+    ) {
+      points = routeAvoidingEndpoints(
+        startPort,
+        edge.startSide ?? sideAtPort(sourceRect, startPort, sideToward(source, target, 'start')),
+        endPort,
+        edge.endSide ?? sideAtPort(targetRect, endPort, sideToward(target, source, 'end')),
+        sourceRect,
+        targetRect,
+        0,
+        routingObstacles,
+        gridSpacing,
+        routedPaths,
+        openFrames
+      );
+    }
     if (hasGroupEndpoint) {
       points = reserveEndpointApproachClearance(
         points,
@@ -430,6 +526,748 @@ export function routeStressAndGridEdges(data: LayoutData, gridSpacing: number): 
     output.roundedCornerRadius = Math.min(16, gridSpacing / 8);
     output.hasIntersectionPoints = true;
   }
+  improveAutomaticRoutes(data, nodes, obstacles, labelObstacles, reserved);
+  // Joint proposals release ports and lanes that were unavailable to the
+  // first sweep. Recheck ordinary neighbours against the settled corridors.
+  const neighbours = improveCoordinatedCorridors(data, nodes, obstacles, labelObstacles, reserved);
+  if (neighbours.size) {
+    improveAutomaticRoutes(data, nodes, obstacles, labelObstacles, reserved, neighbours);
+  }
+}
+
+/**
+ * Automatic ports are preferences, not constraints. Once all lanes are known,
+ * try short alternatives before keeping a route that orbits its own endpoint.
+ * Check against the complete drawing, not just the edges routed before it.
+ */
+function improveAutomaticRoutes(
+  data: LayoutData,
+  nodes: Map<string, Node>,
+  obstacles: Rect[],
+  labels: Rect[],
+  reserved: (edge: Edge) => boolean,
+  candidatesOnly?: ReadonlySet<Edge>
+): void {
+  const sides: Side[] = ['top', 'right', 'bottom', 'left'];
+  const candidates = data.edges.filter((edge) => {
+    const source = nodes.get(edge.start ?? '');
+    const target = nodes.get(edge.end ?? '');
+    return (
+      (!candidatesOnly || candidatesOnly.has(edge)) &&
+      source &&
+      target &&
+      source !== target &&
+      source.isGroup !== true &&
+      target.isGroup !== true &&
+      // A clear lateral entry is equally useful within a container. Keep
+      // layered workflows' ordered fan channels under their own routing rule.
+      !isLayeredWorkflowEdge(edge) &&
+      /^(rect|squareRect|cylinder)$/.test(source.shape ?? '') &&
+      /^(rect|squareRect|cylinder)$/.test(target.shape ?? '') &&
+      !constrainedLocalEdge(edge) &&
+      !reserved(edge) &&
+      !(edge.label ?? edge.text ?? '').trim() &&
+      edge.points &&
+      edge.points.length > 2
+    );
+  });
+  // Long detours get first choice of free ports; every accepted change must
+  // improve the complete-route cost, so this bounded sweep cannot oscillate.
+  candidates.sort((a, b) => b.points!.length - a.points!.length);
+  for (const edge of candidates) {
+    const source = rectFor(nodes.get(edge.start!)!);
+    const target = rectFor(nodes.get(edge.end!)!);
+    if (!source || !target) {
+      continue;
+    }
+    const otherEdges = data.edges.filter(
+      (other) => other !== edge && (other.points?.length ?? 0) >= 2
+    );
+    const paths = otherEdges.map((other) => other.points!);
+    const frames = obstacles.filter((obstacle) => obstacle.node.isGroup);
+    const titleObstacles = frames.flatMap((frame): Rect[] => {
+      const title = frame.node.labelBBox;
+      if (!title?.width || !title.height) {
+        return [];
+      }
+      return [
+        {
+          node: frame.node,
+          left: frame.node.x! - title.width / 2 - ROUTE_LANE_CLEARANCE,
+          right: frame.node.x! + title.width / 2 + ROUTE_LANE_CLEARANCE,
+          top: frame.top - ROUTE_LANE_CLEARANCE,
+          bottom: frame.top + title.height + ROUTE_LANE_CLEARANCE,
+          clearanceOnly: true,
+        },
+      ];
+    });
+    const routeObstacles = [
+      ...[...obstacles, ...labels].map((obstacle) =>
+        obstacle.node.isGroup && isEndpointContainer(obstacle.node, source.node, target.node, nodes)
+          ? { ...obstacle, openFrame: true }
+          : obstacle
+      ),
+      ...titleObstacles,
+    ];
+    const laneX = new Set<number>();
+    const laneY = new Set<number>();
+    for (const obstacle of routeObstacles) {
+      laneX.add(obstacle.left - CLEARANCE);
+      laneX.add(obstacle.right + CLEARANCE);
+      laneY.add(obstacle.top - CLEARANCE);
+      laneY.add(obstacle.bottom + CLEARANCE);
+    }
+    for (const path of paths) {
+      for (const point of path) {
+        laneX.add(point.x - ROUTE_LANE_CLEARANCE);
+        laneX.add(point.x + ROUTE_LANE_CLEARANCE);
+        laneY.add(point.y - ROUTE_LANE_CLEARANCE);
+        laneY.add(point.y + ROUTE_LANE_CLEARANCE);
+      }
+    }
+    const length = (points: Point[]) =>
+      points
+        .slice(1)
+        .reduce(
+          (sum, point, index) =>
+            sum + Math.abs(point.x - points[index].x) + Math.abs(point.y - points[index].y),
+          0
+        );
+    const portOffset = (points: Point[]) => {
+      const offset = (rect: Rect, port: Point) => {
+        const side = sideAtPort(rect, port, 'top');
+        return side === 'top' || side === 'bottom'
+          ? Math.abs(port.x - rect.node.x!)
+          : Math.abs(port.y - rect.node.y!);
+      };
+      return offset(source, points[0]) + offset(target, points.at(-1)!);
+    };
+    // Readability precedes shaving pixels off a route: preserve clear lanes,
+    // remove unnecessary turns, then prefer cardinal side centres. Occupied
+    // centres remain unavailable, so multi-edge fans keep distinct ports.
+    const cost = (points: Point[]) => [
+      points
+        .slice(1)
+        .reduce(
+          (sum, point, index) => sum + routeInteractionPenalty(points[index], point, paths),
+          0
+        ),
+      points.length - 2,
+      portOffset(points),
+      length(points),
+    ];
+    const improves = (candidate: number[], current: number[]) => {
+      for (const [index, value] of candidate.entries()) {
+        if (Math.abs(value - current[index]) > EPSILON) {
+          return value < current[index];
+        }
+      }
+      return false;
+    };
+    let best = edge.points!;
+    let bestCost = cost(best);
+    const clearNeighbours = paths.filter((path) =>
+      best
+        .slice(1)
+        .every((point, index) => routeInteractionPenalty(best[index], point, [path]) === 0)
+    );
+    const originalLength = length(best);
+    // Changing from a wide side to a short side can lengthen a centred L
+    // slightly. Permit the centre-to-centre Manhattan span, never a new
+    // drawing-sized perimeter detour.
+    const lengthLimit = Math.max(
+      originalLength,
+      Math.abs(source.node.x! - target.node.x!) + Math.abs(source.node.y! - target.node.y!)
+    );
+    const consider = (raw: Point[], startSide: Side, endSide: Side) => {
+      const points = simplify(raw);
+      // Avoid trading a crossing for a new diagram-sized perimeter route.
+      if (points.length < 2 || points.length > 4 || length(points) > lengthLimit + EPSILON) {
+        return;
+      }
+      if (
+        !continuesOutward(points[0], points[1], startSide) ||
+        !continuesOutward(points.at(-1)!, points.at(-2)!, endSide) ||
+        (startSide === 'top' || startSide === 'bottom'
+          ? Math.abs(points[1].x - points[0].x) > EPSILON
+          : Math.abs(points[1].y - points[0].y) > EPSILON) ||
+        (endSide === 'top' || endSide === 'bottom'
+          ? Math.abs(points.at(-2)!.x - points.at(-1)!.x) > EPSILON
+          : Math.abs(points.at(-2)!.y - points.at(-1)!.y) > EPSILON)
+      ) {
+        return;
+      }
+      if (
+        points.length > 2 &&
+        (Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) < CLEARANCE ||
+          Math.hypot(points.at(-2)!.x - points.at(-1)!.x, points.at(-2)!.y - points.at(-1)!.y) <
+            CLEARANCE)
+      ) {
+        return;
+      }
+      if (
+        points
+          .slice(1)
+          .some(
+            (point, index) =>
+              !segmentClear(points[index], point, routeObstacles) ||
+              routeConflictsWithLane(points[index], point, paths) ||
+              !allowsFrameTransition(
+                points[index],
+                point,
+                points[0],
+                points.at(-1)!,
+                routeObstacles
+              ) ||
+              frames.some((frame) => segmentHugsRectBorder(points[index], point, frame))
+          )
+      ) {
+        return;
+      }
+      const candidateCost = cost(points);
+      if (!improves(candidateCost, bestCost)) {
+        return;
+      }
+      // An aggregate cost can trade a crossing with one edge for a new
+      // crossing with another. Preserve previously clear neighbour pairs;
+      // shorter routes must not swap the order of coupled corridor lanes.
+      if (
+        clearNeighbours.some((path) =>
+          points
+            .slice(1)
+            .some((point, index) => routeInteractionPenalty(points[index], point, [path]) > 0)
+        )
+      ) {
+        return;
+      }
+      best = points;
+      bestCost = candidateCost;
+    };
+    const automaticSides = (rect: Rect, other: Rect, terminal: 'start' | 'end') => {
+      const port = terminal === 'start' ? edge.points![0] : edge.points!.at(-1)!;
+      const currentSide = sideAtPort(rect, port, 'top');
+      const axis = currentSide === 'left' || currentSide === 'right' ? 'x' : 'y';
+      const across = axis === 'x' ? 'y' : 'x';
+      const size = axis === 'x' ? 'width' : 'height';
+      const forwardGap =
+        Math.abs(rect.node[axis]! - other.node[axis]!) - (rect.node[size]! + other.node[size]!) / 2;
+      const fan = data.edges
+        .filter((member) => member[terminal] === rect.node.id && member.start !== member.end)
+        .map((member) => nodes.get(member[terminal === 'start' ? 'end' : 'start'] ?? ''));
+      // A shallow fan to one settled row/column owns a common forward
+      // corridor. A diagonal neighbour outside that corridor may instead use
+      // a lateral entry, leaving the centreline continuation undisturbed.
+      return fan.length > 1 &&
+        new Set(fan.map((node) => node?.id)).size === fan.length &&
+        forwardGap > Math.abs(rect.node[across]! - other.node[across]!) &&
+        fan.every((node) => node && Math.abs(node[axis]! - other.node[axis]!) <= EPSILON)
+        ? [currentSide]
+        : sides;
+    };
+    sidePairs: for (const startSide of automaticSides(source, target, 'start')) {
+      const starts = freeAutomaticPorts(source, target, startSide, edge, otherEdges);
+      for (const endSide of automaticSides(target, source, 'end')) {
+        const ends = freeAutomaticPorts(target, source, endSide, edge, otherEdges);
+        for (const start of starts) {
+          for (const end of ends) {
+            const horizontalStart = startSide === 'left' || startSide === 'right';
+            const horizontalEnd = endSide === 'left' || endSide === 'right';
+            if (horizontalStart !== horizontalEnd) {
+              consider(
+                [start, horizontalStart ? { x: end.x, y: start.y } : { x: start.x, y: end.y }, end],
+                startSide,
+                endSide
+              );
+            } else if (source.node.parentId === target.node.parentId) {
+              // Same-container corrections only need direct/L alternatives.
+              // Searching every drawing-wide lane for them is unnecessary.
+              continue;
+            } else if (horizontalStart) {
+              for (const x of [...laneX, (start.x + end.x) / 2]) {
+                consider([start, { x, y: start.y }, { x, y: end.y }, end], startSide, endSide);
+              }
+            } else {
+              for (const y of [...laneY, (start.y + end.y) / 2]) {
+                consider([start, { x: start.x, y }, { x: end.x, y }, end], startSide, endSide);
+              }
+            }
+            // A clear centred straight/L route is already optimal for these
+            // settled endpoints. Avoid searching drawing-wide offset lanes.
+            if (bestCost[0] === 0 && bestCost[1] <= 1 && bestCost[2] <= EPSILON) {
+              break sidePairs;
+            }
+          }
+        }
+      }
+    }
+    if (best !== edge.points) {
+      edge.points = best;
+      const center = pointAtHalfLength(best);
+      edge.x = center.x;
+      edge.y = center.y;
+    }
+  }
+}
+
+/**
+ * Greedy routing cannot exchange occupied ports or bend lanes. Reconsider a
+ * parallel endpoint pair, or a fan to one settled row/column, as one proposal.
+ * Its members must be mutually clear and may not disturb a previously clear
+ * foreign edge. Node positions and caller-owned port constraints stay fixed.
+ */
+function improveCoordinatedCorridors(
+  data: LayoutData,
+  nodes: Map<string, Node>,
+  obstacles: Rect[],
+  labels: Rect[],
+  reserved: (edge: Edge) => boolean
+): Set<Edge> {
+  const eligible = (edge: Edge) => {
+    const source = nodes.get(edge.start ?? '');
+    const target = nodes.get(edge.end ?? '');
+    return Boolean(
+      source &&
+        target &&
+        source !== target &&
+        !source.isGroup &&
+        !target.isGroup &&
+        /^(rect|squareRect)$/.test(source.shape ?? '') &&
+        /^(rect|squareRect)$/.test(target.shape ?? '') &&
+        !constrainedLocalEdge(edge) &&
+        !reserved(edge) &&
+        !isLayeredWorkflowEdge(edge) &&
+        !(edge.label ?? edge.text ?? '').trim() &&
+        (edge.points?.length ?? 0) >= 2
+    );
+  };
+  const pairs = new Map<string, Edge[]>();
+  for (const edge of data.edges) {
+    add(pairs, JSON.stringify([edge.start, edge.end].sort()), edge);
+  }
+  const groups: { members: Edge[]; hub?: Node; axis?: 'x' | 'y' }[] = [];
+  for (const members of pairs.values()) {
+    if (
+      members.length > 1 &&
+      members.every(eligible) &&
+      members.some((edge) => edge.points!.length > 2)
+    ) {
+      groups.push({ members });
+    }
+  }
+  for (const hub of nodes.values()) {
+    const incident = data.edges.filter(
+      (edge) => eligible(edge) && (edge.start === hub.id || edge.end === hub.id)
+    );
+    for (const axis of ['x', 'y'] as const) {
+      const rows = new Map<number, Edge[]>();
+      for (const edge of incident) {
+        const other = nodes.get(edge.start === hub.id ? edge.end! : edge.start!)!;
+        add(rows, other[axis]!, edge);
+      }
+      for (const members of rows.values()) {
+        const peers = members.map(
+          (edge) => nodes.get(edge.start === hub.id ? edge.end! : edge.start!)!
+        );
+        if (
+          members.length > 1 &&
+          new Set(peers).size === members.length &&
+          Math.abs(peers[0][axis]! - hub[axis]!) > EPSILON
+        ) {
+          groups.push({ members, hub, axis });
+        }
+      }
+    }
+  }
+  if (!groups.length) {
+    return new Set();
+  }
+  const neighboursToRecheck = new Set<Edge>();
+  const frames = obstacles.filter((obstacle) => obstacle.node.isGroup);
+  const titles = frames.flatMap((frame): Rect[] => {
+    const title = frame.node.labelBBox;
+    return title?.width && title.height
+      ? [
+          {
+            node: frame.node,
+            left: frame.node.x! - title.width / 2 - ROUTE_LANE_CLEARANCE,
+            right: frame.node.x! + title.width / 2 + ROUTE_LANE_CLEARANCE,
+            top: frame.top - ROUTE_LANE_CLEARANCE,
+            bottom: frame.top + title.height + ROUTE_LANE_CLEARANCE,
+            clearanceOnly: true,
+          },
+        ]
+      : [];
+  });
+  const length = (points: Point[]) =>
+    points
+      .slice(1)
+      .reduce(
+        (sum, point, index) =>
+          sum + Math.abs(point.x - points[index].x) + Math.abs(point.y - points[index].y),
+        0
+      );
+  const interactions = (points: Point[], paths: Point[][]) =>
+    points
+      .slice(1)
+      .reduce((sum, point, index) => sum + routeInteractionPenalty(points[index], point, paths), 0);
+  const improves = (candidate: number[], current: number[]) => {
+    for (const [index, value] of candidate.entries()) {
+      if (Math.abs(value - current[index]) > EPSILON) {
+        return value < current[index];
+      }
+    }
+    return false;
+  };
+  for (const group of groups) {
+    const { members } = group;
+    const foreign = data.edges.filter(
+      (edge) => !members.includes(edge) && (edge.points?.length ?? 0) >= 2
+    );
+    const foreignPaths = foreign.map((edge) => edge.points!);
+    const memberObstacles = members.map((edge) => {
+      const source = nodes.get(edge.start!)!;
+      const target = nodes.get(edge.end!)!;
+      return [
+        ...[...obstacles, ...labels].map((obstacle) =>
+          obstacle.node.isGroup && isEndpointContainer(obstacle.node, source, target, nodes)
+            ? { ...obstacle, openFrame: true }
+            : obstacle
+        ),
+        ...titles,
+      ];
+    });
+    const originals = members.map((edge) => edge.points!);
+    const clearNeighbours = originals.map((points) =>
+      foreignPaths.filter((path) => interactions(points, [path]) === 0)
+    );
+    const cost = (routes: Point[][]) => [
+      routes.reduce(
+        (sum, points, index) =>
+          sum +
+          interactions(points, [...foreignPaths, ...routes.filter((_, other) => other !== index)]),
+        0
+      ),
+      // A single perimeter detour is worse than distributing a few ordinary
+      // turns across an ordered corridor, even if total bend counts tie.
+      Math.max(...routes.map((points) => points.length - 2)),
+      routes.reduce((sum, points) => sum + points.length - 2, 0),
+      routes.reduce((sum, points, index) => {
+        for (const [terminal, port] of [
+          ['start', points[0]],
+          ['end', points.at(-1)!],
+        ] as const) {
+          const rect = rectFor(nodes.get(members[index][terminal]!)!)!;
+          const side = sideAtPort(rect, port, 'top');
+          sum +=
+            side === 'top' || side === 'bottom'
+              ? Math.abs(port.x - rect.node.x!)
+              : Math.abs(port.y - rect.node.y!);
+        }
+        return sum;
+      }, 0),
+      routes.reduce((sum, points) => sum + length(points), 0),
+    ];
+    let best = originals;
+    let bestCost = cost(best);
+    const coherent =
+      group.hub !== undefined ||
+      new Set(
+        members.map((edge, index) => {
+          const points =
+            edge.start === members[0].start ? originals[index] : [...originals[index]].reverse();
+          return [
+            sideAtPort(rectFor(nodes.get(members[0].start!)!)!, points[0], 'top'),
+            sideAtPort(rectFor(nodes.get(members[0].end!)!)!, points.at(-1)!, 'top'),
+          ].join('/');
+        })
+      ).size === 1;
+    // A clear, short fan or uniform parallel corridor already has a coherent
+    // embedding. Focus exchanges on tangled lanes, mixed-side bundles and
+    // genuine detours, not drawing-wide cosmetic searches.
+    if (coherent && bestCost[0] === 0 && originals.every((points) => points.length <= 4)) {
+      continue;
+    }
+    const consider = (raw: Point[][]) => {
+      const routes = raw.map(simplify);
+      const candidateCost = cost(routes);
+      if (!improves(candidateCost, bestCost)) {
+        return;
+      }
+      for (const [index, points] of routes.entries()) {
+        const edge = members[index];
+        const source = rectFor(nodes.get(edge.start!)!)!;
+        const target = rectFor(nodes.get(edge.end!)!)!;
+        const startSide = sideAtPort(source, points[0], 'top');
+        const endSide = sideAtPort(target, points.at(-1)!, 'top');
+        if (
+          points.length < 2 ||
+          points.length > 4 ||
+          !continuesOutward(points[0], points[1], startSide) ||
+          !continuesOutward(points.at(-1)!, points.at(-2)!, endSide) ||
+          !routeAvoidsEndpointBoxes(points, source, target) ||
+          length(points) >
+            Math.max(
+              length(originals[index]),
+              Math.abs(source.node.x! - target.node.x!) + Math.abs(source.node.y! - target.node.y!)
+            ) +
+              EPSILON ||
+          (points.length > 2 &&
+            (Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y) <
+              CLEARANCE - EPSILON ||
+              Math.hypot(points.at(-2)!.x - points.at(-1)!.x, points.at(-2)!.y - points.at(-1)!.y) <
+                CLEARANCE - EPSILON))
+        ) {
+          return;
+        }
+        const neighbours = [...foreignPaths, ...routes.filter((_, other) => other !== index)];
+        if (
+          points
+            .slice(1)
+            .some(
+              (point, segment) =>
+                !segmentClear(points[segment], point, memberObstacles[index]) ||
+                !allowsFrameTransition(
+                  points[segment],
+                  point,
+                  points[0],
+                  points.at(-1)!,
+                  memberObstacles[index]
+                ) ||
+                frames.some((frame) => segmentHugsRectBorder(points[segment], point, frame)) ||
+                routeConflictsWithLane(points[segment], point, neighbours)
+            ) ||
+          clearNeighbours[index].some((path) => interactions(points, [path]) > 0) ||
+          interactions(
+            points,
+            routes.filter((_, other) => other !== index)
+          ) > 0
+        ) {
+          return;
+        }
+      }
+      best = routes;
+      bestCost = candidateCost;
+    };
+    const sidePorts = (rect: Rect, side: Side, count: number): Point[] => {
+      const size = side === 'top' || side === 'bottom' ? rect.node.width! : rect.node.height!;
+      const inset = Math.max(PORT_CORNER_CLEARANCE, size * RECTANGULAR_PORT_CORNER_FRACTION);
+      if (
+        count > 1 &&
+        Math.min(PORT_SPACING, (size - inset * 2) / (count - 1)) < ROUTE_LANE_CLEARANCE - EPSILON
+      ) {
+        return [];
+      }
+      const ports = Array.from({ length: count }, (_, index) =>
+        portOnSide(rect.node, side, index, count, false, inset)
+      );
+      const occupied = foreign.flatMap((edge) => [
+        ...(edge.start === rect.node.id ? [edge.points![0]] : []),
+        ...(edge.end === rect.node.id ? [edge.points!.at(-1)!] : []),
+      ]);
+      return ports.every((port) =>
+        occupied.every(
+          (point) =>
+            Math.hypot(port.x - point.x, port.y - point.y) >= ROUTE_LANE_CLEARANCE - EPSILON
+        )
+      )
+        ? ports
+        : [];
+    };
+    const lanes = (axis: 'x' | 'y', a: number, b: number) => {
+      const coordinates = new Set([
+        (a + b) / 2,
+        a + CLEARANCE,
+        a - CLEARANCE,
+        b + CLEARANCE,
+        b - CLEARANCE,
+      ]);
+      for (const obstacle of [...obstacles, ...labels, ...titles]) {
+        for (const coordinate of axis === 'x'
+          ? [obstacle.left, obstacle.right]
+          : [obstacle.top, obstacle.bottom]) {
+          coordinates.add(coordinate - CLEARANCE);
+          coordinates.add(coordinate + CLEARANCE);
+        }
+      }
+      for (const path of foreignPaths) {
+        for (const point of path) {
+          coordinates.add(point[axis] - ROUTE_LANE_CLEARANCE);
+          coordinates.add(point[axis] + ROUTE_LANE_CLEARANCE);
+        }
+      }
+      return [...coordinates].filter(
+        (coordinate) => coordinate > Math.min(a, b) && coordinate < Math.max(a, b)
+      );
+    };
+    if (group.hub && group.axis) {
+      const hub = rectFor(group.hub)!;
+      const axis = group.axis;
+      const across = axis === 'x' ? 'y' : 'x';
+      const ordered = members
+        .map((edge, index) => ({
+          edge,
+          index,
+          peer: rectFor(nodes.get(edge.start === hub.node.id ? edge.end! : edge.start!)!)!,
+        }))
+        .sort((a, b) => a.peer.node[across]! - b.peer.node[across]!);
+      const direction = Math.sign(ordered[0].peer.node[axis]! - hub.node[axis]!);
+      const startSide =
+        axis === 'x' ? (direction > 0 ? 'right' : 'left') : direction > 0 ? 'bottom' : 'top';
+      const endSide =
+        axis === 'x' ? (direction > 0 ? 'left' : 'right') : direction > 0 ? 'top' : 'bottom';
+      const starts = sidePorts(hub, startSide, members.length);
+      const ends = ordered.map(({ peer }) => sidePorts(peer, endSide, 1)[0]);
+      if (starts.length && ends.every(Boolean)) {
+        const core = ordered.reduce(
+          (bestIndex, item, index) =>
+            Math.abs(item.peer.node[across]! - hub.node[across]!) <
+            Math.abs(ordered[bestIndex].peer.node[across]! - hub.node[across]!)
+              ? index
+              : bestIndex,
+          0
+        );
+        const offsets = ordered.map(
+          (_, order) => -direction * Math.abs(order - core) * ROUTE_LANE_CLEARANCE
+        );
+        // Visibility boundaries constrain each lane, not just the corridor's
+        // base. Translate critical lines by their offsets so an outer lane
+        // can clear a title while the inner lane retains its terminal stub.
+        const bases = new Set(
+          lanes(axis, starts[0][axis], ends[0][axis]).flatMap((lane) =>
+            offsets.map((offset) => lane - offset)
+          )
+        );
+        for (const base of bases) {
+          const routes: Point[][] = [];
+          ordered.forEach(({ edge, index }, order) => {
+            const start = starts[order],
+              end = ends[order];
+            const lane = base + offsets[order];
+            const points =
+              axis === 'x'
+                ? [start, { x: lane, y: start.y }, { x: lane, y: end.y }, end]
+                : [start, { x: start.x, y: lane }, { x: end.x, y: lane }, end];
+            routes[index] = edge.start === hub.node.id ? points : points.reverse();
+          });
+          consider(routes);
+        }
+      }
+    } else {
+      const first = rectFor(nodes.get(members[0].start!)!)!;
+      const second = rectFor(nodes.get(members[0].end!)!)!;
+      for (const startSide of ['top', 'right', 'bottom', 'left'] as const) {
+        const starts = sidePorts(first, startSide, members.length);
+        if (!starts.length) {
+          continue;
+        }
+        for (const endSide of ['top', 'right', 'bottom', 'left'] as const) {
+          const allocated = sidePorts(second, endSide, members.length);
+          if (!allocated.length) {
+            continue;
+          }
+          for (const ends of [allocated, [...allocated].reverse()]) {
+            const horizontalStart = startSide === 'left' || startSide === 'right';
+            const horizontalEnd = endSide === 'left' || endSide === 'right';
+            const propose = (make: (start: Point, end: Point, index: number) => Point[]) =>
+              consider(
+                members.map((edge, index) => {
+                  const points = make(starts[index], ends[index], index);
+                  return edge.start === first.node.id ? points : points.reverse();
+                })
+              );
+            if (horizontalStart !== horizontalEnd) {
+              propose((start, end) => [
+                start,
+                horizontalStart ? { x: end.x, y: start.y } : { x: start.x, y: end.y },
+                end,
+              ]);
+            } else {
+              const axis = horizontalStart ? 'x' : 'y';
+              const span = ((members.length - 1) * ROUTE_LANE_CLEARANCE) / 2;
+              for (const base of [
+                ...lanes(axis, starts[0][axis], ends[0][axis]),
+                starts[0][axis] + Math.sign(ends[0][axis] - starts[0][axis]) * (CLEARANCE + span),
+                ends[0][axis] - Math.sign(ends[0][axis] - starts[0][axis]) * (CLEARANCE + span),
+              ]) {
+                for (const order of [-1, 1]) {
+                  propose((start, end, index) => {
+                    const lane =
+                      base + order * (index - (members.length - 1) / 2) * ROUTE_LANE_CLEARANCE;
+                    return horizontalStart
+                      ? [start, { x: lane, y: start.y }, { x: lane, y: end.y }, end]
+                      : [start, { x: start.x, y: lane }, { x: end.x, y: lane }, end];
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    if (best !== originals) {
+      const endpoints = new Set(members.flatMap((edge) => [edge.start, edge.end]));
+      for (const edge of foreign) {
+        if (endpoints.has(edge.start) || endpoints.has(edge.end)) {
+          neighboursToRecheck.add(edge);
+        }
+      }
+      members.forEach((edge, index) => {
+        edge.points = best[index];
+        const center = pointAtHalfLength(best[index]);
+        edge.x = center.x;
+        edge.y = center.y;
+      });
+    }
+  }
+  return neighboursToRecheck;
+}
+
+function freeAutomaticPorts(
+  rect: Rect,
+  other: Rect,
+  side: Side,
+  edge: Edge,
+  otherEdges: Edge[]
+): Point[] {
+  const horizontal = side === 'top' || side === 'bottom';
+  const center = horizontal ? rect.node.x! : rect.node.y!;
+  const size = horizontal ? rect.node.width! : rect.node.height!;
+  const inset = Math.max(PORT_CORNER_CLEARANCE, size * RECTANGULAR_PORT_CORNER_FRACTION);
+  const min = center - size / 2 + inset,
+    max = center + size / 2 - inset;
+  const occupied = otherEdges.flatMap((otherEdge) => [
+    ...(otherEdge.start === rect.node.id ? [otherEdge.points![0]] : []),
+    ...(otherEdge.end === rect.node.id ? [otherEdge.points!.at(-1)!] : []),
+  ]);
+  const own = edge.start === rect.node.id ? edge.points![0] : edge.points!.at(-1)!;
+  // Cylinder cardinal midpoints are on the outline; arbitrary offsets near
+  // their curved caps would create floating attachments.
+  const coordinates =
+    rect.node.shape === 'cylinder'
+      ? [center]
+      : [
+          center,
+          Math.max(min, Math.min(max, horizontal ? other.node.x! : other.node.y!)),
+          min,
+          max,
+          ...(sideAtPort(rect, own, side) === side ? [horizontal ? own.x : own.y] : []),
+          ...occupied.flatMap((point) => [
+            (horizontal ? point.x : point.y) - PORT_SPACING,
+            (horizontal ? point.x : point.y) + PORT_SPACING,
+          ]),
+        ];
+  return [...new Set(coordinates)]
+    .filter((coordinate) => coordinate >= min && coordinate <= max)
+    .map((coordinate) =>
+      horizontal
+        ? { x: coordinate, y: side === 'top' ? rect.top : rect.bottom }
+        : { x: side === 'left' ? rect.left : rect.right, y: coordinate }
+    )
+    .filter((point) =>
+      occupied.every(
+        (port) => Math.hypot(point.x - port.x, point.y - port.y) >= ROUTE_LANE_CLEARANCE
+      )
+    );
 }
 
 function isLayeredWorkflowEdge(edge: Edge): boolean {
@@ -1802,6 +2640,20 @@ function routeOrderedParallelEdgeBundle(
  * gets the outside corridor while the unlabeled return edge can remain a
  * simple, readable boundary-to-boundary segment.
  */
+function isPlainReciprocalOfCaption(edge: Edge, edges: Edge[]): boolean {
+  return (
+    !constrainedLocalEdge(edge) &&
+    !(edge.label ?? edge.text ?? '').trim() &&
+    edges.some(
+      (candidate) =>
+        candidate.start === edge.end &&
+        candidate.end === edge.start &&
+        !constrainedLocalEdge(candidate) &&
+        (candidate.label ?? candidate.text ?? '').trim()
+    )
+  );
+}
+
 function routeStraightReciprocalOfLabeledEdge(
   edge: Edge,
   source: Rect,
@@ -1810,15 +2662,7 @@ function routeStraightReciprocalOfLabeledEdge(
   obstacles: Rect[],
   routedPaths: Point[][]
 ): Point[] | undefined {
-  if (
-    (edge.label ?? edge.text ?? '').trim() ||
-    !edges.some(
-      (candidate) =>
-        candidate.start === target.node.id &&
-        candidate.end === source.node.id &&
-        (candidate.label ?? candidate.text ?? '').trim()
-    )
-  ) {
+  if (!isPlainReciprocalOfCaption(edge, edges)) {
     return undefined;
   }
 
@@ -1857,7 +2701,8 @@ function routeWithLabelClearance(
   source: Rect,
   target: Rect,
   obstacles: Rect[],
-  routedPaths: Point[][]
+  routedPaths: Point[][],
+  separateCentreline = false
 ): Point[] | undefined {
   const label = (edge.label ?? edge.text ?? '').trim();
   if (!label) {
@@ -1870,7 +2715,7 @@ function routeWithLabelClearance(
   if (horizontal) {
     const gap =
       Math.abs(source.node.x! - target.node.x!) - (source.node.width! + target.node.width!) / 2;
-    if (gap < labelWidth + LABEL_CLEARANCE * 2) {
+    if (separateCentreline || gap < labelWidth + LABEL_CLEARANCE * 2) {
       return chooseLabelLane(
         [
           labelLaneForHorizontalPair(source, target, 'top', labelHeight),
@@ -1889,7 +2734,7 @@ function routeWithLabelClearance(
   if (vertical) {
     const gap =
       Math.abs(source.node.y! - target.node.y!) - (source.node.height! + target.node.height!) / 2;
-    if (gap < labelHeight + LABEL_CLEARANCE * 2) {
+    if (separateCentreline || gap < labelHeight + LABEL_CLEARANCE * 2) {
       return chooseLabelLane(
         [
           labelLaneForVerticalPair(source, target, 'left', labelWidth),
@@ -2172,12 +3017,35 @@ function routeAvoidingEndpoints(
   targetDegree: number,
   obstacles: Rect[],
   gridSpacing: number,
-  routedPaths: Point[][]
+  routedPaths: Point[][],
+  openFrames: Rect[] = []
 ): Point[] {
   // The source must remain solid: otherwise the visibility graph can make a
   // U-turn from its outside stub and cut back through the source rectangle.
   // The target is temporarily open so its assigned end stub remains reachable.
-  const obstaclesExceptTarget = obstacles.filter((obstacle) => obstacle.node !== targetRect.node);
+  const routingObstacles = [
+    ...obstacles,
+    ...openFrames
+      .filter((frame) => frame.node !== sourceRect.node && frame.node !== targetRect.node)
+      .map((frame) => ({ ...frame, openFrame: true })),
+  ];
+  if (openFrames.length > 0) {
+    return routeBetweenPorts(
+      start,
+      startSide,
+      end,
+      endSide,
+      sourceRect,
+      targetRect,
+      routingObstacles,
+      gridSpacing,
+      routedPaths,
+      true
+    );
+  }
+  const obstaclesExceptTarget = routingObstacles.filter(
+    (obstacle) => obstacle.node !== targetRect.node
+  );
   const route = routeBetweenPorts(
     start,
     startSide,
@@ -2207,7 +3075,7 @@ function routeAvoidingEndpoints(
     endSide,
     sourceRect,
     targetRect,
-    obstacles,
+    routingObstacles,
     gridSpacing,
     routedPaths,
     true
@@ -2291,13 +3159,40 @@ function routeBetweenPorts(
   // This also keeps diamond-side attachments on the outside of the shape.
   const startStub = extendPort(start, startSide, sourceRect);
   const endStub = extendPort(end, endSide, targetRect);
+  const compound = obstacles.some((obstacle) => obstacle.openFrame);
+  // A turn should be worth a container-sized detour, rather than producing
+  // small zigzags. The weight comes from geometry, not a diagram name/count.
+  const turnPenalty = Math.max(
+    TURN_PENALTY,
+    ...obstacles
+      .filter((obstacle) => obstacle.openFrame)
+      .map((obstacle) => Math.max(obstacle.right - obstacle.left, obstacle.bottom - obstacle.top))
+  );
   const routingObstacles = obstacles.map((obstacle) =>
-    isLargeNode(obstacle.node) ? expandRect(obstacle, ROUTE_LANE_CLEARANCE) : obstacle
+    !obstacle.openFrame && (isLargeNode(obstacle.node) || (compound && !obstacle.node.isGroup))
+      ? {
+          ...expandRect(
+            obstacle,
+            compound && !obstacle.node.isGroup
+              ? LABEL_CLEARANCE + PORT_CORNER_CLEARANCE
+              : ROUTE_LANE_CLEARANCE
+          ),
+          clearanceOnly: compound,
+        }
+      : obstacle
   );
   return simplify([
     start,
     startStub,
-    ...findRoute(startStub, endStub, routingObstacles, gridSpacing, routedPaths, forbidSharedLanes),
+    ...findRoute(
+      startStub,
+      endStub,
+      routingObstacles,
+      gridSpacing,
+      routedPaths,
+      forbidSharedLanes,
+      compound ? { startSide, endSide, turnPenalty } : undefined
+    ),
     endStub,
     end,
   ]);
@@ -3253,10 +4148,14 @@ function findRoute(
   obstacles: Rect[],
   gridSpacing: number,
   routedPaths: Point[][],
-  forbidSharedLanes: boolean
+  forbidSharedLanes: boolean,
+  terminalSides?: TerminalDirections
 ): Point[] {
   if (
     segmentClear(start, end, obstacles) &&
+    (!terminalSides ||
+      (continuesOutward(start, end, terminalSides.startSide) &&
+        continuesOutward(end, start, terminalSides.endSide))) &&
     routeInteractionPenalty(start, end, routedPaths) === 0 &&
     (!forbidSharedLanes || !routeConflictsWithLane(start, end, routedPaths))
   ) {
@@ -3271,25 +4170,66 @@ function findRoute(
     ys.add(obstacle.top - CLEARANCE);
     ys.add(obstacle.bottom + CLEARANCE);
   }
+  if (terminalSides) {
+    // Box boundaries alone provide no neighbouring lane once several links
+    // have chosen the same corridor. Reserve explicit parallel alternatives.
+    for (const path of routedPaths) {
+      for (let index = 1; index < path.length; index++) {
+        const a = path[index - 1],
+          b = path[index];
+        if (Math.abs(a.y - b.y) <= EPSILON) {
+          ys.add(a.y - ROUTE_LANE_CLEARANCE);
+          ys.add(a.y + ROUTE_LANE_CLEARANCE);
+        } else {
+          xs.add(a.x - ROUTE_LANE_CLEARANCE);
+          xs.add(a.x + ROUTE_LANE_CLEARANCE);
+        }
+      }
+    }
+  }
   addGridLines(xs, ys, obstacles, gridSpacing);
 
   const points: Point[] = [];
   for (const x of xs) {
     for (const y of ys) {
       const point = { x, y };
-      if (!obstacles.some((obstacle) => pointInRect(point, obstacle))) {
+      // Only the terminal vertices own these coordinates. Zero-length edges
+      // to a duplicate grid point would bypass their direction restrictions.
+      if (terminalSides && ((x === start.x && y === start.y) || (x === end.x && y === end.y))) {
+        continue;
+      }
+      if (
+        !obstacles.some(
+          (obstacle) =>
+            pointInRect(point, obstacle) ||
+            (obstacle.openFrame && pointOnFrameLane(point, obstacle))
+        )
+      ) {
         points.push(point);
       }
     }
   }
   const startIndex = points.push(start) - 1;
   const endIndex = points.push(end) - 1;
-  const route = shortestPath(
+  let route = shortestPath(
     points,
     visibilityGraph(points, obstacles, routedPaths, forbidSharedLanes),
     startIndex,
-    endIndex
+    endIndex,
+    terminalSides
   );
+  // Occupied lanes are a routing preference, not permission to cut through a
+  // node. A compressed endpoint fan can disconnect the strict graph; retry
+  // with interaction costs before using the geometric fallback.
+  if (!route && forbidSharedLanes) {
+    route = shortestPath(
+      points,
+      visibilityGraph(points, obstacles, routedPaths, false),
+      startIndex,
+      endIndex,
+      terminalSides
+    );
+  }
   return route ? simplify(route) : [start, { x: start.x, y: end.y }, end];
 }
 
@@ -3352,8 +4292,16 @@ function addLineEdges(
         (!forbidSharedLanes || !routeConflictsWithLane(points[a], points[b], routedPaths))
       ) {
         const interactionPenalty = routeInteractionPenalty(points[a], points[b], routedPaths);
-        addEdge(graph, a, b, points, axis, interactionPenalty);
-        addEdge(graph, b, a, points, axis, interactionPenalty);
+        if (
+          allowsFrameTransition(points[a], points[b], points.at(-2)!, points.at(-1)!, obstacles)
+        ) {
+          addEdge(graph, a, b, points, axis, interactionPenalty);
+        }
+        if (
+          allowsFrameTransition(points[b], points[a], points.at(-2)!, points.at(-1)!, obstacles)
+        ) {
+          addEdge(graph, b, a, points, axis, interactionPenalty);
+        }
       }
     }
   }
@@ -3460,7 +4408,8 @@ function shortestPath(
   points: Point[],
   graph: Map<number, VisibilityEdge[]>,
   start: number,
-  end: number
+  end: number,
+  terminalSides?: TerminalDirections
 ): Point[] | undefined {
   interface State {
     vertex: number;
@@ -3493,11 +4442,22 @@ function shortestPath(
       return path.reverse();
     }
     for (const edge of graph.get(current.vertex) ?? []) {
+      if (
+        terminalSides &&
+        ((current.vertex === start &&
+          !continuesOutward(points[start], points[edge.to], terminalSides.startSide)) ||
+          (edge.to === end &&
+            !continuesOutward(points[end], points[current.vertex], terminalSides.endSide)))
+      ) {
+        continue;
+      }
       const nextKey = key({ vertex: edge.to, axis: edge.axis });
       const candidate =
         distance.get(currentKey!)! +
         edge.length +
-        (current.axis !== 'N' && current.axis !== edge.axis ? TURN_PENALTY : 0);
+        (current.axis !== 'N' && current.axis !== edge.axis
+          ? (terminalSides?.turnPenalty ?? TURN_PENALTY)
+          : 0);
       if (candidate < (distance.get(nextKey) ?? Number.POSITIVE_INFINITY)) {
         distance.set(nextKey, candidate);
         previous.set(nextKey, currentKey!);
@@ -3508,10 +4468,58 @@ function shortestPath(
   return undefined;
 }
 
+/** A port's clearance stub may turn, but must not immediately double back. */
+function continuesOutward(port: Point, other: Point, side: Side): boolean {
+  switch (side) {
+    case 'right':
+      return other.x >= port.x - EPSILON;
+    case 'left':
+      return other.x <= port.x + EPSILON;
+    case 'bottom':
+      return other.y >= port.y - EPSILON;
+    case 'top':
+      return other.y <= port.y + EPSILON;
+  }
+}
+
 function segmentClear(a: Point, b: Point, obstacles: Rect[]): boolean {
   return obstacles.every(
     (obstacle) => !segmentIntersectsRect(a, b, obstacle) && !segmentHugsRectBorder(a, b, obstacle)
   );
+}
+
+/** Cross an endpoint container once, rather than borrowing it as a bypass. */
+function allowsFrameTransition(
+  a: Point,
+  b: Point,
+  start: Point,
+  end: Point,
+  frames: Rect[]
+): boolean {
+  const inside = (point: Point, frame: Rect) =>
+    point.x >= frame.left - EPSILON &&
+    point.x <= frame.right + EPSILON &&
+    point.y >= frame.top - EPSILON &&
+    point.y <= frame.bottom + EPSILON;
+  return frames.every((frame) => {
+    if (!frame.openFrame) {
+      return true;
+    }
+    const from = inside(a, frame),
+      to = inside(b, frame);
+    const sourceInside = inside(start, frame),
+      targetInside = inside(end, frame);
+    if (sourceInside && targetInside) {
+      return from && to;
+    }
+    if (!sourceInside && !targetInside) {
+      return !from && !to && !segmentIntersectsRect(a, b, { ...frame, openFrame: false });
+    }
+    if (!from && !to && segmentIntersectsRect(a, b, { ...frame, openFrame: false })) {
+      return false;
+    }
+    return sourceInside ? from || !to : !from || to;
+  });
 }
 
 function segmentHugsRectBorder(a: Point, b: Point, rect: Rect): boolean {
@@ -3519,7 +4527,7 @@ function segmentHugsRectBorder(a: Point, b: Point, rect: Rect): boolean {
   // may legitimately run on the conservative reserve boundary: the actual
   // label box remains clear, and treating that synthetic edge as a solid
   // node border would turn the second straight lane into a perimeter detour.
-  if (!rect.node.id) {
+  if (!rect.node.id || rect.clearanceOnly) {
     return false;
   }
   if (Math.abs(a.y - b.y) <= EPSILON) {
@@ -3541,7 +4549,23 @@ function segmentHugsRectBorder(a: Point, b: Point, rect: Rect): boolean {
   return false;
 }
 
+function pointOnFrameLane(point: Point, frame: Rect): boolean {
+  return (
+    ((Math.abs(point.x - frame.left) <= BORDER_HUG_PROXIMITY ||
+      Math.abs(point.x - frame.right) <= BORDER_HUG_PROXIMITY) &&
+      point.y > frame.top &&
+      point.y < frame.bottom) ||
+    ((Math.abs(point.y - frame.top) <= BORDER_HUG_PROXIMITY ||
+      Math.abs(point.y - frame.bottom) <= BORDER_HUG_PROXIMITY) &&
+      point.x > frame.left &&
+      point.x < frame.right)
+  );
+}
+
 function segmentIntersectsRect(a: Point, b: Point, rect: Rect): boolean {
+  if (rect.openFrame) {
+    return false;
+  }
   if (Math.abs(a.x - b.x) <= EPSILON) {
     return (
       a.x > rect.left + EPSILON &&
@@ -3563,6 +4587,7 @@ function segmentIntersectsRect(a: Point, b: Point, rect: Rect): boolean {
 
 function pointInRect(point: Point, rect: Rect): boolean {
   return (
+    !rect.openFrame &&
     point.x > rect.left + EPSILON &&
     point.x < rect.right - EPSILON &&
     point.y > rect.top + EPSILON &&

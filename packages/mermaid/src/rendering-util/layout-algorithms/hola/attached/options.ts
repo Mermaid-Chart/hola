@@ -14,6 +14,8 @@ import { resolveGridLikeOptions } from '../grid/options.js';
  * how the placement search around the core is scored.
  */
 export interface GridAttachedOptions extends GridLikeOptions {
+  /** Settle nearby core lines only while all terminal positions belong to leaves. */
+  settleCoreGridLines: boolean;
   /** Clear gap left between two packed connected components. */
   componentGap: number;
 
@@ -188,6 +190,7 @@ export function resolveGridAttachedOptions(
     treeSiblingGap,
     // A tree must sit at least as far from its neighbours as two core nodes do
     // from each other, or the drawing reads as one blob.
+    settleCoreGridLines: overrides?.settleCoreGridLines ?? true,
     treeClearance: overrides?.treeClearance ?? base.nodeSpacing,
     treeFanPortSpacing: overrides?.treeFanPortSpacing ?? 14,
     roundShortTerminalTurns: overrides?.roundShortTerminalTurns ?? false,

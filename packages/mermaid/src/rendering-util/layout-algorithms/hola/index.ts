@@ -133,6 +133,11 @@ export function runGridAttachedSubgraphsLayoutCore(data: LayoutData): GridAttach
       groupIds.has(edge.start) &&
       groupIds.has(edge.end)
   );
+  const hasNodeFrameBridge = (data.edges ?? []).some(
+    (edge) =>
+      (edge.start !== undefined && groupIds.has(edge.start)) !==
+      (edge.end !== undefined && groupIds.has(edge.end))
+  );
   const horizontalFlow = data.direction === 'LR' || data.direction === 'RL';
   const syntheticEdgeIds = new Set(
     (data.edges ?? [])
@@ -171,22 +176,25 @@ export function runGridAttachedSubgraphsLayoutCore(data: LayoutData): GridAttach
       // at each frame. Reserving that span on the cross axis lets its original,
       // local route stay direct instead of detouring around the outside of both
       // frames to find longer side stubs.
-      ...(hasInterFrameBridge
-        ? horizontalFlow
-          ? {
-              nodeSpacing: Math.max(
-                options.nodeSpacing,
-                2 * FULL_ROUNDED_CORNER_RUN + 2 * options.groupPadding
-              ),
-            }
-          : {
-              rankSpacing: Math.max(
-                options.rankSpacing,
-                2 * FULL_ROUNDED_CORNER_RUN + 2 * options.groupPadding
-              ),
-            }
+      ...(hasNodeFrameBridge || hasInterFrameBridge
+        ? {
+            nodeSpacing: Math.max(
+              options.nodeSpacing + (hasNodeFrameBridge ? 2 * options.groupPadding : 0),
+              hasInterFrameBridge && horizontalFlow
+                ? 2 * FULL_ROUNDED_CORNER_RUN + 2 * options.groupPadding
+                : 0
+            ),
+            rankSpacing: Math.max(
+              options.rankSpacing +
+                (hasNodeFrameBridge ? largestTitleBand + options.groupPadding : 0),
+              hasInterFrameBridge && !horizontalFlow
+                ? 2 * FULL_ROUNDED_CORNER_RUN + 2 * options.groupPadding
+                : 0
+            ),
+          }
         : {}),
-      treeRankGap: options.treeRankGap + titleLabelRunway,
+      treeRankGap:
+        options.treeRankGap + Math.max(titleLabelRunway, hasNodeFrameBridge ? largestTitleBand : 0),
       roundShortTerminalTurns: true,
     });
     result.droppedEdgeIds = result.droppedEdgeIds.filter((edgeId) => !syntheticEdgeIds.has(edgeId));

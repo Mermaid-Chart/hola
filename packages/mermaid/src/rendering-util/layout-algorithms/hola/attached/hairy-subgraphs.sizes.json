@@ -1,0 +1,73 @@
+{
+  "nodes": [
+    {
+      "id": "N00",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N11",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N12",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N13",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N21",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N22",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N01",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N02",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N03",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N04",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "N05",
+      "width": 87,
+      "height": 54
+    },
+    {
+      "id": "G2",
+      "labelBBox": {
+        "width": 19.21875,
+        "height": 24
+      }
+    },
+    {
+      "id": "G1",
+      "labelBBox": {
+        "width": 19.21875,
+        "height": 24
+      }
+    }
+  ]
+}

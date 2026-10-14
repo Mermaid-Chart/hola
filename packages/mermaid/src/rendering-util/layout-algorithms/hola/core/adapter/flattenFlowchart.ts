@@ -32,6 +32,8 @@ export interface EdgeLabelInfo {
 
 export interface FlattenResult {
   graph: HolaGraph;
+  /** Original edges temporarily routed to leaf representatives of frames. */
+  frameTerminalEdgeIds?: ReadonlySet<string>;
   /** Original Mermaid nodes by id, for write-back. */
   originalNodes: Map<string, Node>;
   /** Original Mermaid edges by id, for write-back. */

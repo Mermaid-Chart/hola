@@ -36,6 +36,7 @@
  * exactly as it did.
  */
 
+import { settleNearbyGridLines } from './gridAlignment.js';
 import { log } from '../../../../logger.js';
 import type { Point } from '../../../../types.js';
 import type { LayoutData } from '../../../types.js';
@@ -96,6 +97,13 @@ export function drawBestCore(
 
   restore(layoutData, best!.positions);
   compactGridAxes(layoutData, options);
+  if (
+    options.settleCoreGridLines &&
+    options.modelCoreGroups &&
+    solverData.nodes.some((node) => node.isGroup)
+  ) {
+    settleNearbyGridLines(layoutData, solverData, options);
+  }
 
   log.debug(
     `GRID-ATTACHED: core drawn as "${best!.label}" — ${best!.foreignNodeHits} edge(s) through a ` +
