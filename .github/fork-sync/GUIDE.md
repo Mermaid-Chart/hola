@@ -165,20 +165,35 @@ imports `'../helpers/util.ts'` and takes `({ page }, testInfo)`. Port it, keepin
 every case verbatim. Seen in `4c40dd406` (`sequenceDiagram-icon.spec.ts`,
 `sequenceDiagram-image.spec.ts`).
 
-**e2e is tiered upstream: `pr-check` / `nightly-check` / `visual-check`.** Since the
-v12.2.0 sync (`6374155d0`) every fixture lives at `e2e/diagrams/<type>/<tier>/` and
-every spec at `e2e/rendering/<type>/<tier>/`. Upstream's tier scoping
-(`MERMAID_E2E_FIXTURE_TIER`, `scripts/e2e-tier-scope.mjs`) only fires on
-`mermaid-js/mermaid`, so the fork still runs everything and a fixture or spec at the old
-flat path keeps working. But put new fork fixtures under a tier anyway, normally
-`pr-check/`. A fork fixture left at the flat path next to an identical upstream
-copy under a tier is a duplicate, so delete it (`13-should-render-the-short-input-form.mmd`
-was one). The same restructure turned many upstream specs into snapshot-only `.mmd`,
-deleting 43 spec files and 231 DOM assertions, all upstream-authored except one. The
-fork followed upstream. That sync failed `guard.sh` checks 2 and 4 by design,
-because the guard cannot tell an upstream deletion from a resolution's. Attribute
-each deleted spec (`git cat-file -e <merge-base>:<path>`, and count fork-added
-`expect(` lines against the merge base) before accepting such a failure.
+**e2e is tiered: `pr-check` / `nightly-check` / `visual-check`, and the fork uses
+the tiers too.** Since the v12.2.0 sync (`6374155d0`) every fixture lives at
+`e2e/diagrams/<type>/<tier>/` and every spec at `e2e/rendering/<type>/<tier>/`. The fork's
+policy differs from upstream's label gates (see the `e2e.yml` and `nightly-e2e.yml`
+entries below): PRs to `develop` run `pr-check`, PRs to `main` run everything, and
+`nightly-check` runs nightly on `develop`.
+
+- **Fork-only coverage goes in `nightly-check/`**, as `.mmd` wherever the runner can
+  express it. The fork's theme/look/layout sweeps, `mindmap-tidy-tree`, the extended
+  theme tests and the `oldShapes` fill/stroke variants were all turned into fixtures
+  under `nightly-check/<group>/`, each with a `description` naming the spec it came
+  from. Only specs that assert on the DOM or need `positions`
+  (`flowchart/nightly-check/flowchart-fixed-layout.spec.ts`) stay as specs.
+- **Don't add fork tests to upstream spec files.** Put them in a fork-only fixture
+  instead. That is why the `oldShapes.spec.ts` additions became fixtures and the
+  file went back to upstream's copy: a fork delta inside an upstream spec conflicts
+  every time upstream touches the file.
+- **A spec or fixture outside any tier only runs on a full run (PRs to `main`).** After
+  a merge, `find e2e -name '*.spec.*'` should show nothing outside a tier folder apart
+  from `e2e/helpers/` and `mmd-snapshots.spec.ts`.
+- **Duplicates.** A fork fixture identical to an upstream one is a duplicate, so
+  delete it (`13-should-render-the-short-input-form.mmd` was one).
+
+The restructure also turned many upstream specs into snapshot-only `.mmd`, deleting
+43 spec files and 231 DOM assertions, all upstream-authored except one. The fork
+followed upstream. That sync failed `guard.sh` checks 2 and 4 by design, because the
+guard cannot tell an upstream deletion from one made by the resolution. Before
+accepting a failure like that, attribute each deleted spec: run `git cat-file -e
+<merge-base>:<path>`, and count fork-added `expect(` lines against the merge base.
 
 **Fork-only DOM contracts on new render paths.** Every actor renderer in
 `sequence/svgDraw.js` tags its group with `data-et`/`data-type`/`data-id` and its
@@ -295,6 +310,18 @@ carry. `guard.sh` asserts all three, but if you are merging by hand:
   134;
 - the `workflow_call` trigger. Upstream dropped it but kept the caller, so
   `pr-labeled.yml`'s "CI: full argos" label depends on the fork restoring it.
+- the `IS_ALANA_REPO` branch in `detect-scope`: PRs and merge-queue entries for
+  `develop` run the `pr-check` tier (docs-only changes still skip), and those for
+  `main` run the full suite. Upstream's label gates (`run pr tests` / `run release
+test`) never fire here. A push to `develop` still runs the full suite, because
+  that build is Argos's superset baseline.
+
+**`.github/workflows/nightly-e2e.yml`** is upstream-gated to `mermaid-js/mermaid`.
+The fork opens it to `Mermaid-Chart/alana-mermaid` and adds a `changes` job, which
+skips a scheduled run when `develop` is at the same commit as the last nightly that
+ran (passed or failed). It also runs the `e2e` job on `2-core-advanced` with 6 shards.
+Slack stays upstream-only, because the fork has no `SLACK_CHANNEL_IDS`. `guard.sh`
+asserts the gate, the `changes` check and the runner.
 
 **e2e assets.** `e2e/diagrams/**` holds ~1224 `.mmd` fixtures, swept automatically
 by `e2e/rendering/mmd-snapshots.spec.ts` — new fixtures need no spec edit. But

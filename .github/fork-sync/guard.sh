@@ -199,6 +199,19 @@ check_e2e() {
 check_e2e "github.repository == 'Mermaid-Chart/alana-mermaid'" 'its repository guard'
 check_e2e 'runs-on: 2-core-advanced' 'the 2-core-advanced runner'
 check_e2e 'workflow_call:' 'the workflow_call trigger (pr-labeled.yml calls it)'
+check_e2e 'IS_ALANA_REPO' "Alana's tier policy (develop PRs: pr-check, main PRs: full)"
+
+# Same idea for nightly-e2e.yml, which upstream gates to mermaid-js/mermaid only.
+check_nightly() {
+  if grep -q -- "$1" .github/workflows/nightly-e2e.yml; then
+    ok "nightly-e2e.yml keeps $2"
+  else
+    fail "nightly-e2e.yml lost $2"
+  fi
+}
+check_nightly "github.repository == 'Mermaid-Chart/alana-mermaid'" 'its Alana repository gate'
+check_nightly "needs.changes.outputs.run == 'true'" 'the skip-when-develop-is-unchanged check'
+check_nightly "'2-core-advanced'" 'the 2-core-advanced runner'
 
 # --- 7. Versions must be exactly what version.mjs computed -----------------
 # Version numbers are the versioning script's job; the resolver must never
