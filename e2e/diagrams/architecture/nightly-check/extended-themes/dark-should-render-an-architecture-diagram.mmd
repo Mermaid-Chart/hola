@@ -1,0 +1,19 @@
+---
+description: >-
+  Ported from the fork-only e2e/rendering/theme-additional-tests.spec.js
+  (Extended theme test > dark > should render an Architecture diagram).
+  Alana-only coverage, so it lives in nightly-check.
+config:
+  theme: dark
+---
+architecture-beta
+ group api(cloud)[API]
+
+ service db(database)[Database] in api
+ service disk1(disk)[Storage] in api
+ service disk2(disk)[Storage] in api
+ service server(server)[Server] in api
+
+ db:L -- R:server
+ disk1:T -- B:server
+ disk2:T -- B:db

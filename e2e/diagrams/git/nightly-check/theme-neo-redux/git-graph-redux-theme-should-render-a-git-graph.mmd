@@ -1,0 +1,25 @@
+---
+description: >-
+  Ported from the fork-only e2e/rendering/git/gitgraph-theme-neo-redux.spec.js
+  (Git Graph - redux theme > should render a git graph). Alana-only coverage, so
+  it lives in nightly-check.
+config:
+  theme: redux
+---
+gitGraph
+  commit id: "ZERO"
+  branch develop
+  branch release
+  commit id:"A"
+  checkout main
+  commit id:"ONE"
+  checkout develop
+  commit id:"B"
+  checkout main
+  merge develop id:"MERGE"
+  commit id:"TWO"
+  checkout release
+  cherry-pick id:"MERGE" parent:"B"
+  commit id:"THREE"
+  checkout develop
+  commit id:"C"

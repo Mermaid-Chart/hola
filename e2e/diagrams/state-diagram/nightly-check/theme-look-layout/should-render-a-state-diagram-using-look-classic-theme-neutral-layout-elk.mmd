@@ -1,0 +1,22 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/state/stateDiagram-theme-look-layout.spec.js (StateDiagram
+  theme, look and layout > should render a state diagram using look: classic,
+  theme:neutral, layout: elk). Alana-only coverage, so it lives in
+  nightly-check.
+config:
+  logLevel: 1
+  htmlLabels: true
+  look: classic
+  theme: neutral
+  layout: elk
+---
+stateDiagram
+  [*] --> Still
+  Still --> [*]
+
+  Still --> Moving
+  Moving --> Still
+  Moving --> Crash
+  Crash --> [*]

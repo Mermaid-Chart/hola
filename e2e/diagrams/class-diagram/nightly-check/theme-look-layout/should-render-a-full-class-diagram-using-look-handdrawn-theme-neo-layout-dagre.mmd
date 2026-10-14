@@ -1,0 +1,34 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/class/classDiagram-theme-look-layout.spec.js (Class diagram V3
+  HD > should render a full class diagram using look: handDrawn, theme:neo,
+  layout: dagre). Alana-only coverage, so it lives in nightly-check.
+config:
+  logLevel: 1
+  htmlLabels: true
+  look: handDrawn
+  theme: neo
+  layout: dagre
+---
+classDiagram
+ Animal <|-- Duck
+ Animal <|-- Fish
+ Animal <|-- Zebra
+ Animal : +int age
+ Animal : +String gender
+ Animal: +isMammal()
+ Animal: +mate()
+ class Duck{
+   +String beakColor
+   +swim()
+   +quack()
+ }
+ class Fish{
+   -int sizeInFeet
+   -canEat()
+ }
+ class Zebra{
+   +bool is_wild
+   +run()
+ }

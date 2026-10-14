@@ -1,0 +1,20 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/common-tests/visual-check/oldShapes.spec.ts (Test subroutine,
+  cylinder, circle, doublecircle, odd in classic look and dir TB > with stroke
+  none style). Alana-only coverage, so it lives in nightly-check.
+config:
+  look: classic
+---
+flowchart TB
+  n0 --> n00@{ shape: subroutine, label: 'stroke none subroutine' }
+  style n00 fill:#bbf,stroke:none,stroke-width:2px
+  n1 --> n11@{ shape: cylinder, label: 'stroke none cylinder' }
+  style n11 fill:#bbf,stroke:none,stroke-width:2px
+  n2 --> n22@{ shape: circle, label: 'stroke none circle' }
+  style n22 fill:#bbf,stroke:none,stroke-width:2px
+  n3 --> n33@{ shape: doublecircle, label: 'stroke none doublecircle' }
+  style n33 fill:#bbf,stroke:none,stroke-width:2px
+  n4 --> n44@{ shape: odd, label: 'stroke none odd' }
+  style n44 fill:#bbf,stroke:none,stroke-width:2px

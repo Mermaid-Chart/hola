@@ -1,0 +1,20 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/common-tests/visual-check/oldShapes.spec.ts (Test anchor,
+  lean-r, lean-l, trap-t, trap-b in handDrawn look and dir LR > with stroke none
+  style). Alana-only coverage, so it lives in nightly-check.
+config:
+  look: handDrawn
+---
+flowchart LR
+  n0 --> n00@{ shape: anchor, label: 'stroke none anchor' }
+  style n00 fill:#bbf,stroke:none,stroke-width:2px
+  n1 --> n11@{ shape: lean-r, label: 'stroke none lean-r' }
+  style n11 fill:#bbf,stroke:none,stroke-width:2px
+  n2 --> n22@{ shape: lean-l, label: 'stroke none lean-l' }
+  style n22 fill:#bbf,stroke:none,stroke-width:2px
+  n3 --> n33@{ shape: trap-t, label: 'stroke none trap-t' }
+  style n33 fill:#bbf,stroke:none,stroke-width:2px
+  n4 --> n44@{ shape: trap-b, label: 'stroke none trap-b' }
+  style n44 fill:#bbf,stroke:none,stroke-width:2px

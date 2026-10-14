@@ -1,0 +1,18 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/sequence/sequencediagram-theme-look.spec.js (Sequence diagram
+  theme, look > should render a sequencediagram using look: classic, theme:base,
+  layout: dagre). Alana-only coverage, so it lives in nightly-check.
+config:
+  logLevel: 1
+  htmlLabels: true
+  look: classic
+  theme: base
+  layout: dagre
+---
+sequenceDiagram
+  Alice->>+John: Hello John, how are you?
+  Alice->>+John: John, can you hear me?
+  John-->>-Alice: Hi Alice, I can hear you!
+  John-->>-Alice: I feel great!
