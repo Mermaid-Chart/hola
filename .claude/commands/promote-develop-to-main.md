@@ -138,6 +138,13 @@ GitHub **auto-merge** enabled with `GITHUB_TOKEN`, the push may raise no event a
 all and the 06:10 UTC reconciler picks it up instead — that is expected, not a
 failure.
 
+Check that a `publish-beta.yml` run exists for the merge commit itself (`gh run
+list --workflow publish-beta.yml --commit <sha>`); if not, dispatch it rather than
+wait. A promotion can easily touch more than 300 files, which is why the push
+trigger must never carry a `paths:` filter — GitHub only matches one against the
+first 300 files, and that is how the v12.2.0 alpha went unpublished after #170
+(`publish-safety` now fails on such a filter).
+
 A dist tag pointing at the new version is not proof the version is
 _installable_ — `12.1.0-b.0` published successfully, tagged `latest` correctly,
 and was still broken (GUIDE.md section 5). The `publish-safety` check in step 5

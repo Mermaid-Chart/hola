@@ -91,6 +91,13 @@ check_publish_safety() {
       echo "${f} invokes neither \`npm publish --tag\` nor \`pnpm publish --tag\` — has the publish step been renamed or restructured? Update this check to match." >&2
       bad=1
     fi
+    # A `paths:` filter on the push trigger is checked against only the first 300
+    # files of a push, so a large merge (the v12.2.0 sync, #170) silently never
+    # starts the publish. The plan step already makes an unfiltered run cheap.
+    if awk '/^on:/{on=1} on && /^  push:/{p=1; next} p && /^  [a-z_]+:/{p=0} p && /^    paths:/{found=1} END{exit !found}' "$f"; then
+      echo "${f} filters its push trigger by \`paths:\`, which GitHub matches against only the first 300 files of a push — a large merge would never publish. See GUIDE.md section 5." >&2
+      bad=1
+    fi
   done
   return "$bad"
 }

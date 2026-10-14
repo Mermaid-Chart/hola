@@ -23,9 +23,13 @@ name: Publish alpha (develop)
 on:
   push:
     branches: [develop]
-    paths:
-      - 'packages/*/package.json'
-      - '.github/workflows/publish-alpha.yml'
+    # No `paths` filter, on purpose. GitHub matches a path filter against only
+    # the first 300 files of a push. A large merge, such as an upstream sync or
+    # a promotion, can push the package.json changes past that window, and the
+    # publish then silently never starts. That happened with the v12.2.0 sync
+    # (#170). Every push runs instead. The plan step skips versions already on
+    # the registry before anything is installed or built, so a no-op run is
+    # cheap.
   schedule:
     # 05:40 UTC — an hour after the sync workflow, so an overnight merge is picked
     # up even when its push raised no event.

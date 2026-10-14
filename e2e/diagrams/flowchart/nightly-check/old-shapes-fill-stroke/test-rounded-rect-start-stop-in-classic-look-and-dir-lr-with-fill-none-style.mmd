@@ -1,0 +1,18 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/common-tests/visual-check/oldShapes.spec.ts (Test rounded, rect,
+  start, stop in classic look and dir LR > with fill none style). Alana-only
+  coverage, so it lives in nightly-check.
+config:
+  look: classic
+---
+flowchart LR
+  n0 --> n00@{ shape: rounded, label: 'none rounded' }
+  style n00 fill:none,stroke:#666,stroke-width:3px
+  n1 --> n11@{ shape: rect, label: 'none rect' }
+  style n11 fill:none,stroke:#666,stroke-width:3px
+  n2 --> n22@{ shape: start, label: 'none start' }
+  style n22 fill:none,stroke:#666,stroke-width:3px
+  n3 --> n33@{ shape: stop, label: 'none stop' }
+  style n33 fill:none,stroke:#666,stroke-width:3px

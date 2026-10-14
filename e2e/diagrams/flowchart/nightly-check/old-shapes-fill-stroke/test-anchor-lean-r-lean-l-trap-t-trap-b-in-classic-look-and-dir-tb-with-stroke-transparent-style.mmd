@@ -1,0 +1,20 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/common-tests/visual-check/oldShapes.spec.ts (Test anchor,
+  lean-r, lean-l, trap-t, trap-b in classic look and dir TB > with stroke
+  transparent style). Alana-only coverage, so it lives in nightly-check.
+config:
+  look: classic
+---
+flowchart TB
+  n0 --> n00@{ shape: anchor, label: 'stroke transparent anchor' }
+  style n00 fill:#f9f,stroke:transparent,stroke-width:2px
+  n1 --> n11@{ shape: lean-r, label: 'stroke transparent lean-r' }
+  style n11 fill:#f9f,stroke:transparent,stroke-width:2px
+  n2 --> n22@{ shape: lean-l, label: 'stroke transparent lean-l' }
+  style n22 fill:#f9f,stroke:transparent,stroke-width:2px
+  n3 --> n33@{ shape: trap-t, label: 'stroke transparent trap-t' }
+  style n33 fill:#f9f,stroke:transparent,stroke-width:2px
+  n4 --> n44@{ shape: trap-b, label: 'stroke transparent trap-b' }
+  style n44 fill:#f9f,stroke:transparent,stroke-width:2px

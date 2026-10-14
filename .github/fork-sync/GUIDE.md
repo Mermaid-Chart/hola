@@ -167,18 +167,33 @@ every case verbatim. Seen in `4c40dd406` (`sequenceDiagram-icon.spec.ts`,
 
 **e2e is tiered upstream: `pr-check` / `nightly-check` / `visual-check`.** Since the
 v12.2.0 sync (`6374155d0`) every fixture lives at `e2e/diagrams/<type>/<tier>/` and
-every spec at `e2e/rendering/<type>/<tier>/`. Upstream's tier scoping
-(`MERMAID_E2E_FIXTURE_TIER`, `scripts/e2e-tier-scope.mjs`) only fires on
-`mermaid-js/mermaid`, so the fork still runs everything and a fixture or spec at the old
-flat path keeps working. But put new fork fixtures under a tier anyway, normally
-`pr-check/`. A fork fixture left at the flat path next to an identical upstream
-copy under a tier is a duplicate, so delete it (`13-should-render-the-short-input-form.mmd`
-was one). The same restructure turned many upstream specs into snapshot-only `.mmd`,
-deleting 43 spec files and 231 DOM assertions, all upstream-authored except one. The
-fork followed upstream. That sync failed `guard.sh` checks 2 and 4 by design,
-because the guard cannot tell an upstream deletion from a resolution's. Attribute
-each deleted spec (`git cat-file -e <merge-base>:<path>`, and count fork-added
-`expect(` lines against the merge base) before accepting such a failure.
+every spec at `e2e/rendering/<type>/<tier>/`. The fork keeps that layout but not
+upstream's tier gating. Every Alana PR to `develop` or `main` and every push to
+`develop` runs the full suite (see the `e2e.yml` entry below), so tier placement here
+is about staying merge-compatible with upstream, not about when a test runs.
+
+- **Fork-only coverage goes in `nightly-check/`**, as `.mmd` wherever the runner can
+  express it. The fork's theme/look/layout sweeps, `mindmap-tidy-tree`, the extended
+  theme tests and the `oldShapes` fill/stroke variants were all turned into fixtures
+  under `nightly-check/<group>/`, each with a `description` naming the spec it came
+  from. Specs that assert on the DOM or need `positions`, and so can't become
+  fixtures, go in `visual-check/` (`flowchart/visual-check/flowchart-fixed-layout.spec.ts`).
+- **Don't add fork tests to upstream spec files.** Put them in a fork-only fixture
+  instead. That is why the `oldShapes.spec.ts` additions became fixtures and the
+  file went back to upstream's copy: a fork delta inside an upstream spec conflicts
+  every time upstream touches the file.
+- **Keep specs inside a tier folder.** After a merge, `find e2e -name '*.spec.*'`
+  should show nothing outside a tier folder apart from `e2e/helpers/`,
+  `mmd-snapshots.spec.ts`, and anything upstream itself left untiered.
+- **Duplicates.** A fork fixture identical to an upstream one is a duplicate, so
+  delete it (`13-should-render-the-short-input-form.mmd` was one).
+
+The restructure also turned many upstream specs into snapshot-only `.mmd`, deleting
+43 spec files and 231 DOM assertions, all upstream-authored except one. The fork
+followed upstream. That sync failed `guard.sh` checks 2 and 4 by design, because the
+guard cannot tell an upstream deletion from one made by the resolution. Before
+accepting a failure like that, attribute each deleted spec: run `git cat-file -e
+<merge-base>:<path>`, and count fork-added `expect(` lines against the merge base.
 
 **Fork-only DOM contracts on new render paths.** Every actor renderer in
 `sequence/svgDraw.js` tags its group with `data-et`/`data-type`/`data-id` and its
@@ -280,6 +295,14 @@ tarball) cannot catch a regression of this — `pnpm pack` always substitutes
 would pass on a tree that ships broken just as happily as on a fixed one. Check the
 workflow files' own invocation instead, as `publish-safety` does.
 
+**The publish workflows must not filter `push` by path.** GitHub matches `paths:`
+against only the first 300 files of a push. The v12.2.0 sync (#170) changed thousands
+of files, so its `package.json` version bumps fell outside that window, and
+`publish-alpha.yml` never started. The new alpha waited for the 05:40 UTC reconciler.
+Both publish workflows now run on every push to their branch. The plan step skips
+any version already on the registry before installing anything, so a no-op run
+costs seconds. Don't reintroduce a `paths` filter.
+
 The republish itself needed its own alpha/beta counter bump — a version is
 immutable on the registry once published, broken or not, so there is no fixing
 `12.1.0-a.0`/`-b.0` in place. `version.mjs`'s normal "bumped alpha/beta N -> N+1"
@@ -295,6 +318,26 @@ carry. `guard.sh` asserts all three, but if you are merging by hand:
   134;
 - the `workflow_call` trigger. Upstream dropped it but kept the caller, so
   `pr-labeled.yml`'s "CI: full argos" label depends on the fork restoring it.
+- the `IS_ALANA_REPO` branch in `detect-scope` and the `argos-alana` job. Alana
+  gets few PRs, so it runs the **full suite** on every PR to `develop` or `main`
+  and on every push to `develop` (docs-only PRs still skip). The merge queue runs
+  it too but doesn't upload. Upstream's label gates and its `argos-batch` job never
+  fire here.
+
+  Argos holds **one build and one baseline, `develop`'s** (`scripts/argos-upload.sh`,
+  `--reference-branch develop`, no build name). A PR to `develop` is reviewed
+  against that baseline. A merge to `develop`, an auto-approved branch in the Argos
+  project settings, becomes the new baseline. A PR to `main` is also compared with
+  `develop`'s baseline. A promotion only changes package versions, so it should
+  show no diff, and `main` needs no baseline of its own. Every upload is a complete
+  run, never `--subset`, because Argos only accepts a complete build as a baseline.
+
+**`.github/workflows/nightly-e2e.yml`** stays upstream's copy and is inert here
+(gated to `mermaid-js/mermaid`). It would be redundant anyway, because every merge
+to `develop` already runs the full suite.
+
+**Applitools is upstream-only.** `e2e-applitools.yml` is gated off on the fork, and
+nothing in the fork's CI sets `USE_APPLI`.
 
 **e2e assets.** `e2e/diagrams/**` holds ~1224 `.mmd` fixtures, swept automatically
 by `e2e/rendering/mmd-snapshots.spec.ts` — new fixtures need no spec edit. But

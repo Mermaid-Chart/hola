@@ -127,6 +127,8 @@ jobs:
       # that case (a skip due to a missing label must not silently count as
       # passing).
       required_tests_missing: ${{ steps.scope.outputs.required_tests_missing }}
+      # Alana-only: 'true' when argos-alana should upload this run's screenshots.
+      argos_upload: ${{ steps.scope.outputs.argos_upload }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -151,6 +153,8 @@ jobs:
           # fork, so a fork running this e2e.yml falls back to the original
           # diff-based-only behavior instead.
           IS_UPSTREAM_REPO: ${{ github.repository == 'mermaid-js/mermaid' }}
+          # Alana's own tier policy (see the branch below). No labels.
+          IS_ALANA_REPO: ${{ github.repository == 'Mermaid-Chart/alana-mermaid' }}
           PR_ACTION: ${{ github.event.action }}
           # Unlike BASE_REF above, this is PR-only (no merge_group fallback) —
           # it only decides which of the two label gates below applies.
@@ -196,6 +200,47 @@ jobs:
             set_output spec_pattern "$1"
             set_output matrix "$E2E_SCOPED_MATRIX"
           }
+
+          # Alana-only policy. Alana gets few PRs, so it keeps things simple: every
+          # PR to develop or main, merge-queue entry and push to develop runs the
+          # full suite (all tiers, plus specs outside a tier). Upstream's label
+          # gates never fire here.
+          #
+          # Argos (argos-alana below) holds one build and one baseline, develop's:
+          #   PR -> develop               reviewed against the develop baseline
+          #   push to develop             auto-approved, becomes the new baseline
+          #   PR -> main                  compared with develop's baseline too. A
+          #                               promotion only changes package versions,
+          #                               so there should be no diff.
+          #   workflow_dispatch, develop  same as a push (refreshes the baseline)
+          # The merge queue doesn't upload, because the PR's build is the one under
+          # review. A dispatch with a spec glob, or a PR to any other branch, falls
+          # through to the upstream logic below and doesn't upload.
+          if [ "$IS_ALANA_REPO" = "true" ] && { [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] || [ -z "$SPEC_PATTERN_INPUT" ]; }; then
+            case "$GITHUB_EVENT_NAME" in
+              pull_request | merge_group) ALANA_BRANCH="${PR_BASE_REF:-${BASE_REF#refs/heads/}}" ;;
+              *) ALANA_BRANCH="$GITHUB_REF_NAME" ;;
+            esac
+            if [ "$ALANA_BRANCH" = "develop" ] ||
+              { [ "$ALANA_BRANCH" = "main" ] && [ "$GITHUB_EVENT_NAME" != "push" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; }; then
+              if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+                git fetch origin "$ALANA_BRANCH" --depth=1 2>/dev/null || true
+                ALANA_MERGE_BASE=$(git merge-base HEAD "origin/${ALANA_BRANCH}" 2>/dev/null || true)
+                if [ -n "$ALANA_MERGE_BASE" ] &&
+                  [ "$(git diff --name-only "$ALANA_MERGE_BASE" HEAD | node scripts/e2e-diagram-scope.mjs || true)" = "SKIP" ]; then
+                  emit_skip
+                  echo "[detect-scope] PR -> ${ALANA_BRANCH} — only docs/ignorable files changed, e2e skipped."
+                  exit 0
+                fi
+              fi
+              emit_full
+              if [ "$GITHUB_EVENT_NAME" != "merge_group" ]; then
+                set_output argos_upload true
+              fi
+              echo "[detect-scope] ${GITHUB_EVENT_NAME} -> ${ALANA_BRANCH} — full suite."
+              exit 0
+            fi
+          fi
 
           # Manual runs can target a specific spec glob via the workflow_dispatch
           # input; an empty pattern runs the full suite.
@@ -586,7 +631,7 @@ jobs:
   argos-batch:
     if: >-
       ${{
-        github.repository == 'Mermaid-Chart/alana-mermaid' &&
+        github.repository == 'mermaid-js/mermaid' &&
         (github.event_name == 'workflow_dispatch' || github.event_name != 'pull_request' || !startsWith(github.head_ref, 'renovate/')) &&
         needs.detect-scope.outputs.spec_pattern != 'SKIP' &&
         needs.e2e.result == 'success'
@@ -725,6 +770,45 @@ jobs:
               --files "${globs[@]}" \
               --parallel --parallel-total "$K" --parallel-index "$i"
           done
+
+  # Alana-only. Uploads the whole run as a single Argos build, compared with
+  # develop's baseline (see the policy in detect-scope). Upstream's argos-batch
+  # above stays gated to mermaid-js/mermaid. Alana never uses Applitools.
+  argos-alana:
+    if: >-
+      ${{
+        github.repository == 'Mermaid-Chart/alana-mermaid' &&
+        needs.detect-scope.outputs.argos_upload == 'true' &&
+        needs.e2e.result == 'success' &&
+        (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'renovate/'))
+      }}
+    needs: [detect-scope, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version-file: '.node-version'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download screenshot artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          pattern: screenshots-*
+          merge-multiple: true
+          path: e2e/screenshots
+
+      - name: Upload to Argos
+        env:
+          ARGOS_PARALLEL_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: bash scripts/argos-upload.sh e2e/screenshots develop
 
   e2e-required:
     if: always()

@@ -1,0 +1,18 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/common-tests/visual-check/oldShapes.spec.ts (Test rounded, rect,
+  start, stop in handDrawn look and dir LR > with fill transparent style).
+  Alana-only coverage, so it lives in nightly-check.
+config:
+  look: handDrawn
+---
+flowchart LR
+  n0 --> n00@{ shape: rounded, label: 'transparent rounded' }
+  style n00 fill:transparent,stroke:#333,stroke-width:2px
+  n1 --> n11@{ shape: rect, label: 'transparent rect' }
+  style n11 fill:transparent,stroke:#333,stroke-width:2px
+  n2 --> n22@{ shape: start, label: 'transparent start' }
+  style n22 fill:transparent,stroke:#333,stroke-width:2px
+  n3 --> n33@{ shape: stop, label: 'transparent stop' }
+  style n33 fill:transparent,stroke:#333,stroke-width:2px

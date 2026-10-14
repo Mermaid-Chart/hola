@@ -199,6 +199,8 @@ check_e2e() {
 check_e2e "github.repository == 'Mermaid-Chart/alana-mermaid'" 'its repository guard'
 check_e2e 'runs-on: 2-core-advanced' 'the 2-core-advanced runner'
 check_e2e 'workflow_call:' 'the workflow_call trigger (pr-labeled.yml calls it)'
+check_e2e 'IS_ALANA_REPO' "Alana's policy (full suite on develop/main PRs and develop pushes)"
+check_e2e 'argos-alana:' 'the single-build Argos upload job'
 
 # --- 7. Versions must be exactly what version.mjs computed -----------------
 # Version numbers are the versioning script's job; the resolver must never

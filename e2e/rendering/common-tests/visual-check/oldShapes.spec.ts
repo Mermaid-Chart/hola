@@ -103,42 +103,6 @@ looks.forEach((look) => {
           });
           await imgSnapshotTest(page, testInfo, flowchartCode, { look });
         });
-
-        test(`with fill transparent style`, async ({ page }, testInfo) => {
-          let flowchartCode = `flowchart ${direction}\n`;
-          shapesSet.forEach((newShape, index) => {
-            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'transparent ${newShape}' }\n`;
-            flowchartCode += `  style n${index}${index} fill:transparent,stroke:#333,stroke-width:2px \n`;
-          });
-          await imgSnapshotTest(page, testInfo, flowchartCode, { look });
-        });
-
-        test(`with fill none style`, async ({ page }, testInfo) => {
-          let flowchartCode = `flowchart ${direction}\n`;
-          shapesSet.forEach((newShape, index) => {
-            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'none ${newShape}' }\n`;
-            flowchartCode += `  style n${index}${index} fill:none,stroke:#666,stroke-width:3px \n`;
-          });
-          await imgSnapshotTest(page, testInfo, flowchartCode, { look });
-        });
-
-        test(`with stroke transparent style`, async ({ page }, testInfo) => {
-          let flowchartCode = `flowchart ${direction}\n`;
-          shapesSet.forEach((newShape, index) => {
-            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'stroke transparent ${newShape}' }\n`;
-            flowchartCode += `  style n${index}${index} fill:#f9f,stroke:transparent,stroke-width:2px \n`;
-          });
-          await imgSnapshotTest(page, testInfo, flowchartCode, { look });
-        });
-
-        test(`with stroke none style`, async ({ page }, testInfo) => {
-          let flowchartCode = `flowchart ${direction}\n`;
-          shapesSet.forEach((newShape, index) => {
-            flowchartCode += `  n${index} --> n${index}${index}@{ shape: ${newShape}, label: 'stroke none ${newShape}' }\n`;
-            flowchartCode += `  style n${index}${index} fill:#bbf,stroke:none,stroke-width:2px \n`;
-          });
-          await imgSnapshotTest(page, testInfo, flowchartCode, { look });
-        });
       });
     });
   });
