@@ -1,7 +1,4 @@
-import type {
-  PlausibleConfig,
-  PlausibleEventOptions,
-} from '@plausible-analytics/tracker';
+import type { PlausibleConfig, PlausibleEventOptions } from '@plausible-analytics/tracker';
 
 interface PlausibleTracker {
   init: (config: PlausibleConfig) => void;
