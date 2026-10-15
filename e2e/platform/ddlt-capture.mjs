@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const DIR = fileURLToPath(new URL('./dev-diagrams/layout-tests/Loop Fixtures/', import.meta.url));
-const BASE = process.env.MERMAID_CAPTURE_URL ?? `http://localhost:${process.env.MERMAID_PORT ?? 9000}`;
+const BASE =
+  process.env.MERMAID_CAPTURE_URL ?? `http://localhost:${process.env.MERMAID_PORT ?? 9000}`;
 const REL = 'dev-diagrams/layout-tests/Loop Fixtures';
 const only = process.argv.slice(2);
 
@@ -20,7 +21,8 @@ if (only.length) targets = targets.filter((n) => only.includes(n));
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1600, height: 1200 } });
 
-const ok = [], failed = [];
+const ok = [],
+  failed = [];
 for (const name of targets) {
   const url = `${BASE}/ddlt-capture.html?f=${encodeURIComponent(`/${REL}/${name}.mmd`)}`;
   try {
@@ -29,7 +31,7 @@ for (const name of targets) {
     const err = await page.evaluate(() => window.__captureError);
     if (err) throw new Error(err.split('\n')[0]);
     const entry = await page.evaluate(() => window.mermaidLastCapturedSizes ?? null);
-    if (!entry || !entry.sizes || !Array.isArray(entry.sizes.nodes) || entry.sizes.nodes.length === 0) {
+    if (!entry?.sizes || !Array.isArray(entry.sizes.nodes) || entry.sizes.nodes.length === 0) {
       throw new Error('no sizes captured (empty or undefined)');
     }
     const src = readFileSync(join(DIR, `${name}.mmd`));
@@ -52,4 +54,7 @@ for (const name of targets) {
 }
 await browser.close();
 console.log(`\n=== captured ${ok.length}/${targets.length} ===`);
-if (failed.length) { console.log('FAILURES:'); for (const f of failed) console.log('  ' + f); }
+if (failed.length) {
+  console.log('FAILURES:');
+  for (const f of failed) console.log('  ' + f);
+}
