@@ -53,10 +53,28 @@ for (const { name, source } of cases) {
     const node = (id: string) => captured.layout.nodes.find((member) => member.id === id)!;
     expect(captured.layout.nodes.filter((member) => member.isGroup)).toHaveLength(2);
     if (name === 'TB') {
-      expect(node('SW').x).toBeCloseTo(node('C').x!, 6);
+      // The windrose settles into two columns with the hub centred between them:
+      //
+      //   NW(110, 71)    SW(594, 71)
+      //   NE(110, 301)   SE(594, 301)
+      //          C(352, 301)
+      //
+      // Each group shares a vertical grid line, each rank shares a horizontal one,
+      // and C sits on the midline. Before mermaid 12 the same fixture came out
+      // transposed — groups in rows rather than columns — because its one- and
+      // two-letter labels measured narrower; v12 widens a short label to the
+      // diagram's minimum node width (`withMinWidth` in rendering-elements/shapes/
+      // util.ts), every node here became 180px, and two of them no longer fit
+      // side by side. The arrangement below is the same grid, rotated: the
+      // validator scores it 995 with no issues and no crossings.
+      expect(node('NW').x).toBeCloseTo(node('NE').x!, 6);
+      expect(node('SW').x).toBeCloseTo(node('SE').x!, 6);
       expect(node('NW').y).toBeCloseTo(node('SW').y!, 6);
-      expect(node('SW').y).toBeCloseTo(node('SE').y!, 6);
-      expect(node('NW').y).toBeCloseTo(node('NE').y!, 6);
+      expect(node('NE').y).toBeCloseTo(node('SE').y!, 6);
+      // The hub holds the midline between the two group columns, and shares the
+      // lower rank's grid line.
+      expect((node('NW').x! + node('SW').x!) / 2).toBeCloseTo(node('C').x!, 6);
+      expect(node('C').y).toBeCloseTo(node('SE').y!, 6);
       expect(captured.validation.score).toBeGreaterThan(950);
     }
     for (const [a, b] of [
