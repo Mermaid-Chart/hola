@@ -521,7 +521,13 @@ async function createServer(): Promise<void> {
         const dir = path.dirname(absPath);
         const target = resolve(dir, newName);
         // resolveWithinCorpus again, so a crafted name cannot escape the root.
-        const { relPath: newRel } = resolveWithinCorpus(
+        // Take its `absPath` rather than reusing `target` below: the two are the
+        // same path (the validator resolves the relative form of `target` back
+        // against the root, or throws), but the fs calls then read their path
+        // straight out of the validator. CodeQL otherwise reports the rename as
+        // uncontrolled-data-in-path-expression, because the guard's result and
+        // the value reaching the sink are different variables.
+        const { absPath: targetAbs, relPath: newRel } = resolveWithinCorpus(
           toPosix(path.relative(corpusRootAbs, target))
         );
 
@@ -530,14 +536,14 @@ async function createServer(): Promise<void> {
           return;
         }
         try {
-          await fs.access(target);
+          await fs.access(targetAbs);
           res.status(409).json({ error: `${newName} already exists` });
           return;
         } catch {
           // ENOENT is what we want.
         }
 
-        await fs.rename(absPath, target);
+        await fs.rename(absPath, targetAbs);
         renameInStore(relPath, newRel);
         await persistStore();
         console.log(`[lab] renamed ${relPath} -> ${newRel}`);
