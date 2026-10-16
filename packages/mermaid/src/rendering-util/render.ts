@@ -92,7 +92,7 @@ const registerDefaultLayoutLoaders = () => {
       // followed by HOLA's ACA and grid-snap beautification, without HOLA's
       // core/tree decomposition or orthogonal routing stages.
       name: 'stress-and-grid',
-      loader: async () => await import('./layout-algorithms/stress-and-grid/index.js'),
+      loader: async () => await import('./layout-algorithms/gipsec/index.js'),
     },
     {
       // HOLA (Kieffer, Dwyer, Marriott & Wybrow 2015): the graph is decomposed
