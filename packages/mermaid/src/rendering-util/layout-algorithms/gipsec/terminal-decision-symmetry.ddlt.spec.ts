@@ -7,7 +7,7 @@ import { runStressAndGridLayoutCore } from './index.js';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — symmetric terminal decision branches', () => {
+describe('gipsec DDLT — symmetric terminal decision branches', () => {
   it.each(['LR', 'RL', 'TB', 'BT'])(
     'centres the decision between mirrored branches in %s',
     async (direction) => {

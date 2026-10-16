@@ -30,7 +30,7 @@ function treeLayout(): LayoutData {
   } as unknown as LayoutData;
 }
 
-describe('stress-and-grid layout', () => {
+describe('gipsec layout', () => {
   it.each(['TB', 'BT', 'LR', 'RL'])(
     'reserves a private terminal label corridor along its existing %s axis',
     (direction) => {

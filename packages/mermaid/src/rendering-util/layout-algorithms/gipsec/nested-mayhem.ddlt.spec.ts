@@ -13,7 +13,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/nested-mayhem.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/nested-mayhem.sizes.json'
     ),
     'utf8'
   )
@@ -46,7 +46,7 @@ async function measuredLayout(variant: string) {
   return layout;
 }
 
-describe('stress-and-grid DDLT — external cycle around nested sibling frames', () => {
+describe('gipsec DDLT — external cycle around nested sibling frames', () => {
   it.each(Object.keys(measurements.variants))(
     'keeps the outside node clear and the lateral edge runs outside the ancestor in %s',
     async (variant) => {

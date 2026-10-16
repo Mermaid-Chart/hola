@@ -8,7 +8,7 @@ import { runStressAndGridLayoutCore } from './index.js';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — STYLE edge styling', () => {
+describe('gipsec DDLT — STYLE edge styling', () => {
   it('gives the styled converging edges separate Validate ports and label corridors', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), 'e2e/platform/dev-diagrams/test-dataset/STYLE edge styling.mmd'),

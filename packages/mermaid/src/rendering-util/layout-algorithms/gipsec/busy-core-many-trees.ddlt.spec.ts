@@ -23,7 +23,7 @@ async function runBusyCoreManyTrees(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — busy core with many trees', () => {
+describe('gipsec DDLT — busy core with many trees', () => {
   it('routes without crossing nodes, shared segments, or distant detours', async () => {
     const layout = await runBusyCoreManyTrees();
     const hubToA = layout.edges.find((edge) => edge.id === 'L_hub_a_0')!;

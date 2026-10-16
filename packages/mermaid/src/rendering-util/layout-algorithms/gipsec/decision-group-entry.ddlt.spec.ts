@@ -93,7 +93,7 @@ async function measuredLayout(look: keyof typeof measurements): Promise<LayoutDa
   return layout;
 }
 
-describe('stress-and-grid DDLT — decision outside a subgraph', () => {
+describe('gipsec DDLT — decision outside a subgraph', () => {
   it.each(['classic', 'neo', 'handDrawn'] as const)(
     'compacts the labelled entry split with %s measurements',
     async (look) => {

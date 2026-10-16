@@ -41,7 +41,7 @@ function bounds(nodes: Node[]) {
   );
 }
 
-describe('stress-and-grid DDLT — long-label loop with trees', () => {
+describe('gipsec DDLT — long-label loop with trees', () => {
   it('packs an orphan without stretching the connected component grid', async () => {
     const layout = await runLongLabelLoop();
     const orphan = layout.nodes.find((node) => node.id === 'C5')!;

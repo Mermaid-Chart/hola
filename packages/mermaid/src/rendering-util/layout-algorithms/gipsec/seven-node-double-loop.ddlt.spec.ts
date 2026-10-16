@@ -11,7 +11,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — seven-node double loop', () => {
+describe('gipsec DDLT — seven-node double loop', () => {
   it('keeps the second diamond compact', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'GRAPH - hola 7 nodes double loop + trees - easy.mmd'),

@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — subgraph variation', () => {
+describe('gipsec DDLT — subgraph variation', () => {
   it('keeps outgoing member and frame links in distinct clear corridors', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'subgraph-variation.mmd'),

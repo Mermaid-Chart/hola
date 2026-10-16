@@ -19,13 +19,13 @@ describe('layout fallback', () => {
   it('returns a registered layout unchanged', () => {
     expect(getRegisteredLayoutAlgorithm('dagre')).toBe('dagre');
     expect(getRegisteredLayoutAlgorithm('swimlane')).toBe('swimlane');
-    expect(getRegisteredLayoutAlgorithm('stress-and-grid')).toBe('stress-and-grid');
+    expect(getRegisteredLayoutAlgorithm('gipsec')).toBe('gipsec');
     // Bundled by default now; only the tiny build omits it.
     expect(getRegisteredLayoutAlgorithm('elk')).toBe('elk');
   });
 
-  it('lazily loads the stress-and-grid renderer', async () => {
-    const renderer = await getLayoutLoaderDefinition('stress-and-grid').loader();
+  it('lazily loads the gipsec renderer', async () => {
+    const renderer = await getLayoutLoaderDefinition('gipsec').loader();
 
     expect(renderer).toHaveProperty('render', expect.any(Function));
   });

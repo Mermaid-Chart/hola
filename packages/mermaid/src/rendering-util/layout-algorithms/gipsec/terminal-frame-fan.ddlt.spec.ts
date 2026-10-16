@@ -85,7 +85,7 @@ async function measuredLayout(variant: keyof typeof measurements) {
   return layout;
 }
 
-describe('stress-and-grid DDLT — symmetric framed terminal fork', () => {
+describe('gipsec DDLT — symmetric framed terminal fork', () => {
   const cases = (Object.keys(measurements) as (keyof typeof measurements)[]).flatMap((variant) =>
     ['TB', 'BT', 'LR', 'RL'].map((direction) => ({ variant, direction }))
   );

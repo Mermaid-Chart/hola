@@ -23,7 +23,7 @@ async function runK33(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — K₃,₃', () => {
+describe('gipsec DDLT — K₃,₃', () => {
   it('assigns distinct ports and avoids long shared edge segments', async () => {
     const result = validateLayout(await runK33());
     const portAndOverlapIssues = result.issues.filter((issue) =>

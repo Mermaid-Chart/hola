@@ -11,7 +11,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/verbose-choices.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/verbose-choices.sizes.json'
     ),
     'utf8'
   )
@@ -30,7 +30,7 @@ async function measuredLayout(variant = 'classic-default') {
   return layout;
 }
 
-describe('stress-and-grid DDLT — layered workflow constraint protection', () => {
+describe('gipsec DDLT — layered workflow constraint protection', () => {
   it.each(Object.keys(measurements.variants))(
     'retains the layered improvement for unconstrained %s workflows',
     async (variant) => {

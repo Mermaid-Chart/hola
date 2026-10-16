@@ -7,7 +7,7 @@ import { runStressAndGridLayoutCore } from './index.js';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — mixed frame and member connections', () => {
+describe('gipsec DDLT — mixed frame and member connections', () => {
   it('uses a regular frame row and separates forward and return bypasses', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), 'e2e/platform/dev-diagrams/test-dataset/SUBGRAPH connection caos.mmd'),

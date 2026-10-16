@@ -23,7 +23,7 @@ async function runK4(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — complete K₄', () => {
+describe('gipsec DDLT — complete K₄', () => {
   it('gives every directed edge a distinct, separated lane', async () => {
     const layout = await runK4();
     const result = validateLayout(layout);

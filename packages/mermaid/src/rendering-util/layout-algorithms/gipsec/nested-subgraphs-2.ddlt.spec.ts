@@ -9,7 +9,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — nested subgraph paint order', () => {
+describe('gipsec DDLT — nested subgraph paint order', () => {
   it('orders outer frames before nested frames for the common painter', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'nested-subgraphs-2.mmd'),

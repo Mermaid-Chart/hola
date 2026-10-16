@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — layered project workflow', () => {
+describe('gipsec DDLT — layered project workflow', () => {
   it('lays out the acyclic fork-and-merge graph in compact downward ranks', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'project-sox2.mmd'),

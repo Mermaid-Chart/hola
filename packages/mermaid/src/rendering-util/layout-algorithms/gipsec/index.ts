@@ -63,14 +63,14 @@ interface ConnectedComponent {
 }
 
 /**
- * Stress-and-grid layout, exposed as `layout: 'stress-and-grid'`.
+ * Gipsec layout, exposed as `layout: 'gipsec'`.
  *
  * This is the grid-like layout from Kieffer, Dwyer, Marriott & Wybrow (2013):
  * IPSEP-COLA supplies the constrained stress-majorisation placement, then
  * HOLA's grid module applies adaptive constrained alignment and grid snapping.
  *
  * Unlike `hola`, each connected component remains in one constrained
- * stress-and-grid solve. Disconnected components are solved independently and
+ * gipsec solve. Disconnected components are solved independently and
  * then packed, so an orphan cannot reserve a grid cell in another component.
  */
 export function runStressAndGridLayoutCore(

@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — nested outgoing edges', () => {
+describe('gipsec DDLT — nested outgoing edges', () => {
   it('keeps a nested frame and its child inside their common parent', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'nested-outgoing-edges.mmd'),

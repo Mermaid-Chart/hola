@@ -29,7 +29,7 @@ async function measuredLayout() {
   return layout;
 }
 
-describe('stress-and-grid DDLT — compact verbose continuations', () => {
+describe('gipsec DDLT — compact verbose continuations', () => {
   it('retains an already compact two-node continuation', async () => {
     const layout = await measuredLayout();
     layout.nodes = layout.nodes.slice(0, 2);

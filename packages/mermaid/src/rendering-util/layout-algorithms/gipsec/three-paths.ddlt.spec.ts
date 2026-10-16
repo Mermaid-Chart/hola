@@ -12,7 +12,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/three-paths.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/three-paths.sizes.json'
     ),
     'utf8'
   )
@@ -26,7 +26,7 @@ const measurements = JSON.parse(
   >;
 };
 
-describe('stress-and-grid DDLT — verbose three paths', () => {
+describe('gipsec DDLT — verbose three paths', () => {
   it.each(Object.entries(measurements.variants))(
     'reserves straight terminal label corridors without moving the branch structure in %s',
     async (_variant, sizes) => {

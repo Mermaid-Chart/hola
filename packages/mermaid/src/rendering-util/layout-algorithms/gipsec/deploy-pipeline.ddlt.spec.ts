@@ -23,7 +23,7 @@ async function runDeployPipeline(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — deploy-pipeline.mmd', () => {
+describe('gipsec DDLT — deploy-pipeline.mmd', () => {
   it('routes boundary-anchored grid paths without hitting nodes', async () => {
     const layout = await runDeployPipeline();
     const result = validateLayout(layout);

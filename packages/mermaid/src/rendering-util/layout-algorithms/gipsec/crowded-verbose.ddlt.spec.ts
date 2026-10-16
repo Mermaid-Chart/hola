@@ -19,7 +19,7 @@ const measurements = {
   },
 };
 
-describe('stress-and-grid DDLT — crowded edges and verbose nodes', () => {
+describe('gipsec DDLT — crowded edges and verbose nodes', () => {
   const cases = (['classic', 'neo', 'handDrawn'] as const).flatMap((look) =>
     ['LR', 'RL', 'TB', 'BT'].map((direction) => ({ look, direction }))
   );

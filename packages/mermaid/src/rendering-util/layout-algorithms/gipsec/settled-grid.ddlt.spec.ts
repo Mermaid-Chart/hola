@@ -13,7 +13,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/settled-grid.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/settled-grid.sizes.json'
     ),
     'utf8'
   )
@@ -40,7 +40,7 @@ async function measuredLayout(variant = 'classic-default') {
   return layout;
 }
 
-describe('stress-and-grid DDLT — settled grid alignment', () => {
+describe('gipsec DDLT — settled grid alignment', () => {
   it('compacts unconstrained straight terminal branches to one measured grid step', async () => {
     const layout = await measuredLayout();
     const { options } = runStressAndGridLayoutCore(layout);

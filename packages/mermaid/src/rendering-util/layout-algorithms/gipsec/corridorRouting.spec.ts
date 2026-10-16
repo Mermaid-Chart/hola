@@ -38,7 +38,7 @@ function transform(layout: LayoutData, transpose: boolean, reflectX: number, ref
   }
 }
 
-describe('stress-and-grid coordinated corridors', () => {
+describe('gipsec coordinated corridors', () => {
   for (const transpose of [false, true]) {
     for (const reflectX of [-1, 1]) {
       for (const reflectY of [-1, 1]) {

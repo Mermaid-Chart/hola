@@ -26,7 +26,7 @@ const titles: Record<string, number> = {
   Client: 42.671875,
 };
 
-describe('stress-and-grid DDLT — dense member links between sibling frames', () => {
+describe('gipsec DDLT — dense member links between sibling frames', () => {
   it('routes workers to monitoring without wrapping around the worker node', async () => {
     const layout = await parseMmdFileToLayoutData(`${fixture}.mmd`, {
       stampFlowchartRendererFields: true,

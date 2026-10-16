@@ -12,7 +12,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/verbose-choices.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/verbose-choices.sizes.json'
     ),
     'utf8'
   )
@@ -31,7 +31,7 @@ async function measuredLayout(variant: string) {
   return layout;
 }
 
-describe('stress-and-grid DDLT — verbose choices', () => {
+describe('gipsec DDLT — verbose choices', () => {
   it('recognizes branch topology rather than node IDs or label text', async () => {
     const original = await measuredLayout('classic-default');
     const renamed = await measuredLayout('classic-default');

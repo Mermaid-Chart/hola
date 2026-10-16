@@ -14,7 +14,7 @@ function node(
   return { id, x, y, width, height, isGroup: false, shape } as Node;
 }
 
-describe('stress-and-grid routing', () => {
+describe('gipsec routing', () => {
   it.each([40, 160, 280])(
     'orders a vertical nested diamond bridge to x=%s without short stubs or crossed lanes',
     (targetX) => {

@@ -12,7 +12,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/incremental-vertex.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/incremental-vertex.sizes.json'
     ),
     'utf8'
   )
@@ -26,7 +26,7 @@ const measurements = JSON.parse(
   >;
 };
 
-describe('stress-and-grid DDLT — aligned diamond continuation vertices', () => {
+describe('gipsec DDLT — aligned diamond continuation vertices', () => {
   it.each(Object.entries(measurements.variants))(
     'removes the overlap continuation dogleg without moving nodes in %s',
     async (_variant, sizes) => {

@@ -12,7 +12,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/crowded-labels.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/crowded-labels.sizes.json'
     ),
     'utf8'
   )
@@ -45,7 +45,7 @@ async function measuredLayout(variant = 'classic-default') {
   return layout;
 }
 
-describe('stress-and-grid DDLT — captioned reciprocal edges', () => {
+describe('gipsec DDLT — captioned reciprocal edges', () => {
   it.each(Object.keys(measurements.variants))(
     'keeps a captioned connection and its return clear with %s',
     async (variant) => {

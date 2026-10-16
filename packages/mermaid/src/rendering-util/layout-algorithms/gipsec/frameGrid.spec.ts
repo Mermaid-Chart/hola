@@ -6,7 +6,7 @@ function frame(id: string, x: number, y = 100): Node {
   return { id, x, y, width: 160, height: 160, shape: 'rect', isGroup: true } as Node;
 }
 
-describe('stress-and-grid sibling frame spacing', () => {
+describe('gipsec sibling frame spacing', () => {
   it('moves entire nested frame trees and preserves internal offsets', () => {
     const a = frame('a', 80);
     const b = frame('b', 400, 120);
@@ -157,7 +157,7 @@ describe('stress-and-grid sibling frame spacing', () => {
   );
 });
 
-describe('stress-and-grid empty root-frame bands', () => {
+describe('gipsec empty root-frame bands', () => {
   it('compacts several vacant bands while translating entire nested subtrees', () => {
     const a = frame('a', 80);
     const b = frame('b', 80, 600);

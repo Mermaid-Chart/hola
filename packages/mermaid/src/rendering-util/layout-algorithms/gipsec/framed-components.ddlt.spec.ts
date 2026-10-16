@@ -58,7 +58,7 @@ function bounds(nodes: Node[]) {
   };
 }
 
-describe('stress-and-grid DDLT — framed components with an orphan', () => {
+describe('gipsec DDLT — framed components with an orphan', () => {
   const cases = (Object.keys(measurements) as (keyof typeof measurements)[]).flatMap((variant) =>
     ['LR', 'RL', 'TB', 'BT'].map((direction) => ({ variant, direction }))
   );

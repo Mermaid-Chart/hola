@@ -23,7 +23,7 @@ function diagram(): LayoutData {
   };
 }
 
-describe('stress-and-grid renderer/core boundary', () => {
+describe('gipsec renderer/core boundary', () => {
   it('does not forward DOM render context as numerical layout overrides', async () => {
     const actualData = diagram();
     const expectedData = diagram();

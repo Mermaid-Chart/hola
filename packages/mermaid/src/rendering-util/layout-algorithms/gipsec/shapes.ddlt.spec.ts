@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — shape gallery', () => {
+describe('gipsec DDLT — shape gallery', () => {
   it('reserves a clear route segment for each labelled shape connection', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'shapes.mmd'),

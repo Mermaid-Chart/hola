@@ -23,7 +23,7 @@ async function runEvent(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — nested event subgraphs', () => {
+describe('gipsec DDLT — nested event subgraphs', () => {
   it('keeps nested frames padded and routes edges outside foreign frames', async () => {
     const layout = await runEvent();
     const validation = validateLayout(layout);

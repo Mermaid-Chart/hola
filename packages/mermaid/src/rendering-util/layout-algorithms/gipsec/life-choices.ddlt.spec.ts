@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — life-choices', () => {
+describe('gipsec DDLT — life-choices', () => {
   it.each([
     ['classic size capture', 'life-choices.sizes.json'],
     ['neo size capture', 'hola/life-choices.sizes.json'],

@@ -24,7 +24,7 @@ async function runEdgeTypes(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — edge types', () => {
+describe('gipsec DDLT — edge types', () => {
   it('keeps labels in the central fan out of foreign edge corridors', async () => {
     const layout = await runEdgeTypes();
     const validation = validateLayout(layout);

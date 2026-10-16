@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — labelled subgraph bundle', () => {
+describe('gipsec DDLT — labelled subgraph bundle', () => {
   it('routes repeated labelled edges in separate, centred lanes', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'subgraph-labels-2.mmd'),

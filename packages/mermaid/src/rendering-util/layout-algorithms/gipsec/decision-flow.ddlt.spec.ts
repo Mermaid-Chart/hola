@@ -24,7 +24,7 @@ async function runDecisionFlow(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — decision flow', () => {
+describe('gipsec DDLT — decision flow', () => {
   it('routes split branches from diamond vertices without crossing task nodes', async () => {
     const layout = await runDecisionFlow();
     const split = layout.nodes.find((node) => node.id === 'Split')!;

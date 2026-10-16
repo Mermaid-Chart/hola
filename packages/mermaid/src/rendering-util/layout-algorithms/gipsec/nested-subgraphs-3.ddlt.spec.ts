@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — nested three-frame cycle', () => {
+describe('gipsec DDLT — nested three-frame cycle', () => {
   it('separates sibling frames after fitting their title-aware bounds', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'nested-subgraphs-3.mmd'),

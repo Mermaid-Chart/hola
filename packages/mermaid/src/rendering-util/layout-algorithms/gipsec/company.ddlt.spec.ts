@@ -24,7 +24,7 @@ async function runCompany(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — Company', () => {
+describe('gipsec DDLT — Company', () => {
   it('reserves space for the reciprocal company-edge label', async () => {
     const layout = await runCompany();
     const result = validateLayout(layout);

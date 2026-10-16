@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — nested subnet edges', () => {
+describe('gipsec DDLT — nested subnet edges', () => {
   it('keeps sibling subnet frames disjoint and routes their boundary edges cleanly', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'nested-sb-edges-in-out.mmd'),

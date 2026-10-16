@@ -10,7 +10,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — multiple edges', () => {
+describe('gipsec DDLT — multiple edges', () => {
   it('keeps an aligned multi-edge pair in distinct, straight lanes', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'multiple-edges.mmd'),

@@ -11,7 +11,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — nested outgoing frames', () => {
+describe('gipsec DDLT — nested outgoing frames', () => {
   it('keeps members contained and reserves a label channel between sibling frames', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'nested-sg-outgoing-3.mmd'),

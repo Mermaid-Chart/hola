@@ -93,7 +93,7 @@ async function measuredLayout(
   return layout;
 }
 
-describe('stress-and-grid DDLT — labelled sibling-frame convergence', () => {
+describe('gipsec DDLT — labelled sibling-frame convergence', () => {
   const cases = (Object.keys(measurements) as (keyof typeof measurements)[]).flatMap((variant) =>
     ['TB', 'BT', 'LR', 'RL'].flatMap((direction) =>
       [false, true].map((framedTarget) => ({ variant, direction, framedTarget }))

@@ -11,7 +11,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — incremental editing flow', () => {
+describe('gipsec DDLT — incremental editing flow', () => {
   it('keeps the incremental and fallback branches ordered', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'incremental-editing.mmd'),

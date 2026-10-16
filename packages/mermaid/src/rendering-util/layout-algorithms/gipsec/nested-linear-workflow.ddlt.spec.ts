@@ -260,7 +260,7 @@ async function measuredLayout(variant: keyof typeof measurements) {
   return layout;
 }
 
-describe('stress-and-grid DDLT — nested linear workflow', () => {
+describe('gipsec DDLT — nested linear workflow', () => {
   const cases = (Object.keys(measurements) as (keyof typeof measurements)[]).flatMap((variant) =>
     ['TB', 'BT', 'LR', 'RL'].map((direction) => ({ variant, direction }))
   );
@@ -361,7 +361,7 @@ describe('stress-and-grid DDLT — nested linear workflow', () => {
   });
 });
 
-describe('stress-and-grid DDLT — variable private workflow shells', () => {
+describe('gipsec DDLT — variable private workflow shells', () => {
   const generatedCases = Array.from({ length: 24 }, (_, seed) => ({
     seed,
     direction: ['TB', 'BT', 'LR', 'RL'][seed % 4],

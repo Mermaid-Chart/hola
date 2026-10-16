@@ -9,7 +9,7 @@ const FIXTURES_DIR = 'e2e/platform/dev-diagrams/layout-tests/Loop Fixtures';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — outgoing empty subgraph', () => {
+describe('gipsec DDLT — outgoing empty subgraph', () => {
   it('draws a detached empty group as a compact frame beside its populated sibling', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(process.cwd(), FIXTURES_DIR, 'nested-sg-outgoing-4.mmd'),

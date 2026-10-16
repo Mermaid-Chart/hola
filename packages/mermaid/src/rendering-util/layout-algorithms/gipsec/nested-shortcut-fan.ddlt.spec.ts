@@ -8,7 +8,7 @@ import { nestedShortcutFan } from './nestedShortcutFan.js';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — nested parallel shortcuts', () => {
+describe('gipsec DDLT — nested parallel shortcuts', () => {
   it('leaves unsupported rounded arrival shapes on the general routing path', async () => {
     const layout = await parseMmdFileToLayoutData(
       resolve(

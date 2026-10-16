@@ -91,7 +91,7 @@ const registerDefaultLayoutLoaders = () => {
       // Grid-like layout (Kieffer, Dwyer, Marriott & Wybrow 2013): IPSEP-COLA
       // followed by HOLA's ACA and grid-snap beautification, without HOLA's
       // core/tree decomposition or orthogonal routing stages.
-      name: 'stress-and-grid',
+      name: 'gipsec',
       loader: async () => await import('./layout-algorithms/gipsec/index.js'),
     },
     {

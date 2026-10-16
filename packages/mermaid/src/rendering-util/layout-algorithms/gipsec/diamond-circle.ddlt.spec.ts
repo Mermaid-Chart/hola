@@ -7,7 +7,7 @@ import { runStressAndGridLayoutCore } from './index.js';
 
 addDiagrams();
 
-describe('stress-and-grid DDLT — four diamond-to-circle edges', () => {
+describe('gipsec DDLT — four diamond-to-circle edges', () => {
   it.each(['LR', 'RL', 'TB', 'BT'])(
     'uses ordered straight outline-to-outline lanes in %s',
     async (direction) => {

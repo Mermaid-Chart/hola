@@ -24,7 +24,7 @@ async function runDoubleLoop(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — double loop with side subgraphs', () => {
+describe('gipsec DDLT — double loop with side subgraphs', () => {
   it('does not route the central loop edge along a subgraph border', async () => {
     const layout = await runDoubleLoop();
     const hardIssues = validateLayout(layout).issues.filter(

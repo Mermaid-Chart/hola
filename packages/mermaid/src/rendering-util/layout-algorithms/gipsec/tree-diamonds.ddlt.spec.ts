@@ -107,7 +107,7 @@ async function measuredLayout(variant: keyof typeof measurements) {
   return layout;
 }
 
-describe('stress-and-grid DDLT — three-way terminal diamond trees', () => {
+describe('gipsec DDLT — three-way terminal diamond trees', () => {
   const cases = (Object.keys(measurements) as (keyof typeof measurements)[]).flatMap((variant) =>
     ['LR', 'RL', 'TB', 'BT'].map((direction) => ({ variant, direction }))
   );

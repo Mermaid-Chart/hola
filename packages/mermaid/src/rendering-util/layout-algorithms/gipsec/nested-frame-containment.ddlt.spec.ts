@@ -25,7 +25,7 @@ const measurements = {
   },
 };
 
-describe('stress-and-grid DDLT — nested frame containment after bridge spacing', () => {
+describe('gipsec DDLT — nested frame containment after bridge spacing', () => {
   const cases = (Object.keys(measurements) as (keyof typeof measurements)[]).flatMap((variant) =>
     ['LR', 'RL', 'TB', 'BT'].map((direction) => ({ variant, direction }))
   );

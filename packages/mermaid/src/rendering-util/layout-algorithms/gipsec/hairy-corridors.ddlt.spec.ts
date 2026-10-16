@@ -13,7 +13,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/hairy-corridors.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/hairy-corridors.sizes.json'
     ),
     'utf8'
   )
@@ -40,7 +40,7 @@ async function measuredLayout(variant = 'classic-default') {
   return layout;
 }
 
-describe('stress-and-grid DDLT — shared fan and parallel corridors', () => {
+describe('gipsec DDLT — shared fan and parallel corridors', () => {
   it('routes a compound fan and parallel bundle without braiding their corridors', async () => {
     const layout = await measuredLayout();
     runStressAndGridLayoutCore(layout);

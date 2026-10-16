@@ -23,7 +23,7 @@ async function runLoopWithTrees(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — loop with trees', () => {
+describe('gipsec DDLT — loop with trees', () => {
   it('does not leave an empty grid lane on the C1–C4 cycle edge', async () => {
     const layout = await runLoopWithTrees();
     const c1 = layout.nodes.find((node) => node.id === 'C1')!;

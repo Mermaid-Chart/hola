@@ -78,10 +78,10 @@ const BORDER_HUG_MIN_LENGTH = 12;
 const EPSILON = 1e-6;
 
 /**
- * Stress-and-grid-specific edge routing.
+ * Gipsec-specific edge routing.
  *
  * IPSEP-COLA deliberately writes centre-to-centre edge points because it is
- * shared by several layouts. This post-pass belongs only to stress-and-grid:
+ * shared by several layouts. This post-pass belongs only to gipsec:
  * it anchors ports on node boundaries and finds an obstacle-free Manhattan
  * route using node-clearance and virtual-grid lines as its visibility graph.
  */

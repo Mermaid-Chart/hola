@@ -24,7 +24,7 @@ async function runIdenticalEdges(): Promise<LayoutData> {
   return layout;
 }
 
-describe('stress-and-grid DDLT — identical reciprocal edges in a subgraph', () => {
+describe('gipsec DDLT — identical reciprocal edges in a subgraph', () => {
   it('uses four ordered, straight lanes between the two nodes', async () => {
     const layout = await runIdenticalEdges();
     const hardIssues = validateLayout(layout).issues.filter(

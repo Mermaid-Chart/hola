@@ -16,7 +16,7 @@ const measurements = JSON.parse(
   readFileSync(
     resolve(
       process.cwd(),
-      'packages/mermaid/src/rendering-util/layout-algorithms/stress-and-grid/nested-edge-labels.sizes.json'
+      'packages/mermaid/src/rendering-util/layout-algorithms/gipsec/nested-edge-labels.sizes.json'
     ),
     'utf8'
   )
@@ -58,7 +58,7 @@ async function measuredLayout(variant: string) {
   return layout;
 }
 
-describe('stress-and-grid DDLT — labelled nested frame entries', () => {
+describe('gipsec DDLT — labelled nested frame entries', () => {
   it.each(
     Object.keys(measurements.variants).flatMap((variant) =>
       ['LR', 'RL', 'TB', 'BT'].map((direction) => ({ variant, direction }))
