@@ -146,7 +146,9 @@ describe('faithful HOLA — DDLT fixture sweep', () => {
 
       it('raises no structural validateLayout issue', async () => {
         const layout = await parseApplySizesAndLayout(fx.mmdPath, fx.sizes, backendId);
-        const result = validateLayout(layout);
+        // HOLA places its own terminals, and STRUCTURAL below asserts on
+        // edge-endpoint-detached-from-node, so this run opts the check in.
+        const result = validateLayout(layout, { checkEndpointAttachment: true });
         const types = new Set(result.issues.map((i) => i.type));
 
         // Structural correctness is asserted; connector *aesthetics* are not yet.

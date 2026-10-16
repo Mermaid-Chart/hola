@@ -319,7 +319,8 @@ describe('faithful HOLA — wider fixture corpus', () => {
 
       const types = [
         ...new Set(
-          validateLayout(data)
+          // STRUCTURAL asserts on edge-endpoint-detached-from-node, so opt it in.
+          validateLayout(data, { checkEndpointAttachment: true })
             .issues.map((issue) => issue.type)
             .filter((type) => STRUCTURAL.has(type))
         ),
