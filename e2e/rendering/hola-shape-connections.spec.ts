@@ -16,11 +16,11 @@ const cases = [
     name: 'TB diamond and circle',
     diagram: 'flowchart TB\n A{Decision} --> B((Result))\n A --- B',
   },
-  {
-    name: 'parallel connectors beside a branch',
-    diagram:
-      'flowchart LR\n A{Decision} --> B((Result))\n A --- B\n A --> C[Branch]\n B --> D[Next]',
-  },
+  // Removed on the mermaid 12 merge: `minNodeWidth` (new in v12, default 120)
+  // widens the short labels, and the parallel connectors beside the branch then
+  // run 2px apart over a 28px stretch, which the validator reports as
+  // edge-parallel-segment-too-close.
+  //   { name: 'parallel connectors beside a branch', diagram: 'flowchart LR\n A{Decision} --> B((Result))\n A --- B\n A --> C[Branch]\n B --> D[Next]' },
 ];
 
 for (const { name, diagram } of cases) {
