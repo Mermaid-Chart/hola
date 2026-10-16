@@ -10,7 +10,7 @@ export const DEV_EXPLORER_LAYOUTS = [
   'elk',
   'domus',
   'ipsep-cola',
-  'stress-and-grid',
+  'gipsec',
   'hola',
   'swimlane',
 ] as const;

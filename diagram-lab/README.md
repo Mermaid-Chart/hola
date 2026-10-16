@@ -115,7 +115,7 @@ Edit **`diagram-lab/layouts.json`** — it is config, not code:
 
 ```json
 {
-  "layouts": ["dagre", "elk", "ipsep-cola", "stress-and-grid"]
+  "layouts": ["dagre", "elk", "ipsep-cola", "gipsec"]
 }
 ```
 
@@ -145,7 +145,7 @@ always all visible, one click to switch.
 Each button doubles as that layout's scoreboard over the rows currently visible:
 
 ```
-  dagre              elk                ipsep-cola   stress-and-grid
+  dagre              elk                ipsep-cola   gipsec
   5/5 v 612 σ 0.160  5/5 v 884 σ 0.150  0/5          5/5 v 790 σ 0.110 ✓ 4/5 ★ 7.3
 ```
 
