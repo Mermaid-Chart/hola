@@ -19,7 +19,7 @@ for (const look of ['neo'] as const) {
         (window as unknown as { mermaidCaptureValidation: boolean }).mermaidCaptureValidation =
           true;
       });
-      await page.goto(mermaidUrl(code, { layout: 'stress-and-grid', look, theme }, false));
+      await page.goto(mermaidUrl(code, { layout: 'gipsec', look, theme }, false));
       await expect(page.locator('svg .node, svg .rough-node')).toHaveCount(5);
       await page.waitForFunction(() =>
         Boolean(

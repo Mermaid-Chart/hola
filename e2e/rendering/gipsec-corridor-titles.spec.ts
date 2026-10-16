@@ -13,9 +13,7 @@ test('short compound return routes keep measured frame titles clear', async ({ p
   await page.addInitScript(() => {
     (window as unknown as { mermaidCaptureValidation: boolean }).mermaidCaptureValidation = true;
   });
-  await page.goto(
-    mermaidUrl(code, { layout: 'stress-and-grid', look: 'classic', theme: 'default' }, false)
-  );
+  await page.goto(mermaidUrl(code, { layout: 'gipsec', look: 'classic', theme: 'default' }, false));
   await expect(page.locator('svg .node')).toHaveCount(16);
   const collision = await page.evaluate(() => {
     const { layout } = (

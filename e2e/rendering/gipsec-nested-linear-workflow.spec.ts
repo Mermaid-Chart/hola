@@ -15,7 +15,7 @@ for (const look of ['classic', 'neo', 'handDrawn'] as const) {
         (window as unknown as { mermaidCaptureValidation: boolean }).mermaidCaptureValidation =
           true;
       });
-      await page.goto(mermaidUrl(code, { layout: 'stress-and-grid', look, theme }, false));
+      await page.goto(mermaidUrl(code, { layout: 'gipsec', look, theme }, false));
       await expect(page.locator('svg .node, svg .rough-node')).toHaveCount(10);
       await page.waitForFunction(() =>
         Boolean(
@@ -175,7 +175,7 @@ for (const variant of structuralVariants) {
               variant.unwrapped
             ),
             {
-              layout: 'stress-and-grid',
+              layout: 'gipsec',
               look,
               theme,
               markdownAutoWrap: variant.unwrapped ? false : undefined,
@@ -440,7 +440,7 @@ for (const variant of nestingVariants) {
           mermaidUrl(
             input.code,
             {
-              layout: 'stress-and-grid',
+              layout: 'gipsec',
               look,
               theme,
               markdownAutoWrap: variant.wideItemCaption ? false : undefined,

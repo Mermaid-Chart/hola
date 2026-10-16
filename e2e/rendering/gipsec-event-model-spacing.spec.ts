@@ -18,7 +18,7 @@ for (const look of ['classic', 'neo', 'handDrawn'] as const) {
         (window as unknown as { mermaidCaptureValidation: boolean }).mermaidCaptureValidation =
           true;
       });
-      await page.goto(mermaidUrl(code, { layout: 'stress-and-grid', look, theme }, false));
+      await page.goto(mermaidUrl(code, { layout: 'gipsec', look, theme }, false));
       await page.waitForFunction(
         () => (window as unknown as { rendered: boolean }).rendered === true
       );
