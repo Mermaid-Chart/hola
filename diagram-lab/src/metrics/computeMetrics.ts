@@ -11,7 +11,7 @@
 import { computeConnectivity } from './connectivity.js';
 import { computeDegrees } from './degrees.js';
 import { buildGraphModel, drawingBounds, simpleAdjacency } from './graphModel.js';
-import { isPlanar } from './planarity.js';
+import { isPlanar } from '../../../packages/mermaid/src/rendering-util/layout-algorithms/layout-utils/planarity.js';
 import { computeStress } from './stress.js';
 import { computeSubgraphStats } from './subgraphs.js';
 import { LAYOUT_DEPENDENT_METRIC_KEYS } from './types.js';
