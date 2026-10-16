@@ -1,0 +1,60 @@
+{
+  "nodes": [
+    {
+      "id": "hub",
+      "width": 86.40625,
+      "height": 54
+    },
+    {
+      "id": "a",
+      "width": 68.40625,
+      "height": 54
+    },
+    {
+      "id": "b",
+      "width": 68.921875,
+      "height": 54
+    },
+    {
+      "id": "c",
+      "width": 67.921875,
+      "height": 54
+    },
+    {
+      "id": "d",
+      "width": 68.921875,
+      "height": 54
+    },
+    {
+      "id": "leaf1",
+      "width": 96.15625,
+      "height": 54
+    },
+    {
+      "id": "leaf2",
+      "width": 96.15625,
+      "height": 54
+    },
+    {
+      "id": "leaf3",
+      "width": 96.15625,
+      "height": 54
+    },
+    {
+      "id": "leaf4",
+      "width": 96.15625,
+      "height": 54
+    },
+    {
+      "id": "leaf5",
+      "width": 96.15625,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "94c272b0f3ab270298620036c73f00af4e4c1c23fdb27a350d4bd76f8ba0e13f",
+    "capturedAt": "2026-09-14T10:59:24.736Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/busy-core-many-trees.mmd theme=default look=classic layout=dagre"
+  }
+}

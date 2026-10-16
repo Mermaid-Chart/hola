@@ -162,7 +162,8 @@ export const insertEdgeLabel = async (elem, edge) => {
       terminalLabels.set(edge.id, {});
     }
     terminalLabels.get(edge.id).startLeft = startEdgeLabelLeft;
-    setTerminalWidth(fo, edge.startLabelLeft);
+    setTerminalWidth(fo, edge.startLabelLeft, slBox);
+    recordTerminalLabelSize(edge, 'startLeft', slBox);
   }
   if (edge.startLabelRight) {
     const startEdgeLabelRight = elem.insert('g').attr('class', 'edgeTerminals');
@@ -189,14 +190,14 @@ export const insertEdgeLabel = async (elem, edge) => {
       terminalLabels.set(edge.id, {});
     }
     terminalLabels.get(edge.id).startRight = startEdgeLabelRight;
-    setTerminalWidth(fo, edge.startLabelRight);
+    setTerminalWidth(fo, edge.startLabelRight, slBox);
+    recordTerminalLabelSize(edge, 'startRight', slBox);
   }
   if (edge.endLabelLeft) {
     const endEdgeLabelLeft = elem.insert('g').attr('class', 'edgeTerminals');
-    // TODO: Remove? `inner` is not used
     const inner = endEdgeLabelLeft.insert('g').attr('class', 'inner');
     const endLabelElement = await createLabel(
-      endEdgeLabelLeft,
+      inner,
       edge.endLabelLeft,
       getLabelStyles(edge.labelStyle) || '',
       false,
@@ -217,15 +218,14 @@ export const insertEdgeLabel = async (elem, edge) => {
       terminalLabels.set(edge.id, {});
     }
     terminalLabels.get(edge.id).endLeft = endEdgeLabelLeft;
-    setTerminalWidth(fo, edge.endLabelLeft);
+    setTerminalWidth(fo, edge.endLabelLeft, slBox);
+    recordTerminalLabelSize(edge, 'endLeft', slBox);
   }
   if (edge.endLabelRight) {
     const endEdgeLabelRight = elem.insert('g').attr('class', 'edgeTerminals');
-    // TODO: Remove? `inner` is not used
     const inner = endEdgeLabelRight.insert('g').attr('class', 'inner');
-
     const endLabelElement = await createLabel(
-      endEdgeLabelRight,
+      inner,
       edge.endLabelRight,
       getLabelStyles(edge.labelStyle) || '',
       false,
@@ -246,51 +246,82 @@ export const insertEdgeLabel = async (elem, edge) => {
       terminalLabels.set(edge.id, {});
     }
     terminalLabels.get(edge.id).endRight = endEdgeLabelRight;
-    setTerminalWidth(fo, edge.endLabelRight);
+    setTerminalWidth(fo, edge.endLabelRight, slBox);
+    recordTerminalLabelSize(edge, 'endRight', slBox);
   }
   return labelElement;
 };
 
 /**
+ * Record a terminal label's measured size so a layout can reserve room for it.
+ * Every terminal label is centred on its group's origin.
+ *
+ * @param {any} edge
+ * @param {import('../types.js').TerminalLabelKey} key
+ * @param {{ width: number, height: number }} box
+ */
+function recordTerminalLabelSize(edge, key, box) {
+  edge.terminalLabelSizes ??= {};
+  edge.terminalLabelSizes[key] = { width: box.width, height: box.height };
+}
+
+/**
  * @param {any} fo
  * @param {any} value
+ * @param {{ width: number, height: number }} box - the measured label
  */
-function setTerminalWidth(fo, value) {
+export function setTerminalWidth(fo, value, box) {
   if (getEffectiveHtmlLabels(getConfig()) && fo) {
-    fo.style.width = value.length * 9 + 'px';
-    fo.style.height = '12px';
+    // Never smaller than the measured text; a fixed 12px height clipped it (#8329).
+    fo.style.width = Math.max(value.length * 9, box.width) + 'px';
+    fo.style.height = box.height + 'px';
   }
 }
 
+/**
+ * Where to put an edge's label along its drawn path.
+ */
+export const resolveEdgeLabelPosition = (edge, paths) => {
+  let x = edge.x;
+  let y = edge.y;
+  if (paths?.updatedPath) {
+    const updatedMid = utils.calcLabelPosition(paths.updatedPath);
+    if (paths.originalPath) {
+      const originalMid = utils.calcLabelPosition(paths.originalPath);
+      x = edge.x + (updatedMid.x - originalMid.x);
+      y = edge.y + (updatedMid.y - originalMid.y);
+    } else {
+      x = updatedMid.x;
+      y = updatedMid.y;
+    }
+  }
+  return { x, y };
+};
+
 export const positionEdgeLabel = (edge, paths) => {
   log.debug('Moving label abc88 ', edge.id, edge.label, edgeLabels.get(edge.id), paths);
-  let path = paths.updatedPath ? paths.updatedPath : paths.originalPath;
   const siteConfig = getConfig();
   const { subGraphTitleTotalMargin } = getSubGraphTitleMargins(siteConfig);
   if (edge.label) {
     const el = edgeLabels.get(edge.id);
-    let x = edge.x;
-    let y = edge.y;
-    if (path) {
-      const pos = utils.calcLabelPosition(path);
-      log.debug(
-        'Moving label ' + edge.label + ' from (',
-        x,
-        ',',
-        y,
-        ') to (',
-        pos.x,
-        ',',
-        pos.y,
-        ') abc88'
-      );
-      if (paths.updatedPath) {
-        x = pos.x;
-        y = pos.y;
-      }
-    }
+    const { x, y } = resolveEdgeLabelPosition(edge, paths);
+    log.debug(
+      'Moving label ' + edge.label + ' from (',
+      edge.x,
+      ',',
+      edge.y,
+      ') to (',
+      x,
+      ',',
+      y,
+      ') abc88'
+    );
     el.attr('transform', `translate(${x}, ${y + subGraphTitleTotalMargin / 2})`);
   }
+
+  // `path` is still needed below for the terminal-label branches, which only read from it
+  // (they do not themselves reposition the main label).
+  const path = paths.updatedPath ? paths.updatedPath : paths.originalPath;
 
   if (edge.startLabelLeft) {
     const el = terminalLabels.get(edge.id).startLeft;
@@ -598,14 +629,16 @@ export const insertEdge = function (
   startNode,
   endNode,
   diagramId,
-  skipIntersect = false
+  skipIntersect = false,
+  layoutAlgorithm = undefined
 ) {
   if (!diagramId) {
     throw new Error(
       `insertEdge: missing diagramId for edge "${edge.id}" — edge IDs require a diagram prefix for uniqueness`
     );
   }
-  const { handDrawnSeed, layout } = getConfig();
+  const { handDrawnSeed, layout: configuredLayout } = getConfig();
+  const layout = layoutAlgorithm ?? configuredLayout;
   let points = edge.points;
   let pointsHasChanged = false;
   const tail = startNode;
@@ -622,8 +655,19 @@ export const insertEdge = function (
   // axis-aligned entry/exit segments must be preserved, so it uses a dedicated
   // boundary-clipping path. Every other layout (dagre, ELK, …) keeps the original
   // clipping below, so their edge ports are unaffected by swimlanes.
-  if (layout === 'swimlane') {
-    if (head.intersect && tail.intersect && Array.isArray(points) && points.length >= 2) {
+  //
+  // An edge marked `hasIntersectionPoints` is exempt from both paths: its router
+  // already anchored the two terminals on the node boundaries. Re-clipping such a
+  // route uses only the next bend as a target, which pulls every member of a fan
+  // back toward the node centre and makes its first segment diagonal.
+  if (layout === 'swimlane' && edge.hasIntersectionPoints !== true) {
+    if (
+      !skipIntersect &&
+      head.intersect &&
+      tail.intersect &&
+      Array.isArray(points) &&
+      points.length >= 2
+    ) {
       if (points.length === 2) {
         // Simple straight edge: just clip the two endpoints to the node boundaries.
         points = [tail.intersect(points[0]), head.intersect(points[1])];
@@ -657,11 +701,24 @@ export const insertEdge = function (
       }
     }
     points = orthogonalizeToLabelClippedPoints(edge, points);
-  } else if (head.intersect && tail.intersect && !skipIntersect) {
+  } else if (
+    head.intersect &&
+    tail.intersect &&
+    !skipIntersect &&
+    edge.hasIntersectionPoints !== true
+  ) {
     // Original clipping — unchanged for dagre / ELK / every non-swimlanes layout.
-    points = points.slice(1, edge.points.length - 1);
-    points.unshift(tail.intersect(points[0]));
-    points.push(head.intersect(points[points.length - 1]));
+    if (points.length <= 2) {
+      // Straight edge with no interior bend points (orthogonal layouts emit
+      // these). Slicing off the first and last point would leave an empty array
+      // and `intersect(undefined)` would crash, so clip each endpoint toward the
+      // other directly.
+      points = [tail.intersect(points[points.length - 1]), head.intersect(points[0])];
+    } else {
+      points = points.slice(1, edge.points.length - 1);
+      points.unshift(tail.intersect(points[0]));
+      points.push(head.intersect(points[points.length - 1]));
+    }
   }
   const pointsStr = btoa(JSON.stringify(points));
   if (edge.toCluster) {
@@ -687,7 +744,12 @@ export const insertEdge = function (
   const edgeCurveType = resolveEdgeCurveType(edge.curve);
   // Apply fixCorners for non-rounded curves to pre-round right-angle corners
   // (rounded curve type uses generateRoundedPath instead)
-  if (edgeCurveType !== 'rounded') {
+  //
+  // Orthogonal routers that set `hasIntersectionPoints` have already chosen
+  // exact, boundary-attached Manhattan vertices. The legacy corner repair
+  // inserts a short diagonal around every such vertex, undoing that contract
+  // in the rendered SVG even though the layout's points are orthogonal.
+  if (edgeCurveType !== 'rounded' && edge.hasIntersectionPoints !== true) {
     lineData = fixCorners(lineData);
   }
   let curve = curveLinear;
@@ -768,7 +830,11 @@ export const insertEdge = function (
   let svgPath;
   let linePath =
     edgeCurveType === 'rounded'
-      ? generateRoundedPath(applyMarkerOffsetsToPoints(lineData, edge), 5)
+      ? generateRoundedPath(
+          applyMarkerOffsetsToPoints(lineData, edge),
+          edge.roundedCornerRadius ?? 5,
+          edge.hasIntersectionPoints === true ? 8 : 0
+        )
       : lineFunction(lineData);
   const edgeStyles = Array.isArray(edge.style) ? edge.style : [edge.style];
   let strokeColor = edgeStyles.find((style) => style?.startsWith('stroke:'));
@@ -924,9 +990,12 @@ export const insertEdge = function (
  * Generates SVG path data with rounded corners from an array of points.
  * @param {Array} points - Array of points in the format [{x: Number, y: Number}, ...]
  * @param {Number} radius - The radius of the rounded corners
+ * @param {Number} [terminalStub] - Minimum axis-aligned run to keep at the first and
+ *   last bend, so a settled orthogonal route still leaves and enters its nodes
+ *   straight. 0 (the default) keeps the original behaviour.
  * @returns {String} - SVG path data string
  */
-export function generateRoundedPath(points, radius) {
+export function generateRoundedPath(points, radius, terminalStub = 0) {
   if (points.length < 2) {
     return '';
   }
@@ -980,8 +1049,19 @@ export function generateRoundedPath(points, radius) {
         continue;
       }
 
-      // Calculate the distance to offset the control point
-      const cutLen = Math.min(radius / Math.sin(angle / 2), len1 / 2, len2 / 2);
+      // Keep a meaningful axis-aligned run at each endpoint of a settled
+      // orthogonal route. Without it a rounded first bend consumes almost the
+      // whole short terminal leg and reads as a diagonal leaving the node.
+      const incomingLimit =
+        i === 1 && terminalStub > 0 ? Math.max(0, len1 - terminalStub) : len1 / 2;
+      const outgoingLimit =
+        i === size - 2 && terminalStub > 0 ? Math.max(0, len2 - terminalStub) : len2 / 2;
+      const cutLen = Math.min(radius / Math.sin(angle / 2), incomingLimit, outgoingLimit);
+
+      if (cutLen < epsilon) {
+        path += `L${currPoint.x},${currPoint.y}`;
+        continue;
+      }
 
       // Calculate the start and end points of the curve
       const startX = currPoint.x - nx1 * cutLen;

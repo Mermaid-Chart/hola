@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "C",
+      "width": 121.75,
+      "height": 54
+    },
+    {
+      "id": "B",
+      "width": 69.0625,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "a1d52070d11afb11d2faa3fb35fde73f04fecd5fcd337ba9381c64f0978ce795",
+    "capturedAt": "2026-10-04T10:12:25.338Z",
+    "capturedFrom": "dev-explorer test-dataset/SIMPLE knsv2-21-flowchart-dagre-lr-subgraphs.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

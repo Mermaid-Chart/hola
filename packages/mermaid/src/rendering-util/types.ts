@@ -45,6 +45,14 @@ interface BaseNode {
   width?: number;
   height?: number;
   wrappingWidth?: number;
+  /** Minimum width of the label area; short labels are widened to it (see `minNodeWidth`). */
+  minWidth?: number;
+  /**
+   * Spread the points where edges attach to this node across its side, so end
+   * markers on neighbouring edges overlap as little as the side allows.
+   * Honoured by layouts that place attachment points themselves (ELK).
+   */
+  spreadPorts?: boolean;
   labelBBox?: {
     width: number;
     height: number;
@@ -118,6 +126,7 @@ export interface ClusterNode extends BaseNode {
   edgeStart?: string;
   edgeEnd?: string;
   isDummy?: boolean;
+  isLabelNode?: boolean;
 }
 export interface NonClusterNode extends BaseNode {
   shape?: ShapeID;
@@ -126,10 +135,23 @@ export interface NonClusterNode extends BaseNode {
   edgeStart?: string;
   edgeEnd?: string;
   isDummy?: boolean;
+  /**
+   * Marks a dummy node standing in for an edge label so the layout reserves
+   * space for the label text. Set by layouts that split a labelled edge into
+   * `start → label → end` (HOLA).
+   */
+  isLabelNode?: boolean;
 }
 
 // Common properties for any node in the system
 export type Node = ClusterNode | NonClusterNode;
+
+export type TerminalLabelKey = 'startLeft' | 'startRight' | 'endLeft' | 'endRight';
+
+export interface TerminalLabelSize {
+  width: number;
+  height: number;
+}
 
 // Common properties for any edge in the system
 export interface Edge {
@@ -160,8 +182,17 @@ export interface Edge {
   // Class Diagram specific properties
   startLabelRight?: string;
   endLabelLeft?: string;
+  /** Measured terminal labels, each centred on its label group's origin. */
+  terminalLabelSizes?: Partial<Record<TerminalLabelKey, TerminalLabelSize>>;
+  /** Terminal label centres placed by the layout; preferred over the along-the-path default. */
+  terminalLabelCenters?: Partial<Record<TerminalLabelKey, Point>>;
   // Rendering specific properties
   curve?: string;
+  /**
+   * Radius, in layout pixels, used for `curve: 'rounded'`. Omit it to use the
+   * renderer's default radius.
+   */
+  roundedCornerRadius?: number;
   labelpos?: string;
   labelStyle?: string[];
   minlen?: number;
@@ -194,6 +225,15 @@ export interface Edge {
    * that route or render edges must skip any edge with `isLayoutOnly: true`.
    */
   isLayoutOnly?: boolean;
+  /** Node side the route leaves from, chosen by an orthogonal router (HOLA). */
+  startSide?: 'left' | 'right' | 'top' | 'bottom';
+  /** Node side the route arrives at, chosen by an orthogonal router (HOLA). */
+  endSide?: 'left' | 'right' | 'top' | 'bottom';
+  /**
+   * Set when the router already anchored both endpoints on the node boundary,
+   * so paint must not re-clip them against the node shapes.
+   */
+  hasIntersectionPoints?: boolean;
 }
 
 export interface RectOptions {

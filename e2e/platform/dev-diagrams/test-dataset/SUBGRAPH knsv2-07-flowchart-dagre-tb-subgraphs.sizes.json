@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "process_C",
+      "width": 131.28125,
+      "height": 54
+    },
+    {
+      "id": "pppB",
+      "width": 95.796875,
+      "height": 54
+    },
+    {
+      "id": "pppA",
+      "width": 96.1875,
+      "height": 54
+    },
+    {
+      "id": "container_Beta",
+      "width": 169.171875,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "986b01c152f6f5255bdf76e5d2f1468ea338339dfe8d577665785ffba4c04f73",
+    "capturedAt": "2026-10-04T09:59:26.718Z",
+    "capturedFrom": "dev-explorer test-dataset/SUBGRAPH knsv2-07-flowchart-dagre-tb-subgraphs.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

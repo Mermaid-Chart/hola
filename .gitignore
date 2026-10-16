@@ -82,3 +82,9 @@ mermaid-parser.tar.gz
 .fallow/
 test-results/
 .playwright-mcp/
+
+# Diagram Lab: build output and your own corpus. data/records.json is kept.
+diagram-lab/dist/
+diagram-lab/data/*.tmp
+diagram-lab/diagrams/**
+!diagram-lab/diagrams/.gitkeep

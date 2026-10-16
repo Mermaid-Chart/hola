@@ -15,11 +15,12 @@ import {
   hasEdgeLabel,
   insertEdge,
   insertEdgeLabel,
+  resolveEdgeLabelPosition,
   terminalLabels,
 } from '../../rendering-elements/edges.js';
 import insertMarkers from '../../rendering-elements/markers.js';
 import { clear as clearNodes, positionNode } from '../../rendering-elements/nodes.js';
-import type { LayoutData, Edge, ClusterNode } from '../../types.js';
+import type { LayoutData, Edge, ClusterNode, TerminalLabelKey } from '../../types.js';
 import type { RenderOptions } from '../../render.js';
 import { clear as clearGraphlib } from '../dagre/mermaid-graphlib.js';
 
@@ -105,6 +106,27 @@ export interface CommonLayoutRendererDefinition<
   paintOptions?: CommonLayoutPaintOptions;
 }
 
+/**
+ * Diagnostic snapshot for tracking a node's geometry through the shared layout
+ * pipeline. Keep this deliberately to model data: reading SVG bounds here would
+ * force a reflow on every render, even when debug logging is disabled.
+ */
+function logNodeHeights(data4Layout: LayoutData, phase: string): void {
+  log.debug('LAYOUT-DBG: node heights', {
+    layout: data4Layout.layoutAlgorithm,
+    phase,
+    nodes: data4Layout.nodes.map((node) => ({
+      id: node.id,
+      shape: node.shape,
+      isGroup: node.isGroup,
+      width: node.width,
+      height: node.height,
+      x: node.x,
+      y: node.y,
+    })),
+  });
+}
+
 export function createCommonLayoutRenderer<
   CoreResult = unknown,
   PreparedLayout = void,
@@ -147,6 +169,20 @@ export function createCommonLayoutRenderer<
     );
     clearLayoutRenderState();
 
+    // Structure capture (dev / test tooling only), loaded by the same guarded
+    // dynamic import as the validation capture below — in published builds
+    // `window.mermaidCaptureValidation` is unset, so this is a single property
+    // read. It has to run *here*, before `prepareLayout`, because a layout may
+    // rewrite `data4Layout` on its way through: dagre replaces `edges` with the
+    // top-level edges only, so intra-cluster edges are gone by the time the
+    // post-layout capture runs. See ddlt/validationCapture.ts.
+    if (
+      (globalThis as unknown as { mermaidCaptureValidation?: boolean }).mermaidCaptureValidation
+    ) {
+      const { captureStructureBeforeLayout } = await import('../ddlt/validationCapture.js');
+      captureStructureBeforeLayout(data4Layout);
+    }
+
     // Convenience struct containing everything you need to render
     // the root element and helper function from core mermaid
     const renderContext: CommonLayoutRenderContext<PreparedLayout> = {
@@ -160,6 +196,7 @@ export function createCommonLayoutRenderer<
     renderContext.preparedLayout = injected.profiling
       ? await profiler.span('prepare', () => prepareLayout?.(data4Layout, renderContext))
       : await prepareLayout?.(data4Layout, renderContext);
+    logNodeHeights(data4Layout, 'after-prepare');
 
     // Get the sizes of the labels and other elements by running the measureLayout function,
     // which by default creates a graph with the elements and measures them.
@@ -167,6 +204,7 @@ export function createCommonLayoutRenderer<
     const measure = injected.profiling
       ? await profiler.span('measure', () => measureLayoutFn(data4Layout, renderContext))
       : await measureLayoutFn(data4Layout, renderContext);
+    logNodeHeights(data4Layout, 'after-measure');
 
     // Next, run the core layout algorithm to compute the positions of nodes and edges based on the algorithm,
     // layoutData and the measurements. This is the core piece where functions are supposed to be different
@@ -174,6 +212,7 @@ export function createCommonLayoutRenderer<
     const coreResult = injected.profiling
       ? await profiler.span('layout', () => runLayoutCore(data4Layout, renderContext))
       : await runLayoutCore(data4Layout, renderContext);
+    logNodeHeights(data4Layout, 'after-layout');
 
     const paintContext: CommonLayoutPaintContext<PreparedLayout, MeasureResult> = {
       ...renderContext,
@@ -198,8 +237,27 @@ export function createCommonLayoutRenderer<
     // Some algorithms may need to do some post-processing after the initial paint, for example to position edge
     // labels after the edges have been rendered and their paths are known.
     await afterPaint?.(data4Layout, paintContext, coreResult);
+    logNodeHeights(data4Layout, 'after-paint');
     if (injected.profiling) {
       profiler.end(); // paint
+    }
+
+    // Layout validation capture (dev / test tooling only), loaded by dynamic
+    // import so it never reaches a production render path: in published builds
+    // `window.mermaidCaptureValidation` is unset, so this is a single property
+    // read and the import resolves to a chunk that is only fetched when a
+    // developer turns capture on. Same shape as the size-capture guard in
+    // `createGraph.ts`. See layout-algorithms/ddlt/validationCapture.ts.
+    //
+    // After `afterPaint`, because that hook is where a layout settles its edge
+    // labels — grading before it would judge a drawing that was never shown.
+    // Outside the `paint` span, so capture never inflates the painted time the
+    // Profile tab reports.
+    if (
+      (globalThis as unknown as { mermaidCaptureValidation?: boolean }).mermaidCaptureValidation
+    ) {
+      const { captureLayoutForValidation } = await import('../ddlt/validationCapture.js');
+      captureLayoutForValidation(element, data4Layout);
     }
   };
 }
@@ -299,7 +357,8 @@ async function paintLayoutEdge(
     getRenderedNode(edge.start, edge, nodeById, context, options),
     getRenderedNode(edge.end, edge, nodeById, context, options),
     data4Layout.diagramId,
-    shouldSkipIntersect(edge, options)
+    shouldSkipIntersect(edge, options),
+    data4Layout.layoutAlgorithm
   ) as EdgeRenderPaths | undefined;
 
   if (hasEdgeLabel(edge)) {
@@ -334,75 +393,46 @@ function positionRenderedEdgeLabel(edge: RenderedEdge, paths?: EdgeRenderPaths):
   });
   if (edge.label) {
     const el = edgeLabels.get(edge.id);
-    let x = edge.x;
-    let y = edge.y;
-    if (path) {
-      const pos = utils.calcLabelPosition(path);
-      log.debug(
-        'Moving label ' + edge.label + ' from (',
-        x,
-        ',',
-        y,
-        ') to (',
-        pos.x,
-        ',',
-        pos.y,
-        ') abc88'
-      );
-      if (paths?.updatedPath) {
-        x = pos.x;
-        y = pos.y;
-      }
-    }
+    const { x, y } = resolveEdgeLabelPosition(edge, paths);
     el.attr('transform', `translate(${x}, ${y! + subGraphTitleTotalMargin / 2})`);
   }
 
-  if (edge?.startLabelLeft) {
-    const el = terminalLabels.get(edge.id).startLeft;
-    let x = edge?.x;
-    let y = edge?.y;
-    if (path) {
-      const pos = utils.calcTerminalLabelPosition(edge.arrowTypeStart ? 10 : 0, 'start_left', path);
-      x = pos.x;
-      y = pos.y;
+  for (const [key, text] of [
+    ['startLeft', edge.startLabelLeft],
+    ['startRight', edge.startLabelRight],
+    ['endLeft', edge.endLabelLeft],
+    ['endRight', edge.endLabelRight],
+  ] as const) {
+    if (text) {
+      const { x, y } = terminalLabelTranslate(edge, key, path);
+      terminalLabels.get(edge.id)[key].attr('transform', `translate(${x}, ${y})`);
     }
-    el.attr('transform', `translate(${x}, ${y})`);
   }
-  if (edge.startLabelRight) {
-    const el = terminalLabels.get(edge.id).startRight;
-    let x = edge.x;
-    let y = edge.y;
-    if (path) {
-      const pos = utils.calcTerminalLabelPosition(
-        edge.arrowTypeStart ? 10 : 0,
-        'start_right',
-        path
-      );
-      x = pos.x;
-      y = pos.y;
-    }
-    el.attr('transform', `translate(${x}, ${y})`);
+}
+
+const TERMINAL_LABEL_SIDES: Record<
+  TerminalLabelKey,
+  Parameters<typeof utils.calcTerminalLabelPosition>[1]
+> = {
+  startLeft: 'start_left',
+  startRight: 'start_right',
+  endLeft: 'end_left',
+  endRight: 'end_right',
+};
+
+/** Where to translate a terminal label's group: the layout's placement if it made one, else along the path. */
+export function terminalLabelTranslate(
+  edge: RenderedEdge,
+  key: TerminalLabelKey,
+  path?: EdgeRenderPath
+): { x?: number; y?: number } {
+  const center = edge.terminalLabelCenters?.[key];
+  if (center) {
+    return { ...center };
   }
-  if (edge.endLabelLeft) {
-    const el = terminalLabels.get(edge.id).endLeft;
-    let x = edge.x;
-    let y = edge.y;
-    if (path) {
-      const pos = utils.calcTerminalLabelPosition(edge.arrowTypeEnd ? 10 : 0, 'end_left', path);
-      x = pos.x;
-      y = pos.y;
-    }
-    el.attr('transform', `translate(${x}, ${y})`);
+  if (!path) {
+    return { x: edge.x, y: edge.y };
   }
-  if (edge.endLabelRight) {
-    const el = terminalLabels.get(edge.id).endRight;
-    let x = edge.x;
-    let y = edge.y;
-    if (path) {
-      const pos = utils.calcTerminalLabelPosition(edge.arrowTypeEnd ? 10 : 0, 'end_right', path);
-      x = pos.x;
-      y = pos.y;
-    }
-    el.attr('transform', `translate(${x}, ${y})`);
-  }
+  const arrowType = key.startsWith('start') ? edge.arrowTypeStart : edge.arrowTypeEnd;
+  return utils.calcTerminalLabelPosition(arrowType ? 10 : 0, TERMINAL_LABEL_SIDES[key], path);
 }

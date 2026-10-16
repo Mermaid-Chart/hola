@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" class="sl-theme-dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mermaid Diagram Lab</title>
+
+    <link rel="stylesheet" href="/vendor/shoelace/themes/dark.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <script type="module">
+      // Single async hook the app awaits, so a measurement can never start
+      // before the layout loaders are registered.
+      window.mermaidReady = (async () => {
+        try {
+          const [{ default: mermaid }, { default: layouts }] = await Promise.all([
+            import('/mermaid.esm.mjs'),
+            import('/mermaid-layout-elk.esm.mjs'),
+          ]);
+          mermaid.registerLayoutLoaders(layouts);
+          window.mermaid = mermaid;
+          return mermaid;
+        } catch (err) {
+          console.error('[lab] Failed to initialise mermaid.', err);
+          throw err;
+        }
+      })();
+    </script>
+
+    <diagram-lab-app></diagram-lab-app>
+
+    <script type="module" src="/assets/lab-app.js"></script>
+  </body>
+</html>

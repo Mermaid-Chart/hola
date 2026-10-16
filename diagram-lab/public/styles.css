@@ -1,0 +1,915 @@
+/* Diagram Lab — dense, table-first dev UI. Deliberately independent of the Dev
+   Explorer's stylesheet so neither can drift the other. */
+
+:root {
+  --lab-bg: #14161a;
+  --lab-panel: #1a1d23;
+  --lab-panel-2: #20242c;
+  --lab-border: #2c313b;
+  --lab-text: #dfe3ea;
+  --lab-muted: #8a93a3;
+  --lab-accent: #4c8dff;
+  --lab-ok: #3fbf7f;
+  --lab-warn: #e0a33e;
+  --lab-danger: #e5645f;
+  --lab-row-hover: #222732;
+  --lab-row-selected: #2a3550;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--lab-bg);
+  color: var(--lab-text);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: 13px;
+}
+
+diagram-lab-app {
+  display: block;
+  height: 100%;
+}
+
+.lab {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--lab-panel);
+  border-bottom: 1px solid var(--lab-border);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.control.grow {
+  flex: 1 1 200px;
+  min-width: 160px;
+}
+
+/* Look and theme carry short values and sit in the crowded right-hand end of
+   the toolbar, so they do not need the default 150px. */
+.control.narrow {
+  min-width: 124px;
+}
+
+.control > span {
+  font-size: 11px;
+  color: var(--lab-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+/* ── Split ───────────────────────────────────────────────────────────────── */
+
+.lab-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  --divider-width: 6px;
+}
+
+.lab-split::part(divider) {
+  background: var(--lab-border);
+}
+
+.table-pane,
+.detail-pane {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-pane {
+  border-left: 1px solid var(--lab-border);
+  background: var(--lab-panel);
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+
+.table-scroll {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-height: 0;
+}
+
+.metrics-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--lab-panel-2);
+  border-bottom: 1px solid var(--lab-border);
+  padding: 7px 8px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lab-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.metrics-table thead th:hover {
+  color: var(--lab-text);
+}
+
+.metrics-table th.num,
+.metrics-table td.num {
+  text-align: right;
+}
+
+.metrics-table .sort {
+  margin-left: 4px;
+  color: var(--lab-accent);
+}
+
+.metrics-table tbody td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #23262e;
+  white-space: nowrap;
+}
+
+.metrics-table tbody tr {
+  cursor: pointer;
+}
+
+.metrics-table tbody tr:hover {
+  background: var(--lab-row-hover);
+}
+
+.metrics-table tbody tr.selected {
+  background: var(--lab-row-selected);
+}
+
+.metrics-table tbody tr.failed .path-cell .name {
+  color: var(--lab-danger);
+}
+
+.path-cell {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.path-cell .dir {
+  color: var(--lab-muted);
+}
+
+.flag-ok {
+  color: var(--lab-ok);
+}
+
+.flag-warn {
+  color: var(--lab-warn);
+}
+
+.has-score {
+  color: var(--lab-accent);
+}
+
+.score-cell {
+  width: 62px;
+}
+
+.score-input {
+  width: 46px;
+  background: #171a20;
+  border: 1px solid var(--lab-border);
+  border-radius: 4px;
+  color: var(--lab-text);
+  padding: 2px 4px;
+  font: inherit;
+  text-align: right;
+}
+
+.score-input:focus {
+  outline: 1px solid var(--lab-accent);
+  border-color: var(--lab-accent);
+}
+
+.empty {
+  padding: 24px;
+  color: var(--lab-muted);
+}
+
+/* ── Detail pane ─────────────────────────────────────────────────────────── */
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--lab-border);
+  flex: 0 0 auto;
+}
+
+.detail-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+
+.detail-empty {
+  padding: 28px;
+  color: var(--lab-muted);
+}
+
+.detail-empty .hint {
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+kbd {
+  background: var(--lab-panel-2);
+  border: 1px solid var(--lab-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.diagram-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.diagram-frame svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.render-error {
+  margin: 0;
+  padding: 14px;
+  color: var(--lab-danger);
+  background: var(--lab-panel);
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+/* ── Score panel ─────────────────────────────────────────────────────────── */
+
+.score-panel {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-top: 1px solid var(--lab-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.score-buttons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.score-chip {
+  min-width: 30px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--lab-border);
+  background: var(--lab-panel-2);
+  color: var(--lab-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.score-chip:hover {
+  border-color: var(--lab-accent);
+}
+
+.score-chip.active {
+  background: var(--lab-accent);
+  border-color: var(--lab-accent);
+  color: #0d1117;
+  font-weight: 600;
+}
+
+.score-chip.clear {
+  color: var(--lab-muted);
+}
+
+/* ── Metrics detail ──────────────────────────────────────────────────────── */
+
+.metrics-detail {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 2px 14px;
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--lab-border);
+  background: var(--lab-panel-2);
+  font-variant-numeric: tabular-nums;
+  max-height: 30vh;
+  overflow: auto;
+}
+
+.metrics-detail.muted {
+  display: block;
+  color: var(--lab-muted);
+}
+
+.metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.metric.wide {
+  grid-column: 1 / -1;
+}
+
+.metric-label {
+  color: var(--lab-muted);
+}
+
+.metric-value {
+  font-weight: 600;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+
+.status-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: var(--lab-panel);
+  border-top: 1px solid var(--lab-border);
+  font-size: 12px;
+}
+
+.status-bar .sweep {
+  color: var(--lab-accent);
+}
+
+.muted {
+  color: var(--lab-muted);
+}
+
+/* ── Layout-dependent columns ────────────────────────────────────────────────
+   Marked so it is obvious at a glance which numbers change with the layout and
+   which are properties of the diagram that survive switching it. */
+
+.metrics-table thead th.layout-dep {
+  color: var(--lab-accent);
+}
+
+.metrics-table thead th.layout-dep::after {
+  content: '·';
+  margin-left: 3px;
+  opacity: 0.7;
+}
+
+.metrics-table tbody tr.stale .path-cell .name {
+  text-decoration: underline dotted var(--lab-warn);
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.empty p {
+  margin: 0 0 8px;
+  max-width: 62ch;
+}
+
+.empty code {
+  background: var(--lab-panel-2);
+  border: 1px solid var(--lab-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.corpus-path {
+  background: var(--lab-panel-2);
+  border: 1px solid var(--lab-border);
+  border-radius: 5px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  color: var(--lab-accent);
+  overflow-x: auto;
+  max-width: 62ch;
+}
+
+/* ── Layout bar ──────────────────────────────────────────────────────────────
+   The layout under evaluation is the primary control in this tool, so it gets
+   its own full-width row rather than a dropdown among the filters. Each chip
+   doubles as a scoreboard for that layout over the visible rows. */
+
+.layout-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 14px;
+  background: var(--lab-panel-2);
+  border-bottom: 1px solid var(--lab-border);
+  flex: 0 0 auto;
+}
+
+.layout-bar-label {
+  font-size: 11px;
+  color: var(--lab-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.layout-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.layout-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 96px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--lab-border);
+  background: var(--lab-panel);
+  color: var(--lab-text);
+  font: inherit;
+  line-height: 1.25;
+  cursor: pointer;
+  transition:
+    border-color 0.12s,
+    background 0.12s;
+}
+
+.layout-chip:hover:not(:disabled) {
+  border-color: var(--lab-accent);
+}
+
+.layout-chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.layout-chip.active {
+  background: var(--lab-accent);
+  border-color: var(--lab-accent);
+  color: #0d1117;
+}
+
+.layout-chip-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.layout-chip-stats {
+  display: flex;
+  gap: 7px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-muted);
+}
+
+.layout-chip.active .layout-chip-stats {
+  color: #0d1117;
+  opacity: 0.8;
+}
+
+.layout-chip-stats .complete {
+  color: var(--lab-ok);
+}
+
+.layout-chip.active .layout-chip-stats .complete {
+  color: #0d1117;
+}
+
+/* ── Per-diagram layout comparison ───────────────────────────────────────── */
+
+.layout-compare {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--lab-border);
+  background: var(--lab-panel);
+  padding: 8px 12px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.layout-compare-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--lab-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.layout-compare-row {
+  display: grid;
+  grid-template-columns: 1fr 58px 84px 34px auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--lab-text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.layout-compare-row:hover {
+  background: var(--lab-row-hover);
+}
+
+.layout-compare-row.active {
+  background: var(--lab-row-selected);
+  border-color: var(--lab-accent);
+}
+
+.layout-compare-row .lc-stress,
+.layout-compare-row .lc-size,
+.layout-compare-row .lc-score {
+  text-align: right;
+  color: var(--lab-muted);
+}
+
+.layout-compare-row.best .lc-stress {
+  color: var(--lab-ok);
+  font-weight: 600;
+}
+
+.layout-compare-row .lc-score {
+  color: var(--lab-accent);
+}
+
+.layout-compare-row .lc-error {
+  color: var(--lab-danger);
+  font-size: 11px;
+}
+
+/* ── Acceptable (your verdict) ───────────────────────────────────────────────
+   Tri-state throughout: "not judged yet" and "judged unacceptable" are
+   different answers and must not collapse into one another. */
+
+.flag-bad {
+  color: var(--lab-danger);
+}
+
+.accept-cell {
+  width: 46px;
+}
+
+.accept-toggle {
+  width: 30px;
+  padding: 1px 0;
+  border: 1px solid var(--lab-border);
+  border-radius: 4px;
+  background: #171a20;
+  color: var(--lab-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.accept-toggle:hover {
+  border-color: var(--lab-accent);
+}
+
+.accept-toggle.yes {
+  color: var(--lab-ok);
+  border-color: var(--lab-ok);
+}
+
+.accept-toggle.no {
+  color: var(--lab-danger);
+  border-color: var(--lab-danger);
+}
+
+.accept-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid var(--lab-border);
+}
+
+.accept-label {
+  font-size: 11px;
+  color: var(--lab-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+}
+
+.accept-btn {
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--lab-border);
+  background: var(--lab-panel-2);
+  color: var(--lab-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.accept-btn:hover {
+  border-color: var(--lab-accent);
+}
+
+.accept-btn.yes.active {
+  background: var(--lab-ok);
+  border-color: var(--lab-ok);
+  color: #0d1117;
+  font-weight: 600;
+}
+
+.accept-btn.no.active {
+  background: var(--lab-danger);
+  border-color: var(--lab-danger);
+  color: #0d1117;
+  font-weight: 600;
+}
+
+.accept-btn.clear {
+  color: var(--lab-muted);
+}
+
+/* ── Validation in the layout chips and comparison ───────────────────────── */
+
+.layout-chip-valid {
+  color: var(--lab-text);
+}
+
+.layout-chip.active .layout-chip-valid,
+.layout-chip.active .layout-chip-accept {
+  color: #0d1117;
+}
+
+.layout-chip-accept {
+  color: var(--lab-ok);
+}
+
+.layout-compare-row {
+  grid-template-columns: 1fr 48px 56px 80px 32px 28px auto;
+}
+
+.layout-compare-row .lc-valid,
+.layout-compare-row .lc-accept {
+  text-align: right;
+  color: var(--lab-muted);
+}
+
+.layout-compare-row .lc-valid.invalid {
+  color: var(--lab-danger);
+}
+
+.layout-compare-row .lc-accept.yes {
+  color: var(--lab-ok);
+}
+
+.layout-compare-row .lc-accept.no {
+  color: var(--lab-danger);
+}
+
+/* ── Rename / delete in the title row ────────────────────────────────────── */
+
+.detail-title.as-button {
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  padding: 3px 6px;
+  cursor: text;
+  text-align: left;
+}
+
+.detail-title.as-button:hover {
+  border-color: var(--lab-border);
+  background: var(--lab-panel-2);
+}
+
+.rename-hint {
+  margin-left: 7px;
+  color: var(--lab-muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.detail-title.as-button:hover .rename-hint {
+  opacity: 1;
+}
+
+.rename-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 55%;
+  padding: 4px 7px;
+  border: 1px solid var(--lab-accent);
+  border-radius: 5px;
+  background: #171a20;
+  color: var(--lab-text);
+  font: inherit;
+  font-weight: 600;
+}
+
+.icon-btn {
+  border: 1px solid var(--lab-border);
+  border-radius: 4px;
+  background: var(--lab-panel-2);
+  color: var(--lab-text);
+  font: inherit;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--lab-accent);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+sl-dialog code {
+  background: var(--lab-panel-2);
+  border: 1px solid var(--lab-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+/* ── Source editor ───────────────────────────────────────────────────────────
+   Toggled by the Code switch in the detail header. Splits the detail pane so
+   the diagram stays visible while you edit — the point is to see the effect. */
+
+.code-switch {
+  margin-right: 4px;
+  --height: 18px;
+  --width: 34px;
+  --thumb-size: 14px;
+}
+
+.code-split {
+  flex: 1 1 auto;
+  min-height: 0;
+  --divider-width: 6px;
+  --min: 80px;
+  --max: calc(100% - 120px);
+}
+
+.code-split::part(divider) {
+  background: var(--lab-border);
+}
+
+.code-pane,
+.diagram-pane {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.code-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--lab-panel);
+}
+
+.code-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--lab-border);
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+.code-path {
+  color: var(--lab-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
+}
+
+.code-state {
+  color: var(--lab-ok);
+}
+
+.code-state.dirty {
+  color: var(--lab-warn);
+}
+
+.code-editor {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: block;
+}
+
+.code-editor-mount,
+.code-editor .cm-editor {
+  height: 100%;
+}
+
+.code-editor .cm-editor {
+  background: #14161a;
+  color: var(--lab-text);
+  font-size: 12.5px;
+}
+
+.code-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.code-editor .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.5;
+}
+
+.code-editor .cm-gutters {
+  background: #14161a;
+  border-right: 1px solid var(--lab-border);
+  color: #4d5667;
+}
+
+.code-editor .cm-activeLine,
+.code-editor .cm-activeLineGutter {
+  background: #1b1f27;
+}
+
+.code-editor .cm-selectionBackground,
+.code-editor .cm-content ::selection {
+  background: #2a3550 !important;
+}
+
+.code-editor .cm-cursor {
+  border-left-color: var(--lab-accent);
+}

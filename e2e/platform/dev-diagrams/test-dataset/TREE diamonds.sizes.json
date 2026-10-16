@@ -1,0 +1,80 @@
+{
+  "nodes": [
+    {
+      "id": "n1",
+      "width": 115.75,
+      "height": 115.75
+    },
+    {
+      "id": "n2",
+      "width": 121.140625,
+      "height": 54
+    },
+    {
+      "id": "n3",
+      "width": 121.140625,
+      "height": 54
+    },
+    {
+      "id": "n4",
+      "width": 141.96875,
+      "height": 54
+    },
+    {
+      "id": "n5",
+      "width": 115.75,
+      "height": 115.75
+    },
+    {
+      "id": "n6",
+      "width": 121.140625,
+      "height": 54
+    },
+    {
+      "id": "n7",
+      "width": 121.140625,
+      "height": 54
+    },
+    {
+      "id": "n8",
+      "width": 141.96875,
+      "height": 54
+    },
+    {
+      "id": "A",
+      "width": 95.015625,
+      "height": 54
+    },
+    {
+      "id": "B",
+      "width": 94.015625,
+      "height": 54
+    },
+    {
+      "id": "C",
+      "width": 115.75,
+      "height": 115.75
+    },
+    {
+      "id": "D",
+      "width": 121.140625,
+      "height": 54
+    },
+    {
+      "id": "E",
+      "width": 121.140625,
+      "height": 54
+    },
+    {
+      "id": "F",
+      "width": 141.96875,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "ef14e812d7efe6f34ea9a4a22547b304f665be2a1291f6d5ce65d950d75f83c6",
+    "capturedAt": "2026-10-04T10:01:12.330Z",
+    "capturedFrom": "dev-explorer test-dataset/TREE diamonds.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "A",
+      "width": 160.26121520996094,
+      "height": 39
+    },
+    {
+      "id": "B",
+      "width": 111.93309020996094,
+      "height": 39
+    },
+    {
+      "id": "C",
+      "width": 260.6559753417969,
+      "height": 183
+    },
+    {
+      "id": "D",
+      "width": 73.99559020996094,
+      "height": 39
+    },
+    {
+      "id": "E",
+      "width": 72.26121520996094,
+      "height": 39
+    },
+    {
+      "id": "F",
+      "width": 132.70201110839844,
+      "height": 63
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "e04d8d718ae513b22577961f0188974e3b7010c11d5d4213c68e5994ba48179b",
+    "capturedAt": "2026-09-14T10:59:25.904Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/shapes-and-styling.mmd theme=default look=classic layout=dagre"
+  }
+}

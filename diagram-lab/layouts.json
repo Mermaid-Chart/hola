@@ -1,0 +1,5 @@
+{
+  "//": "Layouts the lab offers. Edit this list to narrow what you are evaluating; the lab server picks it up on save and the page reloads. Names must be layouts Mermaid has registered — anything unknown is reported on the console and dropped. An empty or missing list falls back to every known layout. MERMAID_LAB_LAYOUTS=a,b,c overrides this file for one run.",
+  "known": ["dagre", "elk", "domus", "ipsep-cola", "stress-and-grid", "hola", "swimlane"],
+  "layouts": ["dagre", "elk", "hola", "stress-and-grid"]
+}

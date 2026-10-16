@@ -1,0 +1,7 @@
+Drop the .mmd files you want to study in here (subfolders are picked up too).
+
+This is the Diagram Lab's corpus root: `pnpm lab` lists exactly what is in this
+folder and nothing else. To study a different tree instead, start the server
+with MERMAID_LAB_ROOT pointing at it, e.g.
+
+    MERMAID_LAB_ROOT=e2e/platform/dev-diagrams pnpm lab
