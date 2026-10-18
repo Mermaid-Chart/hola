@@ -73,12 +73,17 @@ describe('positions are withheld from the grid-like layouts', () => {
     registerLayoutLoaders([
       {
         name,
-        loader: async () => ({
-          render: async (_data, _svg, _helpers, _options, positions) => {
-            seen.calls += 1;
-            seen.positions = positions;
-          },
-        }),
+        // Neither function awaits anything, so both return their promise
+        // directly rather than being `async` — `require-await` rejects an async
+        // function with no await in it.
+        loader: () =>
+          Promise.resolve({
+            render: (_data, _svg, _helpers, _options, positions) => {
+              seen.calls += 1;
+              seen.positions = positions;
+              return Promise.resolve();
+            },
+          }),
       },
     ]);
     return seen;
