@@ -5,6 +5,10 @@ import { log } from '../logger.js';
 import { insertLookDefs } from './insertLookDefs.js';
 import type { LayoutData } from './types.js';
 import { ELK_ALGORITHMS } from './layout-algorithms/elk/algorithms.js';
+import {
+  STRUCTURAL_FALLBACK_LAYOUT,
+  structuralFallbackVerdict,
+} from './layout-algorithms/layout-utils/structuralFallback.js';
 
 // console.log('MUST be removed, this only for keeping dev server working');
 // import tmp from './layout-algorithms/dagre/index.js';
@@ -122,6 +126,19 @@ registerDefaultLayoutLoaders();
 export const render = async (data4Layout: LayoutData, svg: SVG) => {
   if (!Object.hasOwn(layoutAlgorithms, data4Layout.layoutAlgorithm)) {
     throw new Error(`Unknown layout algorithm: ${data4Layout.layoutAlgorithm}`);
+  }
+
+  // Grid-like layouts opt out of graphs their core/tree decomposition handles
+  // badly; see `structuralFallbackVerdict`. Resolved through
+  // `getRegisteredLayoutAlgorithm` so the tiny build, which ships no ELK, lands
+  // on dagre instead of an unregistered name.
+  const structural = structuralFallbackVerdict(data4Layout, data4Layout.layoutAlgorithm);
+  if (structural.fallback) {
+    const target = getRegisteredLayoutAlgorithm(STRUCTURAL_FALLBACK_LAYOUT);
+    log.info(
+      `Layout "${data4Layout.layoutAlgorithm}" is not suited to this graph (${structural.reason}: ${structural.detail}). Using "${target}" instead.`
+    );
+    data4Layout.layoutAlgorithm = target;
   }
 
   // Prefix all node domIds with the diagram's SVG element ID to ensure uniqueness
