@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { LayoutData, Node, Edge } from '../../types.js';
 import { validateLayout } from './validateLayout.js';
+import type { ValidateLayoutOptions } from './validateLayout.js';
 
 interface Point {
   x: number;
@@ -22,8 +23,8 @@ function mkEdge(
   return { id, start, end, type: 'arrow', points } as any;
 }
 
-function getIssueTypes(layout: LayoutData): string[] {
-  const res = validateLayout(layout);
+function getIssueTypes(layout: LayoutData, options: ValidateLayoutOptions = {}): string[] {
+  const res = validateLayout(layout, options);
   return res.issues.map((i) => i.type);
 }
 
@@ -1004,7 +1005,7 @@ describe('validateLayout new geometric issues', () => {
     ]);
     const layout: LayoutData = { nodes: [a, b], edges: [e], config: {} as any };
 
-    const res = validateLayout(layout);
+    const res = validateLayout(layout, { checkEndpointAttachment: true });
     const det = res.issues.find((i) => i.type === 'edge-endpoint-detached-from-node');
     expect(det, 'expected edge-endpoint-detached-from-node').toBeTruthy();
     expect(det?.nodeIds).toContain('A');
@@ -1021,7 +1022,28 @@ describe('validateLayout new geometric issues', () => {
     ]);
     const layout: LayoutData = { nodes: [a, b], edges: [e], config: {} as any };
 
+    expect(getIssueTypes(layout, { checkEndpointAttachment: true })).not.toContain(
+      'edge-endpoint-detached-from-node'
+    );
+  });
+
+  it('does NOT check endpoint attachment unless asked', () => {
+    // The same floating endpoint as the positive case above. Off by default, so
+    // a layout that does not place its own terminals is not held to it — this is
+    // what keeps upstream's swimlane detours from failing validation here.
+    const a = mkNode('A', 0, 0);
+    const b = mkNode('B', 0, 200);
+    const e = mkEdge('e', 'A', 'B', [
+      { x: 100, y: 0 },
+      { x: 100, y: 180 },
+      { x: 0, y: 180 },
+    ]);
+    const layout: LayoutData = { nodes: [a, b], edges: [e], config: {} as any };
+
     expect(getIssueTypes(layout)).not.toContain('edge-endpoint-detached-from-node');
+    expect(getIssueTypes(layout, { checkEndpointAttachment: true })).toContain(
+      'edge-endpoint-detached-from-node'
+    );
   });
 
   it('flags edge-endpoint-inside-node when an edge endpoint sits inside a non-endpoint node', () => {

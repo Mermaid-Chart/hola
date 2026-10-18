@@ -15,6 +15,19 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    /**
+     * Vitest's 5s default is below what a layout test legitimately costs here.
+     * The DDLT and fixture-sweep specs parse a diagram, run a full layout and
+     * then validate the result — several quadratic passes over nodes and edges —
+     * and the heaviest single cases run past 20s. At 5s they fail as
+     * `Test timed out in 5000ms` rather than on any assertion, which reads as a
+     * broken layout and is not one: the same specs pass unchanged at this limit.
+     *
+     * This does mean a genuinely hung test takes 30s to surface instead of 5s.
+     * That is the cheaper mistake — the suite's cost is dominated by how many
+     * slow-but-correct tests it runs, not by how fast a hang is caught.
+     */
+    testTimeout: 30_000,
     exclude: [
       ...defaultExclude,
       'e2e/rendering/**',

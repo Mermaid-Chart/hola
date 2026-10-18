@@ -9,7 +9,7 @@ export {
 } from './graphModel.js';
 export { computeDegrees, median } from './degrees.js';
 export { computeConnectivity } from './connectivity.js';
-export { isPlanar } from './planarity.js';
+export { isPlanar } from '../../../packages/mermaid/src/rendering-util/layout-algorithms/layout-utils/planarity.js';
 export { computeStress, STRESS_NODE_LIMIT } from './stress.js';
 export { ancestorGroups, computeSubgraphStats } from './subgraphs.js';
 export { LAYOUT_DEPENDENT_METRIC_KEYS, isLayoutDependentMetric } from './types.js';

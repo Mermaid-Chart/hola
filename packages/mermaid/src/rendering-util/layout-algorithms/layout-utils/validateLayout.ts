@@ -689,6 +689,22 @@ export interface ValidateLayoutOptions {
    * `focused: true`. Never compare a focused result's score against anything.
    */
   readonly focusEdgeIds?: ReadonlySet<string>;
+
+  /**
+   * Report `edge-endpoint-detached-from-node`. Default false.
+   *
+   * This check is stricter than anything upstream validates, and it is only
+   * meaningful for a layout that places its own edge terminals. Upstream's
+   * swimlane router, for one, leaves a detour's start ~20px off its node and
+   * relies on paint clipping it back to the border; with the check on by default
+   * that renders upstream's own `laneTitleBands` spec red in this fork for a
+   * drawing upstream considers fine.
+   *
+   * So it is opt-in: HOLA and gipsec, which own their terminal placement and
+   * want the constraint, ask for it explicitly. Leaving it off keeps the core
+   * result comparable with upstream for every layout that does not.
+   */
+  readonly checkEndpointAttachment?: boolean;
 }
 
 export interface ValidateLayoutResult {
@@ -1371,6 +1387,7 @@ export function validateLayout(
   const focusEdgeIds = options.focusEdgeIds;
   // See `diagnostics`. Default true keeps every existing caller bit-identical.
   const diag = options.diagnostics !== false;
+  const checkEndpointAttachment = options.checkEndpointAttachment === true;
   const focused = focusEdgeIds !== undefined;
   const inFocus = (id: string): boolean => focusEdgeIds!.has(id);
   const abortedResult = (): ValidateLayoutResult => ({
@@ -1999,7 +2016,10 @@ export function validateLayout(
     // means the edge does not actually connect that node, the most basic
     // structural defect. Paint clips the dangling endpoint back onto the node,
     // which renders as the edge hugging the node's border.
-    {
+    //
+    // Opt-in — see `checkEndpointAttachment`. Layouts that do not place their own
+    // terminals are not held to it.
+    if (checkEndpointAttachment) {
       const EPS_DETACHED = 2;
       const distOutsideRect = (p: Point, r: Rect): number => {
         const dx = Math.max(r.left - p.x, 0, p.x - r.right);

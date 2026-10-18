@@ -478,7 +478,10 @@ function acceptRoutedAlignment(
   propose: () => void,
   allowEqualQuality = false
 ): boolean {
-  const before = validateLayout(data);
+  // gipsec places its own edge terminals, so it is held to the attachment
+  // constraint: these two calls decide which proposed route is accepted, and
+  // dropping the check here would change the drawing, not just the report.
+  const before = validateLayout(data, { checkEndpointAttachment: true });
   const hardIssueKey = (issue: (typeof before.issues)[number]) =>
     JSON.stringify([issue.type, issue.edgeId, issue.nodeIds]);
   const previousHardIssues = new Map<string, number>();
@@ -503,7 +506,7 @@ function acceptRoutedAlignment(
     accepted = acceptLocalGeometryProposal(data.nodes, () => {
       propose();
       routeStressAndGridEdges(data, gridSpacing);
-      const after = validateLayout(data);
+      const after = validateLayout(data, { checkEndpointAttachment: true });
       return (
         after.issues.every((issue) => {
           if (isSoftIssueType(issue.type)) {
