@@ -87,7 +87,9 @@ function reportIssues(name: string, result: ValidateLayoutResult): void {
   }
 }
 
-describe('Loop Fixtures score sweep', () => {
+// Lays out and scores every fixture in one test — minutes of work, not the
+// 30s default.
+describe('Loop Fixtures score sweep', { timeout: 600_000 }, () => {
   beforeAll(() => {
     setLogLevel('debug');
     addDiagrams();
