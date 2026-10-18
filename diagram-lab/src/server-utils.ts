@@ -323,7 +323,7 @@ export const KNOWN_LAB_LAYOUTS = [
   'elk',
   'domus',
   'ipsep-cola',
-  'stress-and-grid',
+  'gipsec',
   'hola',
   'swimlane',
 ] as const;

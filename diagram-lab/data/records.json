@@ -96,7 +96,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T22:24:20.733Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SIMPLE 4 nodes.mmd": {
       "diagram": "SIMPLE 4 nodes.mmd",
@@ -170,7 +170,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T14:14:30.974Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SUBGRAPH crowded edges and verbose nodes.mmd": {
       "diagram": "SUBGRAPH crowded edges and verbose nodes.mmd",
@@ -194,7 +194,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T14:14:31.629Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SUBGRAPH different shapes.mmd": {
       "diagram": "SUBGRAPH different shapes.mmd",
@@ -220,7 +220,7 @@
         ]
       },
       "structureAt": "2026-10-01T14:14:16.331Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SUBGRAPH simple edges and orphan node.mmd": {
       "diagram": "SUBGRAPH simple edges and orphan node.mmd",
@@ -246,7 +246,7 @@
         ]
       },
       "structureAt": "2026-10-01T14:14:39.903Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "TREE the big one.mmd": {
       "diagram": "TREE the big one.mmd",
@@ -294,7 +294,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T08:09:43.112Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "STYLE different shapes.mmd": {
       "diagram": "STYLE different shapes.mmd",
@@ -318,7 +318,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T14:16:17.803Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "STYLE big stadium.mmd": {
       "diagram": "STYLE big stadium.mmd",
@@ -342,7 +342,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T08:10:09.979Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SIMPLE self loop.mmd": {
       "diagram": "SIMPLE self loop.mmd",
@@ -417,7 +417,7 @@
         ]
       },
       "structureAt": "2026-10-02T14:12:32.782Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "TREE a simple one.mmd": {
       "diagram": "TREE a simple one.mmd",
@@ -1008,7 +1008,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T15:45:11.372Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SIMPLE crowded labels hard.mmd": {
       "diagram": "SIMPLE crowded labels hard.mmd",
@@ -1104,7 +1104,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T22:24:21.777Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SIMPLE almost a tree.mmd": {
       "diagram": "SIMPLE almost a tree.mmd",
@@ -1350,7 +1350,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T13:54:01.562Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "GRAPH from holapaper7 with subgraph 2 nodes.mmd": {
       "diagram": "GRAPH from holapaper7 with subgraph 2 nodes.mmd",
@@ -1714,7 +1714,7 @@
         ]
       },
       "structureAt": "2026-10-01T15:30:18.237Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "MESSY double loop even odd.mmd": {
       "diagram": "MESSY double loop even odd.mmd",
@@ -1741,7 +1741,7 @@
         ]
       },
       "structureAt": "2026-10-02T14:17:25.245Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SUBGRAPH edge from subgraph.mmd": {
       "diagram": "SUBGRAPH edge from subgraph.mmd",
@@ -1765,7 +1765,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T15:31:12.918Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "TREE diamonds.mmd": {
       "diagram": "TREE diamonds.mmd",
@@ -1789,7 +1789,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T08:08:49.892Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "GRAPH holapaper4.mmd": {
       "diagram": "GRAPH holapaper4.mmd",
@@ -1813,7 +1813,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T15:33:18.546Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "GRAPH holapaper4 verbose nodes.mmd": {
       "diagram": "GRAPH holapaper4 verbose nodes.mmd",
@@ -1837,7 +1837,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T15:33:45.466Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "GRAPH fromhola5 non planar core.mmd": {
       "diagram": "GRAPH fromhola5 non planar core.mmd",
@@ -1861,7 +1861,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-01T15:44:43.807Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SIMPLE decision shapes.mmd": {
       "diagram": "SIMPLE decision shapes.mmd",
@@ -1885,7 +1885,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T08:28:28.232Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "STYLE animated edges.mmd": {
       "diagram": "STYLE animated edges.mmd",
@@ -2236,7 +2236,7 @@
         "piercedSubgraphIds": []
       },
       "structureAt": "2026-10-02T09:11:14.552Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     },
     "SIMPLE knsv2-17-flowchart-dagre-lr-shapes.mmd": {
       "diagram": "SIMPLE knsv2-17-flowchart-dagre-lr-shapes.mmd",
@@ -2611,7 +2611,7 @@
         ]
       },
       "structureAt": "2026-10-02T14:12:31.076Z",
-      "measuredWith": "stress-and-grid"
+      "measuredWith": "gipsec"
     }
   },
   "records": {
@@ -2622,9 +2622,9 @@
       "metricsError": "Layout \"hola\" produced no structure capture — it may not route through the shared layout renderer.",
       "metricsAt": "2026-09-29T20:45:03.696Z"
     },
-    "stress-and-grid::01-actor-vs-database.mmd": {
+    "gipsec::01-actor-vs-database.mmd": {
       "diagram": "01-actor-vs-database.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "7113e7d095e34d3f8e42f22dbd94b16e98c9062b7c026ce7c94d8206d2c2b738",
       "metricsError": "Layout \"stress-and-grid\" produced no structure capture — it may not route through the shared layout renderer.",
       "metricsAt": "2026-09-29T20:45:07.936Z"
@@ -2745,9 +2745,9 @@
       "notes": "",
       "scoredAt": "2026-10-01T13:22:15.670Z"
     },
-    "stress-and-grid::SIMPLE title.mmd": {
+    "gipsec::SIMPLE title.mmd": {
       "diagram": "SIMPLE title.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "4cad9aa8059ce281263aeb8d4448c2070aa8b2dea34ad4310acbb04677317db2",
       "layoutMetrics": {
         "drawingWidth": 41.578125,
@@ -2837,9 +2837,9 @@
       },
       "metricsAt": "2026-09-29T20:50:07.822Z"
     },
-    "stress-and-grid::GRAPH non planar k33.mmd": {
+    "gipsec::GRAPH non planar k33.mmd": {
       "diagram": "GRAPH non planar k33.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "47bc160a5f4adea1128758506e147acfb5241880b1a9a7486470454002dc1c99",
       "layoutMetrics": {
         "drawingWidth": 272.828125,
@@ -2997,9 +2997,9 @@
       "notes": "",
       "scoredAt": "2026-10-01T13:22:19.970Z"
     },
-    "stress-and-grid::STYLE colored subgraph.mmd": {
+    "gipsec::STYLE colored subgraph.mmd": {
       "diagram": "STYLE colored subgraph.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "b89ce9e79fdece40221931bf42bb5d191e8a6989ce68ee7fa38e663e151cc58a",
       "layoutMetrics": {
         "drawingWidth": 337.03125,
@@ -3129,9 +3129,9 @@
       },
       "metricsAt": "2026-10-01T13:24:22.215Z"
     },
-    "stress-and-grid::SUBGRAPH crowded edges with labels between two nodes.mmd": {
+    "gipsec::SUBGRAPH crowded edges with labels between two nodes.mmd": {
       "diagram": "SUBGRAPH crowded edges with labels between two nodes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "5a9f44329d519e8bb3658d9ca2b179b228c20411b3b20213eb85e124a3d81043",
       "layoutMetrics": {
         "drawingWidth": 404.796875,
@@ -3169,9 +3169,9 @@
       },
       "metricsAt": "2026-09-29T21:55:45.625Z"
     },
-    "stress-and-grid::SUBGRAPH crowded edges and verbose nodes.mmd": {
+    "gipsec::SUBGRAPH crowded edges and verbose nodes.mmd": {
       "diagram": "SUBGRAPH crowded edges and verbose nodes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "c996b609a9a4995b4589ec6527d614365ac4fa75125ed6d1ece85c33eefd0a72",
       "layoutMetrics": {
         "drawingWidth": 588,
@@ -3209,9 +3209,9 @@
       },
       "metricsAt": "2026-09-29T21:55:45.761Z"
     },
-    "stress-and-grid::SUBGRAPH different shapes.mmd": {
+    "gipsec::SUBGRAPH different shapes.mmd": {
       "diagram": "SUBGRAPH different shapes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "cabc90e760875f353b4b090455af788e34ad0aea5ce816dc94fd1dfd236b0106",
       "layoutMetrics": {
         "drawingWidth": 486.6875,
@@ -3249,9 +3249,9 @@
       },
       "metricsAt": "2026-09-29T21:55:45.714Z"
     },
-    "stress-and-grid::SUBGRAPH simple edges and orphan node.mmd": {
+    "gipsec::SUBGRAPH simple edges and orphan node.mmd": {
       "diagram": "SUBGRAPH simple edges and orphan node.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "2c034f215d6044c3ad93fae1d5b730532c6d1ba57a0eab9e005e78bce615f4d0",
       "layoutMetrics": {
         "drawingWidth": 232,
@@ -3289,9 +3289,9 @@
       },
       "metricsAt": "2026-10-02T08:09:03.307Z"
     },
-    "stress-and-grid::TREE the big one.mmd": {
+    "gipsec::TREE the big one.mmd": {
       "diagram": "TREE the big one.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "aed51f9710acaca50977a0c762772bcc74b183231aef17f256de896ffcefb858",
       "layoutMetrics": {
         "drawingWidth": 2008.5234375,
@@ -3333,9 +3333,9 @@
       "notes": "",
       "scoredAt": "2026-10-02T08:09:32.420Z"
     },
-    "stress-and-grid::SIMPLE unconnected.mmd": {
+    "gipsec::SIMPLE unconnected.mmd": {
       "diagram": "SIMPLE unconnected.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "b53716578bbf71f821d8934d42c9bc9826d0863ff5c80ee0249ed42ef596693b",
       "layoutMetrics": {
         "drawingWidth": 927.0877577491763,
@@ -3377,9 +3377,9 @@
       },
       "metricsAt": "2026-09-29T21:55:45.389Z"
     },
-    "stress-and-grid::STYLE different shapes.mmd": {
+    "gipsec::STYLE different shapes.mmd": {
       "diagram": "STYLE different shapes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "343a0278711efa69262bc03cdc968b3619e78d288f944ccf64d60d0c4f20037e",
       "layoutMetrics": {
         "drawingWidth": 3740.7677459716797,
@@ -3421,9 +3421,9 @@
       "notes": "",
       "scoredAt": "2026-10-02T08:09:58.725Z"
     },
-    "stress-and-grid::STYLE big stadium.mmd": {
+    "gipsec::STYLE big stadium.mmd": {
       "diagram": "STYLE big stadium.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "e04d8d718ae513b22577961f0188974e3b7010c11d5d4213c68e5994ba48179b",
       "layoutMetrics": {
         "drawingWidth": 806.5312515776187,
@@ -3465,9 +3465,9 @@
       },
       "metricsAt": "2026-10-02T08:09:17.748Z"
     },
-    "stress-and-grid::SIMPLE self loop.mmd": {
+    "gipsec::SIMPLE self loop.mmd": {
       "diagram": "SIMPLE self loop.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "ab52068df7444ffd823731609f70e3333b7a33ebe37184d581531c28d3242b25",
       "layoutMetrics": {
         "drawingWidth": 67.4921875,
@@ -3485,9 +3485,9 @@
       },
       "metricsAt": "2026-10-01T14:16:49.255Z"
     },
-    "stress-and-grid::SIMPLE 4 nodes.mmd": {
+    "gipsec::SIMPLE 4 nodes.mmd": {
       "diagram": "SIMPLE 4 nodes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "d4550fb772a4a405a180063c5c17754facd0d5927a051b02247201dd117d7194",
       "layoutMetrics": {
         "drawingWidth": 160.41796875,
@@ -3525,9 +3525,9 @@
       },
       "metricsAt": "2026-10-02T08:09:17.166Z"
     },
-    "stress-and-grid::SIMPLE loop with loops.mmd": {
+    "gipsec::SIMPLE loop with loops.mmd": {
       "diagram": "SIMPLE loop with loops.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "39eac89b1f59244a8c4ca6359c003ae2fcf6449ee5bc4dde27c0da85fcf2e285",
       "layoutMetrics": {
         "drawingWidth": 253.9446792961961,
@@ -3565,9 +3565,9 @@
       },
       "metricsAt": "2026-10-02T08:09:08.467Z"
     },
-    "stress-and-grid::MESSY hairy subgraphs.mmd": {
+    "gipsec::MESSY hairy subgraphs.mmd": {
       "diagram": "MESSY hairy subgraphs.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "e80277c04bb3fdde5201053a0725c0c953e8d2b2597b53ba014d75bcd72e3eec",
       "layoutMetrics": {
         "drawingWidth": 691.6900338642894,
@@ -4537,9 +4537,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T21:56:50.594Z"
     },
-    "stress-and-grid::HAIRY from root node.mmd": {
+    "gipsec::HAIRY from root node.mmd": {
       "diagram": "HAIRY from root node.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "94c272b0f3ab270298620036c73f00af4e4c1c23fdb27a350d4bd76f8ba0e13f",
       "layoutMetrics": {
         "drawingWidth": 428.2404738622525,
@@ -4653,9 +4653,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T21:57:19.889Z"
     },
-    "stress-and-grid::SIMPLE crowded labels hard.mmd": {
+    "gipsec::SIMPLE crowded labels hard.mmd": {
       "diagram": "SIMPLE crowded labels hard.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "c7d407a3e2c6bba195a4573186eec3b7b343ba9ec947cb18a58530a207b864ab",
       "layoutMetrics": {
         "drawingWidth": 918.2341169286526,
@@ -4773,9 +4773,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T21:57:32.520Z"
     },
-    "stress-and-grid::SIMPLE crowded labels.mmd": {
+    "gipsec::SIMPLE crowded labels.mmd": {
       "diagram": "SIMPLE crowded labels.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "a90f6e785ac423264ebadcabda4467549dff8d31333c1d6293945711da432107",
       "layoutMetrics": {
         "drawingWidth": 543.0491147834559,
@@ -4845,9 +4845,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T21:58:28.620Z"
     },
-    "stress-and-grid::GRAPH planar k4.mmd": {
+    "gipsec::GRAPH planar k4.mmd": {
       "diagram": "GRAPH planar k4.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "24a85ae028b5a2d34904e1f789c52d9ec691af39ed76d5cc06a7b91311d9a18d",
       "layoutMetrics": {
         "drawingWidth": 348.83203125,
@@ -4965,9 +4965,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T21:58:47.784Z"
     },
-    "stress-and-grid::GRAPH non planar k5.mmd": {
+    "gipsec::GRAPH non planar k5.mmd": {
       "diagram": "GRAPH non planar k5.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "8426a158fa8f73ba3e831289b92a14f196112d79b79eb67ff49cc15489e84bfd",
       "layoutMetrics": {
         "drawingWidth": 304.65625,
@@ -5037,9 +5037,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T21:59:13.929Z"
     },
-    "stress-and-grid::SIMPLE almost a tree.mmd": {
+    "gipsec::SIMPLE almost a tree.mmd": {
       "diagram": "SIMPLE almost a tree.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "83c8eaaef9b5ce36346aa09ab4a1b345e0289a47fd0510c5c11c6cd4cafb3746",
       "layoutMetrics": {
         "drawingWidth": 766.8265885597823,
@@ -5133,9 +5133,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T22:00:57.648Z"
     },
-    "stress-and-grid::SUBGRAPH decisions outside.mmd": {
+    "gipsec::SUBGRAPH decisions outside.mmd": {
       "diagram": "SUBGRAPH decisions outside.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "95343fb1ab1b25056bdd663b0550d6f5ccaadab75f1e7b2837cfa8e3c2fd442d",
       "layoutMetrics": {
         "drawingWidth": 827.3764485029224,
@@ -5411,9 +5411,9 @@
       },
       "metricsAt": "2026-09-29T21:55:46.042Z"
     },
-    "stress-and-grid::GRAPH holapaper triple loop.mmd": {
+    "gipsec::GRAPH holapaper triple loop.mmd": {
       "diagram": "GRAPH holapaper triple loop.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "dbd43fedae1235af34be2c34e7a6b528e7b4e2a04f091a7e24eabe0216122732",
       "layoutMetrics": {
         "drawingWidth": 633.8085453443819,
@@ -5806,9 +5806,9 @@
       },
       "metricsAt": "2026-10-01T14:40:51.923Z"
     },
-    "stress-and-grid::STYLE edge styling.mmd": {
+    "gipsec::STYLE edge styling.mmd": {
       "diagram": "STYLE edge styling.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "b8f8ff7f337ad6ba34fcf8b4172b5a20f98171badda82e7fa392b86ffb82bf83",
       "layoutMetrics": {
         "drawingWidth": 742.8707620892096,
@@ -5874,9 +5874,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T22:01:41.837Z"
     },
-    "stress-and-grid::SIMPLE crossing edges.mmd": {
+    "gipsec::SIMPLE crossing edges.mmd": {
       "diagram": "SIMPLE crossing edges.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "c647db6f0fa83b54e5284d2d1fa650534142de5d5ce9fed58c8ba3039560e129",
       "layoutMetrics": {
         "drawingWidth": 478.45629221082584,
@@ -5942,9 +5942,9 @@
       },
       "metricsAt": "2026-10-02T09:05:23.731Z"
     },
-    "stress-and-grid::HAIRY hedge styles.mmd": {
+    "gipsec::HAIRY hedge styles.mmd": {
       "diagram": "HAIRY hedge styles.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "c24e556ffa7e8ac70465449c7206cf098c6c083a94e722d33e567eee53e7a2c6",
       "layoutMetrics": {
         "drawingWidth": 290.37431612665443,
@@ -6017,9 +6017,9 @@
       },
       "metricsAt": "2026-09-29T21:55:12.214Z"
     },
-    "stress-and-grid::SUBGRAPH linear complexity.mmd": {
+    "gipsec::SUBGRAPH linear complexity.mmd": {
       "diagram": "SUBGRAPH linear complexity.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "36fb72136dc9f0fc5865a36df87217029e0d3718c0a600d775cdca8da3c6bb45",
       "layoutMetrics": {
         "drawingWidth": 1368.1103290979452,
@@ -6092,9 +6092,9 @@
       },
       "metricsAt": "2026-10-02T09:05:23.262Z"
     },
-    "stress-and-grid::HAIRY hedge types with big labels.mmd": {
+    "gipsec::HAIRY hedge types with big labels.mmd": {
       "diagram": "HAIRY hedge types with big labels.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "0f0a98dbef44e3a1698734eade387d1e0222729cd7f856b846fe2138e12396ed",
       "layoutMetrics": {
         "drawingWidth": 290.37431612665443,
@@ -6192,9 +6192,9 @@
       },
       "metricsAt": "2026-10-01T12:13:25.672Z"
     },
-    "stress-and-grid::MESSY windrose fixed.mmd": {
+    "gipsec::MESSY windrose fixed.mmd": {
       "diagram": "MESSY windrose fixed.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "fb203d0a604853d33e1c53fc6b0638906bd93d73cb3d2cd213d96bd92ed75897",
       "layoutMetrics": {
         "drawingWidth": 354.86094147868687,
@@ -6232,9 +6232,9 @@
       },
       "metricsAt": "2026-10-01T14:31:06.220Z"
     },
-    "stress-and-grid::VERBOSE elk-legacy-preset-regression.mmd": {
+    "gipsec::VERBOSE elk-legacy-preset-regression.mmd": {
       "diagram": "VERBOSE elk-legacy-preset-regression.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "c3d4db4ffa3aa15582a227e797f33a0542b0639cb832faa94197e65ad69935b3",
       "layoutMetrics": {
         "drawingWidth": 3237.0366067824634,
@@ -6352,9 +6352,9 @@
       },
       "metricsAt": "2026-09-29T21:55:11.856Z"
     },
-    "stress-and-grid::SUBGRAPH edge to node inside.mmd": {
+    "gipsec::SUBGRAPH edge to node inside.mmd": {
       "diagram": "SUBGRAPH edge to node inside.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "f0fa7ed8e5581859ec5d793f77db77e07305a98b5e1856ecabc78da01d0617b4",
       "layoutMetrics": {
         "drawingWidth": 111.921875,
@@ -6440,9 +6440,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T22:00:05.788Z"
     },
-    "stress-and-grid::SUBGRAPH disconnected simple diagrams.mmd": {
+    "gipsec::SUBGRAPH disconnected simple diagrams.mmd": {
       "diagram": "SUBGRAPH disconnected simple diagrams.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "19bc5536f54ad3b7ef74bd10762254ce5e90f776f87b639e11df41765596940f",
       "layoutMetrics": {
         "drawingWidth": 317.6738564030109,
@@ -6536,9 +6536,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T22:00:24.352Z"
     },
-    "stress-and-grid::SUBRAPH decision small.mmd": {
+    "gipsec::SUBRAPH decision small.mmd": {
       "diagram": "SUBRAPH decision small.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "00ffb238833e3b2cd7bed3f2617db48165ca5adbc99fe77553a0031477b02943",
       "layoutMetrics": {
         "drawingWidth": 647.7528181321734,
@@ -6632,9 +6632,9 @@
       "notes": "",
       "scoredAt": "2026-10-01T12:08:25.863Z"
     },
-    "stress-and-grid::MESSY double loop.mmd": {
+    "gipsec::MESSY double loop.mmd": {
       "diagram": "MESSY double loop.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "7680cc403454350ede97a0b10b004762eb106cfabb3cf74b30b11121a2d2e3d9",
       "layoutMetrics": {
         "drawingWidth": 169.72454833595154,
@@ -6752,9 +6752,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T22:02:03.801Z"
     },
-    "stress-and-grid::MESSY double loop top down.mmd": {
+    "gipsec::MESSY double loop top down.mmd": {
       "diagram": "MESSY double loop top down.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "23cf2670cada21bbbbee2157557a099e3c6ca86aba3daf3d8d591ddb4d20e8f9",
       "layoutMetrics": {
         "drawingWidth": 285.0625,
@@ -6848,9 +6848,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T22:02:40.968Z"
     },
-    "stress-and-grid::MESSY double loop even odd.mmd": {
+    "gipsec::MESSY double loop even odd.mmd": {
       "diagram": "MESSY double loop even odd.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "427a88d1b17952fb2f5044b3af27047d85f931448b54653bc3f68482a9ffef53",
       "layoutMetrics": {
         "drawingWidth": 449.0625,
@@ -6913,9 +6913,9 @@
       },
       "metricsAt": "2026-10-01T12:09:21.334Z"
     },
-    "stress-and-grid::SUBGRAPH edge from subgraph.mmd": {
+    "gipsec::SUBGRAPH edge from subgraph.mmd": {
       "diagram": "SUBGRAPH edge from subgraph.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "f31152a1ff64dd397960f47e61fb70c072d38458baf365f4bd4eef257c52afb1",
       "layoutMetrics": {
         "drawingWidth": 315.1287401228687,
@@ -7021,9 +7021,9 @@
       "notes": "",
       "scoredAt": "2026-09-29T22:01:20.253Z"
     },
-    "stress-and-grid::TREE diamonds.mmd": {
+    "gipsec::TREE diamonds.mmd": {
       "diagram": "TREE diamonds.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "384c1f3e77c309d73759b03c2aa43a297024b04e4e63219ed11d3049166333fe",
       "layoutMetrics": {
         "drawingWidth": 999.75,
@@ -7144,9 +7144,9 @@
       },
       "metricsAt": "2026-09-29T21:55:12.615Z"
     },
-    "stress-and-grid::GRAPH holapaper4.mmd": {
+    "gipsec::GRAPH holapaper4.mmd": {
       "diagram": "GRAPH holapaper4.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "54b15de10cc3913f9f3b09beddcf1c4028e9203f4785647fcf37673aa93aa5ae",
       "layoutMetrics": {
         "drawingWidth": 1194.8172649154592,
@@ -7199,9 +7199,9 @@
       },
       "metricsAt": "2026-09-29T21:55:12.517Z"
     },
-    "stress-and-grid::GRAPH holapaper4 verbose nodes.mmd": {
+    "gipsec::GRAPH holapaper4 verbose nodes.mmd": {
       "diagram": "GRAPH holapaper4 verbose nodes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "ce9c85a80f2b7f4a8d9088fc569e2ec504e24fd6f27bd17654964d51ef7cd9c7",
       "layoutMetrics": {
         "drawingWidth": 2102.9811710510694,
@@ -7254,9 +7254,9 @@
       },
       "metricsAt": "2026-09-29T21:55:12.715Z"
     },
-    "stress-and-grid::GRAPH fromhola5 non planar core.mmd": {
+    "gipsec::GRAPH fromhola5 non planar core.mmd": {
       "diagram": "GRAPH fromhola5 non planar core.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "788bcc2baca4b399430024eac2351c9ef82cb29caf0438133a1b498fe2db9a20",
       "layoutMetrics": {
         "drawingWidth": 1223.1181017627255,
@@ -7274,9 +7274,9 @@
       },
       "metricsAt": "2026-10-01T15:44:43.807Z"
     },
-    "stress-and-grid::HAIRY with different node size.mmd": {
+    "gipsec::HAIRY with different node size.mmd": {
       "diagram": "HAIRY with different node size.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "3d4b14cfd66d0651947fc9a73b71b51b710226ddccde4c8296d3a6780da2cc64",
       "layoutMetrics": {
         "drawingWidth": 796,
@@ -7438,9 +7438,9 @@
       "notes": "",
       "scoredAt": "2026-10-02T08:28:27.350Z"
     },
-    "stress-and-grid::SIMPLE decision shapes.mmd": {
+    "gipsec::SIMPLE decision shapes.mmd": {
       "diagram": "SIMPLE decision shapes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "1d757001b5e19389f2bf70b5f2898401b84213f519b56ecf94c7c07ec74e35bd",
       "layoutMetrics": {
         "drawingWidth": 305.5,
@@ -7806,9 +7806,9 @@
       },
       "metricsAt": "2026-10-02T08:50:59.464Z"
     },
-    "stress-and-grid::SUBGRAPH knsv2-13-flowchart-dagre-tb-subgraphs.mmd": {
+    "gipsec::SUBGRAPH knsv2-13-flowchart-dagre-tb-subgraphs.mmd": {
       "diagram": "SUBGRAPH knsv2-13-flowchart-dagre-tb-subgraphs.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "da816ce71ec5334397d6d84fc89dd0f4bae623f3b060ed3cb1aaf9b04f0fc4a1",
       "layoutMetrics": {
         "drawingWidth": 410.796875,
@@ -7866,9 +7866,9 @@
       },
       "metricsAt": "2026-09-29T21:55:10.770Z"
     },
-    "stress-and-grid::VERBOSE architecture.mmd": {
+    "gipsec::VERBOSE architecture.mmd": {
       "diagram": "VERBOSE architecture.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "acd5bb93af59a63715c46241d6d72053b8c5c8a0f15191764e34e099c87a4e02",
       "layoutMetrics": {
         "drawingWidth": 4694.327598571777,
@@ -7934,9 +7934,9 @@
       "notes": "",
       "scoredAt": "2026-10-01T11:03:45.023Z"
     },
-    "stress-and-grid::VERBOSE holapaper main example.mmd": {
+    "gipsec::VERBOSE holapaper main example.mmd": {
       "diagram": "VERBOSE holapaper main example.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "f06fcff3eb936b2793af86e865e0e98b6134b88e898c1b1647b5b8d590f33612",
       "layoutMetrics": {
         "drawingWidth": 2537.8767050125884,
@@ -8058,9 +8058,9 @@
       },
       "metricsAt": "2026-09-29T21:55:27.671Z"
     },
-    "stress-and-grid::GRAPH holapaper7.mmd": {
+    "gipsec::GRAPH holapaper7.mmd": {
       "diagram": "GRAPH holapaper7.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "3a31aabcd980494981404b15e6752a9c5ac0c8f979bb7fc6013cbc5cc44c0cc7",
       "layoutMetrics": {
         "drawingWidth": 386.20017851281636,
@@ -8178,9 +8178,9 @@
       },
       "metricsAt": "2026-10-02T09:11:10.214Z"
     },
-    "stress-and-grid::SIMPLE multiple edges between diamonds.mmd": {
+    "gipsec::SIMPLE multiple edges between diamonds.mmd": {
       "diagram": "SIMPLE multiple edges between diamonds.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "c8e3f08c03975c604370449a354bf0f7ffc7cca25c587131a624e31bfa5af0f4",
       "layoutMetrics": {
         "drawingWidth": 364.25,
@@ -8218,9 +8218,9 @@
       },
       "metricsAt": "2026-10-02T09:11:08.857Z"
     },
-    "stress-and-grid::GRAPH from holapaper7 double loop with trees.mmd": {
+    "gipsec::GRAPH from holapaper7 double loop with trees.mmd": {
       "diagram": "GRAPH from holapaper7 double loop with trees.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "5e841dbb244e80cffd20b3de36ac1c4693a0f7f2762618fcbcc15b87e4350cd2",
       "layoutMetrics": {
         "drawingWidth": 803.5638329341535,
@@ -8258,9 +8258,9 @@
       },
       "metricsAt": "2026-10-02T13:54:15.172Z"
     },
-    "stress-and-grid::TREE a simple one.mmd": {
+    "gipsec::TREE a simple one.mmd": {
       "diagram": "TREE a simple one.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "85a87c188116786299809f248deee608424c22c87fcce35cbe70fc52db5682d5",
       "layoutMetrics": {
         "drawingWidth": 170.86428672269147,
@@ -8338,9 +8338,9 @@
       },
       "metricsAt": "2026-10-02T13:54:08.101Z"
     },
-    "stress-and-grid::SIMPLE knsv2-17-flowchart-dagre-lr-shapes.mmd": {
+    "gipsec::SIMPLE knsv2-17-flowchart-dagre-lr-shapes.mmd": {
       "diagram": "SIMPLE knsv2-17-flowchart-dagre-lr-shapes.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "a9a7431afb3746a638dbe420aee1c0725c0dfff0cb40f8cc41ddbb67f4850f18",
       "layoutMetrics": {
         "drawingWidth": 174.99096298217773,
@@ -8718,9 +8718,9 @@
       },
       "metricsAt": "2026-10-02T13:55:56.256Z"
     },
-    "stress-and-grid::SIMPLE knsv2-27-flowchart-dagre-lr-subgraphs.mmd": {
+    "gipsec::SIMPLE knsv2-27-flowchart-dagre-lr-subgraphs.mmd": {
       "diagram": "SIMPLE knsv2-27-flowchart-dagre-lr-subgraphs.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "4cd376855adea79b1f08d04b684177b37cb6e992efaceeb857ee2533747d92b6",
       "layoutMetrics": {
         "drawingWidth": 205.015625,
@@ -8778,9 +8778,9 @@
       },
       "metricsAt": "2026-10-02T13:56:12.549Z"
     },
-    "stress-and-grid::SUBGRAPH-ELEMENTS coupled edges with labels.mmd": {
+    "gipsec::SUBGRAPH-ELEMENTS coupled edges with labels.mmd": {
       "diagram": "SUBGRAPH-ELEMENTS coupled edges with labels.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "0c44a647a8719f98449eaef51393c9335ba38f346f2ca1e747c7c51cb8ca7c84",
       "layoutMetrics": {
         "drawingWidth": 345.59375,
@@ -8818,9 +8818,9 @@
       },
       "metricsAt": "2026-09-29T21:55:11.896Z"
     },
-    "stress-and-grid::SUBGRAPH-ELEMENTS edge to subgraph.mmd": {
+    "gipsec::SUBGRAPH-ELEMENTS edge to subgraph.mmd": {
       "diagram": "SUBGRAPH-ELEMENTS edge to subgraph.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "aa94a13398db5fe569e8dd7a72c058263041b70c0a9401b8ec6ac4306c1e07b9",
       "layoutMetrics": {
         "drawingWidth": 316.70704309578724,
@@ -8946,9 +8946,9 @@
       "notes": "",
       "scoredAt": "2026-10-01T13:23:50.962Z"
     },
-    "stress-and-grid::SUBGRAPH-ELEMENTS simple edges from subgraph.mmd": {
+    "gipsec::SUBGRAPH-ELEMENTS simple edges from subgraph.mmd": {
       "diagram": "SUBGRAPH-ELEMENTS simple edges from subgraph.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "240573ac6bc3f9259532f24227e57dc1bfe4a19b4b405fb4c4f83a605911a8c6",
       "layoutMetrics": {
         "drawingWidth": 121.3046875,
@@ -9054,9 +9054,9 @@
       },
       "metricsAt": "2026-10-02T14:12:29.676Z"
     },
-    "stress-and-grid::MESSY windrose.mmd": {
+    "gipsec::MESSY windrose.mmd": {
       "diagram": "MESSY windrose.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "2158bc08fcb46e1d38f05ea05c33ab47a7936dbd00d38bf2b0be03277471c99c",
       "layoutMetrics": {
         "drawingWidth": 707.1953125,
@@ -9074,9 +9074,9 @@
       },
       "metricsAt": "2026-10-02T14:12:31.076Z"
     },
-    "stress-and-grid::GRAPH holapaper8.mmd": {
+    "gipsec::GRAPH holapaper8.mmd": {
       "diagram": "GRAPH holapaper8.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "3d2f54a3e598796c03bb1368f49c28c85653e347dc9958b8e1f8aa82fa007cb7",
       "layoutMetrics": {
         "drawingWidth": 311.71787129212544,
@@ -9174,9 +9174,9 @@
       },
       "metricsAt": "2026-10-02T22:25:21.485Z"
     },
-    "stress-and-grid::MESSY subgraph scrambling.mmd": {
+    "gipsec::MESSY subgraph scrambling.mmd": {
       "diagram": "MESSY subgraph scrambling.mmd",
-      "layout": "stress-and-grid",
+      "layout": "gipsec",
       "sourceHash": "de66d1e85188aac469382d8574055a19d03e9987fa7ab1cd641e0e0c63338a3a",
       "layoutMetrics": {
         "drawingWidth": 746.392586141376,

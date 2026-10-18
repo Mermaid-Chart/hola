@@ -379,8 +379,8 @@ describe('resolveLayouts', () => {
   });
 
   it('lets the environment override the file', () => {
-    const r = resolveLayouts(['dagre', 'elk'], 'hola, stress-and-grid');
-    expect(r.layouts).toEqual(['hola', 'stress-and-grid']);
+    const r = resolveLayouts(['dagre', 'elk'], 'hola, gipsec');
+    expect(r.layouts).toEqual(['hola', 'gipsec']);
     expect(r.source).toBe('env');
   });
 

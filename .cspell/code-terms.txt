@@ -77,6 +77,7 @@ frontmatter
 funs
 gantt
 GENERICTYPE
+gipsec
 grammr
 graphtype
 halign
