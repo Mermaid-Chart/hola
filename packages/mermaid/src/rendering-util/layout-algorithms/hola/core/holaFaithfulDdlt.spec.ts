@@ -126,11 +126,11 @@ describe('faithful HOLA — DDLT fixture sweep', () => {
     const [backendId] = backendsForProfile(fx.profile);
     // Not registered at all rather than reported as skipped, so the sweep's
     // output is only cases that are meant to hold.
-    const itUnlessSkipped = (assertion: string, body: () => Promise<void>) => {
+    const itUnlessSkipped = (assertion: string, body: () => Promise<void>, timeout?: number) => {
       if (SKIPPED.has(`${fx.id}|${assertion}`)) {
         return;
       }
-      it(assertion, body);
+      it(assertion, body, timeout);
     };
 
     // A fixture with every assertion excluded would leave an empty describe,

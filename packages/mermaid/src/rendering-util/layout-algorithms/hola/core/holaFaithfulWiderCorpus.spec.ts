@@ -59,11 +59,11 @@ describe('faithful HOLA — wider fixture corpus', () => {
     'hola/architecture raises no structural issue',
   ]);
 
-  const itUnlessSkipped = (title: string, body: () => Promise<void>) => {
+  const itUnlessSkipped = (title: string, body: () => Promise<void>, timeout?: number) => {
     if (SKIPPED.has(title)) {
       return;
     }
-    it(title, body);
+    it(title, body, timeout);
   };
 
   beforeAll(() => {
