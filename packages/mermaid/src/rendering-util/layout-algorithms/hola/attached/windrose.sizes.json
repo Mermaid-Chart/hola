@@ -1,0 +1,49 @@
+{
+  "capturedAt": "2026-10-13T07:18:56.339489+00:00",
+  "capturedFrom": "68aeb66c8583157a601590270466dcc2284080ac + local shape routing changes",
+  "browserContext": {
+    "font": "default theme font",
+    "dpi": 96
+  },
+  "nodes": [
+    {
+      "id": "South",
+      "labelBBox": {
+        "width": 40.109375,
+        "height": 24
+      }
+    },
+    {
+      "id": "North",
+      "labelBBox": {
+        "width": 40.109375,
+        "height": 24
+      }
+    },
+    {
+      "id": "NW",
+      "width": 83.84375,
+      "height": 54
+    },
+    {
+      "id": "NE",
+      "width": 78.78125,
+      "height": 54
+    },
+    {
+      "id": "SW",
+      "width": 81.328125,
+      "height": 54
+    },
+    {
+      "id": "SE",
+      "width": 76.265625,
+      "height": 54
+    },
+    {
+      "id": "C",
+      "width": 69.578125,
+      "height": 54
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "I",
+      "width": 108.921875,
+      "height": 108.921875
+    },
+    {
+      "id": "D",
+      "width": 151.234375,
+      "height": 151.234375
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "01f72feabd908d5d49b9191cda1310a39644bb03f0f8c24252aca8c5ebf6970f",
+    "capturedAt": "2026-10-04T09:57:27.669Z",
+    "capturedFrom": "dev-explorer test-dataset/SIMPLE multiple edges between diamonds.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

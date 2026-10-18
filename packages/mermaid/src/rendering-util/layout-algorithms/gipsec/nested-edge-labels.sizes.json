@@ -1,0 +1,251 @@
+{
+  "capturedAt": "2026-10-05",
+  "capturedFrom": "Browser measurements before the nested entry label corridor fix",
+  "browserContext": {
+    "font": "Theme defaults",
+    "dpi": 96,
+    "handDrawnSeed": 1
+  },
+  "variants": {
+    "classic-default": {
+      "nodes": {
+        "process_C": {
+          "width": 131.28125,
+          "height": 54
+        },
+        "Process_D": {
+          "width": 130.78125,
+          "height": 54
+        },
+        "process_A": {
+          "width": 131.15625,
+          "height": 54
+        },
+        "process_B": {
+          "width": 130.765625,
+          "height": 54
+        }
+      },
+      "titles": {
+        "container_Alpha": {
+          "width": 116.859375,
+          "height": 24
+        },
+        "container_Beta": {
+          "width": 109.171875,
+          "height": 24
+        }
+      },
+      "labels": {
+        "L_process_B_container_Beta_0": {
+          "width": 99.03125,
+          "height": 24
+        },
+        "L_process_A_process_C_0": {
+          "width": 66.609375,
+          "height": 24
+        }
+      }
+    },
+    "classic-redux-color": {
+      "nodes": {
+        "process_C": {
+          "width": 126.921875,
+          "height": 51
+        },
+        "Process_D": {
+          "width": 128.46875,
+          "height": 51
+        },
+        "process_A": {
+          "width": 126.15625,
+          "height": 51
+        },
+        "process_B": {
+          "width": 126.15625,
+          "height": 51
+        }
+      },
+      "titles": {
+        "container_Alpha": {
+          "width": 101.1875,
+          "height": 21
+        },
+        "container_Beta": {
+          "width": 94.1875,
+          "height": 21
+        }
+      },
+      "labels": {
+        "L_process_B_container_Beta_0": {
+          "width": 92.859375,
+          "height": 21
+        },
+        "L_process_A_process_C_0": {
+          "width": 63.8125,
+          "height": 21
+        }
+      }
+    },
+    "neo-default": {
+      "nodes": {
+        "process_C": {
+          "width": 103.28125,
+          "height": 48
+        },
+        "Process_D": {
+          "width": 102.78125,
+          "height": 48
+        },
+        "process_A": {
+          "width": 103.15625,
+          "height": 48
+        },
+        "process_B": {
+          "width": 102.765625,
+          "height": 48
+        }
+      },
+      "titles": {
+        "container_Alpha": {
+          "width": 116.859375,
+          "height": 24
+        },
+        "container_Beta": {
+          "width": 109.171875,
+          "height": 24
+        }
+      },
+      "labels": {
+        "L_process_B_container_Beta_0": {
+          "width": 99.03125,
+          "height": 24
+        },
+        "L_process_A_process_C_0": {
+          "width": 66.609375,
+          "height": 24
+        }
+      }
+    },
+    "neo-redux-color": {
+      "nodes": {
+        "process_C": {
+          "width": 98.921875,
+          "height": 45
+        },
+        "Process_D": {
+          "width": 100.46875,
+          "height": 45
+        },
+        "process_A": {
+          "width": 98.15625,
+          "height": 45
+        },
+        "process_B": {
+          "width": 98.15625,
+          "height": 45
+        }
+      },
+      "titles": {
+        "container_Alpha": {
+          "width": 101.1875,
+          "height": 21
+        },
+        "container_Beta": {
+          "width": 94.1875,
+          "height": 21
+        }
+      },
+      "labels": {
+        "L_process_B_container_Beta_0": {
+          "width": 92.859375,
+          "height": 21
+        },
+        "L_process_A_process_C_0": {
+          "width": 63.8125,
+          "height": 21
+        }
+      }
+    },
+    "handDrawn-default": {
+      "nodes": {
+        "process_C": {
+          "width": 133.67311096191406,
+          "height": 56.8928337097168
+        },
+        "Process_D": {
+          "width": 133.01702880859375,
+          "height": 57.48651123046875
+        },
+        "process_A": {
+          "width": 133.14779663085938,
+          "height": 56.92378234863281
+        },
+        "process_B": {
+          "width": 133.01702880859375,
+          "height": 57.48651123046875
+        }
+      },
+      "titles": {
+        "container_Alpha": {
+          "width": 116.859375,
+          "height": 24
+        },
+        "container_Beta": {
+          "width": 109.171875,
+          "height": 24
+        }
+      },
+      "labels": {
+        "L_process_B_container_Beta_0": {
+          "width": 99.03125,
+          "height": 24
+        },
+        "L_process_A_process_C_0": {
+          "width": 66.609375,
+          "height": 24
+        }
+      }
+    },
+    "handDrawn-redux-color": {
+      "nodes": {
+        "process_C": {
+          "width": 129.01568603515625,
+          "height": 54.467674255371094
+        },
+        "Process_D": {
+          "width": 130.79258728027344,
+          "height": 53.76920700073242
+        },
+        "process_A": {
+          "width": 129.01438903808594,
+          "height": 54.28270721435547
+        },
+        "process_B": {
+          "width": 129.01438903808594,
+          "height": 54.28270721435547
+        }
+      },
+      "titles": {
+        "container_Alpha": {
+          "width": 101.1875,
+          "height": 21
+        },
+        "container_Beta": {
+          "width": 94.1875,
+          "height": 21
+        }
+      },
+      "labels": {
+        "L_process_B_container_Beta_0": {
+          "width": 92.859375,
+          "height": 21
+        },
+        "L_process_A_process_C_0": {
+          "width": 63.8125,
+          "height": 21
+        }
+      }
+    }
+  }
+}

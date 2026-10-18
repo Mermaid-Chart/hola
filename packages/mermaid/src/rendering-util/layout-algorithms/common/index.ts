@@ -1,6 +1,7 @@
 import type { SVG } from '../../../diagram-api/types.js';
 import type { InternalHelpers } from '../../../internals.js';
 import type { D3Selection } from '../../../types.js';
+import { log } from '../../../logger.js';
 import { profiler } from '../../../profiler.js';
 import { getConfig } from '../../../config.js';
 import utils from '../../../utils.js';
@@ -105,6 +106,27 @@ export interface CommonLayoutRendererDefinition<
   paintOptions?: CommonLayoutPaintOptions;
 }
 
+/**
+ * Diagnostic snapshot for tracking a node's geometry through the shared layout
+ * pipeline. Keep this deliberately to model data: reading SVG bounds here would
+ * force a reflow on every render, even when debug logging is disabled.
+ */
+function logNodeHeights(data4Layout: LayoutData, phase: string): void {
+  log.debug('LAYOUT-DBG: node heights', {
+    layout: data4Layout.layoutAlgorithm,
+    phase,
+    nodes: data4Layout.nodes.map((node) => ({
+      id: node.id,
+      shape: node.shape,
+      isGroup: node.isGroup,
+      width: node.width,
+      height: node.height,
+      x: node.x,
+      y: node.y,
+    })),
+  });
+}
+
 export function createCommonLayoutRenderer<
   CoreResult = unknown,
   PreparedLayout = void,
@@ -147,6 +169,20 @@ export function createCommonLayoutRenderer<
     );
     clearLayoutRenderState();
 
+    // Structure capture (dev / test tooling only), loaded by the same guarded
+    // dynamic import as the validation capture below — in published builds
+    // `window.mermaidCaptureValidation` is unset, so this is a single property
+    // read. It has to run *here*, before `prepareLayout`, because a layout may
+    // rewrite `data4Layout` on its way through: dagre replaces `edges` with the
+    // top-level edges only, so intra-cluster edges are gone by the time the
+    // post-layout capture runs. See ddlt/validationCapture.ts.
+    if (
+      (globalThis as unknown as { mermaidCaptureValidation?: boolean }).mermaidCaptureValidation
+    ) {
+      const { captureStructureBeforeLayout } = await import('../ddlt/validationCapture.js');
+      captureStructureBeforeLayout(data4Layout);
+    }
+
     // Convenience struct containing everything you need to render
     // the root element and helper function from core mermaid
     const renderContext: CommonLayoutRenderContext<PreparedLayout> = {
@@ -160,6 +196,7 @@ export function createCommonLayoutRenderer<
     renderContext.preparedLayout = injected.profiling
       ? await profiler.span('prepare', () => prepareLayout?.(data4Layout, renderContext))
       : await prepareLayout?.(data4Layout, renderContext);
+    logNodeHeights(data4Layout, 'after-prepare');
 
     // Get the sizes of the labels and other elements by running the measureLayout function,
     // which by default creates a graph with the elements and measures them.
@@ -167,6 +204,7 @@ export function createCommonLayoutRenderer<
     const measure = injected.profiling
       ? await profiler.span('measure', () => measureLayoutFn(data4Layout, renderContext))
       : await measureLayoutFn(data4Layout, renderContext);
+    logNodeHeights(data4Layout, 'after-measure');
 
     // Next, run the core layout algorithm to compute the positions of nodes and edges based on the algorithm,
     // layoutData and the measurements. This is the core piece where functions are supposed to be different
@@ -174,6 +212,7 @@ export function createCommonLayoutRenderer<
     const coreResult = injected.profiling
       ? await profiler.span('layout', () => runLayoutCore(data4Layout, renderContext))
       : await runLayoutCore(data4Layout, renderContext);
+    logNodeHeights(data4Layout, 'after-layout');
 
     const paintContext: CommonLayoutPaintContext<PreparedLayout, MeasureResult> = {
       ...renderContext,
@@ -198,8 +237,27 @@ export function createCommonLayoutRenderer<
     // Some algorithms may need to do some post-processing after the initial paint, for example to position edge
     // labels after the edges have been rendered and their paths are known.
     await afterPaint?.(data4Layout, paintContext, coreResult);
+    logNodeHeights(data4Layout, 'after-paint');
     if (injected.profiling) {
       profiler.end(); // paint
+    }
+
+    // Layout validation capture (dev / test tooling only), loaded by dynamic
+    // import so it never reaches a production render path: in published builds
+    // `window.mermaidCaptureValidation` is unset, so this is a single property
+    // read and the import resolves to a chunk that is only fetched when a
+    // developer turns capture on. Same shape as the size-capture guard in
+    // `createGraph.ts`. See layout-algorithms/ddlt/validationCapture.ts.
+    //
+    // After `afterPaint`, because that hook is where a layout settles its edge
+    // labels — grading before it would judge a drawing that was never shown.
+    // Outside the `paint` span, so capture never inflates the painted time the
+    // Profile tab reports.
+    if (
+      (globalThis as unknown as { mermaidCaptureValidation?: boolean }).mermaidCaptureValidation
+    ) {
+      const { captureLayoutForValidation } = await import('../ddlt/validationCapture.js');
+      captureLayoutForValidation(element, data4Layout);
     }
   };
 }

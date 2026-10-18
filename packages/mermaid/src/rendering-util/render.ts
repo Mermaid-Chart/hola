@@ -5,6 +5,10 @@ import { log } from '../logger.js';
 import { insertLookDefs } from './insertLookDefs.js';
 import type { LayoutData } from './types.js';
 import { ELK_ALGORITHMS } from './layout-algorithms/elk/algorithms.js';
+import {
+  STRUCTURAL_FALLBACK_LAYOUT,
+  structuralFallbackVerdict,
+} from './layout-algorithms/layout-utils/structuralFallback.js';
 
 // console.log('MUST be removed, this only for keeping dev server working');
 // import tmp from './layout-algorithms/dagre/index.js';
@@ -85,6 +89,28 @@ const registerDefaultLayoutLoaders = () => {
       name: 'swimlane',
       loader: async () => await import('./layout-algorithms/swimlanes/index.js'),
     },
+    {
+      // IPSEP-COLA (Dwyer, Koren & Marriott 2006): stress majorisation under
+      // separation constraints. HOLA's first stage, on its own — the placement
+      // everything below it starts from.
+      name: 'ipsep-cola',
+      loader: async () => await import('./layout-algorithms/ipsep-cola/index.js'),
+    },
+    {
+      // Grid-like layout (Kieffer, Dwyer, Marriott & Wybrow 2013): IPSEP-COLA
+      // followed by HOLA's ACA and grid-snap beautification, without HOLA's
+      // core/tree decomposition or orthogonal routing stages.
+      name: 'gipsec',
+      loader: async () => await import('./layout-algorithms/gipsec/index.js'),
+    },
+    {
+      // HOLA (Kieffer, Dwyer, Marriott & Wybrow 2015): the graph is decomposed
+      // into a core plus the trees hanging off it, the core is drawn grid-like
+      // and orthogonally routed, and every tree is hung back on the core node
+      // it was peeled from.
+      name: 'hola',
+      loader: async () => await import('./layout-algorithms/hola/index.js'),
+    },
     // elkjs is ~1.6 MB of source, so it is excluded from the tiny build along
     // with the other large features. `getRegisteredLayoutAlgorithm` then falls
     // back to dagre for diagrams that ask for an ELK layout there.
@@ -105,6 +131,19 @@ registerDefaultLayoutLoaders();
 export const render = async (data4Layout: LayoutData, svg: SVG, positions?: Positions) => {
   if (!Object.hasOwn(layoutAlgorithms, data4Layout.layoutAlgorithm)) {
     throw new Error(`Unknown layout algorithm: ${data4Layout.layoutAlgorithm}`);
+  }
+
+  // Grid-like layouts opt out of graphs their core/tree decomposition handles
+  // badly; see `structuralFallbackVerdict`. Resolved through
+  // `getRegisteredLayoutAlgorithm` so the tiny build, which ships no ELK, lands
+  // on dagre instead of an unregistered name.
+  const structural = structuralFallbackVerdict(data4Layout, data4Layout.layoutAlgorithm);
+  if (structural.fallback) {
+    const target = getRegisteredLayoutAlgorithm(STRUCTURAL_FALLBACK_LAYOUT);
+    log.info(
+      `Layout "${data4Layout.layoutAlgorithm}" is not suited to this graph (${structural.reason}: ${structural.detail}). Using "${target}" instead.`
+    );
+    data4Layout.layoutAlgorithm = target;
   }
 
   // Prefix all node domIds with the diagram's SVG element ID to ensure uniqueness

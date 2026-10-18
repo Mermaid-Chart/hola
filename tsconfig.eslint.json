@@ -17,6 +17,7 @@
     "./e2e",
     "./__mocks__",
     "./demos/dev",
+    "./diagram-lab",
     "./vite.config.ts",
     "./vitest.workspace.js",
     "eslint.config.js",

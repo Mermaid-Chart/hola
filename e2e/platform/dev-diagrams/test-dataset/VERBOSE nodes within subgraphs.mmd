@@ -1,0 +1,64 @@
+
+flowchart LR
+    U[User Browser] --> CDN[CDN / Edge]
+    CDN --> FE[Frontend App<br/>React / Next.js]
+    FE --> API[API Gateway / BFF]
+
+    API --> AUTH[Auth Service]
+    API --> APP[Application Services]
+    API --> RT[Realtime Gateway]
+
+    APP --> DB[(Primary Database)]
+    APP --> CACHE[(Redis Cache)]
+    APP --> OBJ[(Object Storage)]
+    APP --> Q[Message Queue]
+
+    Q --> WK[Background Workers]
+    WK --> DB
+    WK --> EXT[Third-party APIs]
+
+    RT --> PUB[Pub/Sub]
+    PUB --> APP
+
+    FE --> OBS[Client Monitoring]
+    API --> OBS
+    APP --> OBS
+    WK --> OBS
+
+    CI[CI/CD Pipeline] --> CDN
+    CI --> API
+    CI --> APP
+    CI --> WK
+
+    subgraph Client
+      U
+      FE
+    end
+
+    subgraph Edge
+      CDN
+    end
+
+    subgraph Backend
+      API
+      AUTH
+      APP
+      RT
+    end
+
+    subgraph Data
+      DB
+      CACHE
+      OBJ
+      Q
+      PUB
+    end
+
+    subgraph Async
+      WK
+    end
+
+    subgraph Operations
+      OBS
+      CI
+    end

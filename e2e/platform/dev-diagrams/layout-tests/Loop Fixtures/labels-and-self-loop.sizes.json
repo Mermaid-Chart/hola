@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "Start",
+      "width": 95.015625,
+      "height": 54
+    },
+    {
+      "id": "Parse",
+      "width": 98,
+      "height": 54
+    },
+    {
+      "id": "Layout",
+      "width": 108.078125,
+      "height": 54
+    },
+    {
+      "id": "Render",
+      "width": 110,
+      "height": 54
+    },
+    {
+      "id": "Report",
+      "width": 107.453125,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "a67f8c96082d7af41077e222ff4bbd2b843ea093515df6f270749d3de46aa81e",
+    "capturedAt": "2026-09-14T10:59:25.233Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/labels-and-self-loop.mmd theme=default look=classic layout=dagre"
+  }
+}

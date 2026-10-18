@@ -1,0 +1,35 @@
+{
+  "nodes": [
+    {
+      "id": "a",
+      "width": 68.40625,
+      "height": 54
+    },
+    {
+      "id": "D",
+      "width": 62.90625,
+      "height": 62.90625
+    },
+    {
+      "id": "E",
+      "width": 70.8125,
+      "height": 54
+    },
+    {
+      "id": "F",
+      "width": 70.8125,
+      "height": 54
+    },
+    {
+      "id": "I",
+      "width": 62.90625,
+      "height": 62.90625
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "16ee3dd2c963ee951301d15509ffa3daab48375e7c1bc07f17ae8dcd697295b3",
+    "capturedAt": "2026-10-04T10:00:19.735Z",
+    "capturedFrom": "dev-explorer test-dataset/SUBGRAPH knsv2-24-flowchart-dagre-lr-subgraphs.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

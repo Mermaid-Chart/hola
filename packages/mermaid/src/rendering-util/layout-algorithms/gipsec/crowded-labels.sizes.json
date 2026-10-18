@@ -1,0 +1,258 @@
+{
+  "diagram": "test-dataset/SIMPLE crowded labels.mmd",
+  "provenance": "Measured before the reciprocal-label routing fix, from the localhost production render.",
+  "variants": {
+    "classic-default": {
+      "nodes": {
+        "Customer": {
+          "width": 127.953125,
+          "height": 54
+        },
+        "USCompany": {
+          "width": 143.46875,
+          "height": 54
+        },
+        "HongKongCompany": {
+          "width": 195.296875,
+          "height": 54
+        },
+        "Expenses": {
+          "width": 124.65625,
+          "height": 54
+        },
+        "ExpensesHK": {
+          "width": 144.328125,
+          "height": 54
+        },
+        "Wages": {
+          "width": 49.6875,
+          "height": 54
+        },
+        "Incomehk": {
+          "width": 128.53125,
+          "height": 54
+        }
+      },
+      "edges": {
+        "L_USCompany_HongKongCompany_0": {
+          "width": 104.796875,
+          "height": 24
+        },
+        "L_USCompany_Expenses_0": {
+          "width": 11.296875,
+          "height": 24
+        }
+      }
+    },
+    "classic-redux-color": {
+      "nodes": {
+        "Customer": {
+          "width": 120.6875,
+          "height": 51
+        },
+        "USCompany": {
+          "width": 139.375,
+          "height": 51
+        },
+        "HongKongCompany": {
+          "width": 186.09375,
+          "height": 51
+        },
+        "Expenses": {
+          "width": 121.484375,
+          "height": 51
+        },
+        "ExpensesHK": {
+          "width": 140.9375,
+          "height": 51
+        },
+        "Wages": {
+          "width": 49.453125,
+          "height": 51
+        },
+        "Incomehk": {
+          "width": 120.703125,
+          "height": 51
+        }
+      },
+      "edges": {
+        "L_USCompany_HongKongCompany_0": {
+          "width": 81.71875,
+          "height": 21
+        },
+        "L_USCompany_Expenses_0": {
+          "width": 9.34375,
+          "height": 21
+        }
+      }
+    },
+    "neo-default": {
+      "nodes": {
+        "Customer": {
+          "width": 99.953125,
+          "height": 48
+        },
+        "USCompany": {
+          "width": 115.46875,
+          "height": 48
+        },
+        "HongKongCompany": {
+          "width": 167.296875,
+          "height": 48
+        },
+        "Expenses": {
+          "width": 96.65625,
+          "height": 48
+        },
+        "ExpensesHK": {
+          "width": 116.328125,
+          "height": 48
+        },
+        "Wages": {
+          "width": 49.6875,
+          "height": 54
+        },
+        "Incomehk": {
+          "width": 100.53125,
+          "height": 48
+        }
+      },
+      "edges": {
+        "L_USCompany_HongKongCompany_0": {
+          "width": 104.796875,
+          "height": 24
+        },
+        "L_USCompany_Expenses_0": {
+          "width": 11.296875,
+          "height": 24
+        }
+      }
+    },
+    "neo-redux-color": {
+      "nodes": {
+        "Customer": {
+          "width": 92.6875,
+          "height": 45
+        },
+        "USCompany": {
+          "width": 111.375,
+          "height": 45
+        },
+        "HongKongCompany": {
+          "width": 158.09375,
+          "height": 45
+        },
+        "Expenses": {
+          "width": 93.484375,
+          "height": 45
+        },
+        "ExpensesHK": {
+          "width": 112.9375,
+          "height": 45
+        },
+        "Wages": {
+          "width": 49.453125,
+          "height": 51
+        },
+        "Incomehk": {
+          "width": 92.703125,
+          "height": 45
+        }
+      },
+      "edges": {
+        "L_USCompany_HongKongCompany_0": {
+          "width": 81.71875,
+          "height": 21
+        },
+        "L_USCompany_Expenses_0": {
+          "width": 9.34375,
+          "height": 21
+        }
+      }
+    },
+    "handDrawn-default": {
+      "nodes": {
+        "Customer": {
+          "width": 130.39279174804688,
+          "height": 57.44685745239258
+        },
+        "USCompany": {
+          "width": 146.13821411132812,
+          "height": 56.95988082885742
+        },
+        "HongKongCompany": {
+          "width": 198.088134765625,
+          "height": 56.959007263183594
+        },
+        "Expenses": {
+          "width": 127.14058685302734,
+          "height": 57.486515045166016
+        },
+        "ExpensesHK": {
+          "width": 146.54380798339844,
+          "height": 56.797237396240234
+        },
+        "Wages": {
+          "width": 52.21107482910156,
+          "height": 56.379520416259766
+        },
+        "Incomehk": {
+          "width": 131.44862365722656,
+          "height": 56.81893539428711
+        }
+      },
+      "edges": {
+        "L_USCompany_HongKongCompany_0": {
+          "width": 104.796875,
+          "height": 24
+        },
+        "L_USCompany_Expenses_0": {
+          "width": 11.296875,
+          "height": 24
+        }
+      }
+    },
+    "handDrawn-redux-color": {
+      "nodes": {
+        "Customer": {
+          "width": 123.13793182373047,
+          "height": 54.467674255371094
+        },
+        "USCompany": {
+          "width": 142.13555908203125,
+          "height": 54.4754753112793
+        },
+        "HongKongCompany": {
+          "width": 189.23472595214844,
+          "height": 53.85476303100586
+        },
+        "Expenses": {
+          "width": 123.83220672607422,
+          "height": 54.42802047729492
+        },
+        "ExpensesHK": {
+          "width": 143.2576904296875,
+          "height": 53.77840042114258
+        },
+        "Wages": {
+          "width": 51.927330017089844,
+          "height": 52.53486251831055
+        },
+        "Incomehk": {
+          "width": 123.13793182373047,
+          "height": 54.467674255371094
+        }
+      },
+      "edges": {
+        "L_USCompany_HongKongCompany_0": {
+          "width": 81.71875,
+          "height": 21
+        },
+        "L_USCompany_Expenses_0": {
+          "width": 9.34375,
+          "height": 21
+        }
+      }
+    }
+  }
+}

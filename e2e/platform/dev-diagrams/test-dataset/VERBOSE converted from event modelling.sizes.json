@@ -1,0 +1,205 @@
+{
+  "nodes": [
+    {
+      "id": "n01",
+      "width": 228.640625,
+      "height": 54
+    },
+    {
+      "id": "n02",
+      "width": 246.421875,
+      "height": 54
+    },
+    {
+      "id": "n03",
+      "width": 222.984375,
+      "height": 54
+    },
+    {
+      "id": "n04",
+      "width": 246.96875,
+      "height": 54
+    },
+    {
+      "id": "n05",
+      "width": 282.140625,
+      "height": 54
+    },
+    {
+      "id": "n06",
+      "width": 225.453125,
+      "height": 54
+    },
+    {
+      "id": "n07",
+      "width": 234.375,
+      "height": 54
+    },
+    {
+      "id": "n08",
+      "width": 256.390625,
+      "height": 54
+    },
+    {
+      "id": "n09",
+      "width": 245.921875,
+      "height": 54
+    },
+    {
+      "id": "n10",
+      "width": 254.84375,
+      "height": 54
+    },
+    {
+      "id": "n11",
+      "width": 334.34375,
+      "height": 54
+    },
+    {
+      "id": "n12",
+      "width": 230.3125,
+      "height": 54
+    },
+    {
+      "id": "n13",
+      "width": 247.953125,
+      "height": 54
+    },
+    {
+      "id": "n14",
+      "width": 238.953125,
+      "height": 54
+    },
+    {
+      "id": "n15",
+      "width": 314.09375,
+      "height": 54
+    },
+    {
+      "id": "n16",
+      "width": 291,
+      "height": 54
+    },
+    {
+      "id": "n17",
+      "width": 271.609375,
+      "height": 54
+    },
+    {
+      "id": "n18",
+      "width": 280.515625,
+      "height": 54
+    },
+    {
+      "id": "n19",
+      "width": 240.5625,
+      "height": 54
+    },
+    {
+      "id": "n20",
+      "width": 241.34375,
+      "height": 54
+    },
+    {
+      "id": "n21",
+      "width": 212.75,
+      "height": 54
+    },
+    {
+      "id": "n22",
+      "width": 230.390625,
+      "height": 54
+    },
+    {
+      "id": "n23",
+      "width": 245.1875,
+      "height": 54
+    },
+    {
+      "id": "n24",
+      "width": 218.171875,
+      "height": 54
+    },
+    {
+      "id": "n25",
+      "width": 235.8125,
+      "height": 54
+    },
+    {
+      "id": "n26",
+      "width": 260.4375,
+      "height": 54
+    },
+    {
+      "id": "n27",
+      "width": 241.046875,
+      "height": 54
+    },
+    {
+      "id": "n28",
+      "width": 249.953125,
+      "height": 54
+    },
+    {
+      "id": "n29",
+      "width": 252.453125,
+      "height": 54
+    },
+    {
+      "id": "n30",
+      "width": 254.234375,
+      "height": 54
+    },
+    {
+      "id": "n31",
+      "width": 271.875,
+      "height": 54
+    },
+    {
+      "id": "n32",
+      "width": 229.53125,
+      "height": 54
+    },
+    {
+      "id": "n33",
+      "width": 239.203125,
+      "height": 54
+    },
+    {
+      "id": "n34",
+      "width": 246.671875,
+      "height": 54
+    },
+    {
+      "id": "n35",
+      "width": 251.921875,
+      "height": 54
+    },
+    {
+      "id": "n36",
+      "width": 295.34375,
+      "height": 54
+    },
+    {
+      "id": "n37",
+      "width": 261.296875,
+      "height": 54
+    },
+    {
+      "id": "n38",
+      "width": 217.453125,
+      "height": 54
+    },
+    {
+      "id": "n39",
+      "width": 288.828125,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "635516191ca81f56334228738dded380d9ec6645b85e24a623a217a4bc23d37b",
+    "capturedAt": "2026-10-12T09:56:05.535Z",
+    "capturedFrom": "dev-explorer test-dataset/VERBOSE converted from event modelling.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

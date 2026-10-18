@@ -1,0 +1,55 @@
+{
+  "nodes": [
+    {
+      "id": "A",
+      "width": 69.4375,
+      "height": 54
+    },
+    {
+      "id": "B",
+      "width": 69.0625,
+      "height": 54
+    },
+    {
+      "id": "C",
+      "width": 69.578125,
+      "height": 54
+    },
+    {
+      "id": "D",
+      "width": 69.8125,
+      "height": 54
+    },
+    {
+      "id": "t1",
+      "width": 74.734375,
+      "height": 54
+    },
+    {
+      "id": "t2",
+      "width": 74.734375,
+      "height": 54
+    },
+    {
+      "id": "t3",
+      "width": 74.734375,
+      "height": 54
+    },
+    {
+      "id": "s1",
+      "width": 74.875,
+      "height": 54
+    },
+    {
+      "id": "s2",
+      "width": 74.875,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "83c8eaaef9b5ce36346aa09ab4a1b345e0289a47fd0510c5c11c6cd4cafb3746",
+    "capturedAt": "2026-09-14T10:59:24.984Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/core-with-two-trees.mmd theme=default look=classic layout=dagre"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "Start",
+      "width": 59.74558639526367,
+      "height": 39
+    },
+    {
+      "id": "Split",
+      "width": 179.625,
+      "height": 179.625
+    },
+    {
+      "id": "T1",
+      "width": 103.625,
+      "height": 54
+    },
+    {
+      "id": "T2",
+      "width": 104.125,
+      "height": 54
+    },
+    {
+      "id": "Merge",
+      "width": 99.484375,
+      "height": 99.484375
+    },
+    {
+      "id": "Done",
+      "width": 60.60496139526367,
+      "height": 39
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "1d757001b5e19389f2bf70b5f2898401b84213f519b56ecf94c7c07ec74e35bd",
+    "capturedAt": "2026-09-14T10:59:25.496Z",
+    "capturedFrom": "ddlt-capture.html dev-diagrams/layout-tests/Loop Fixtures/non-rect-intersections.mmd theme=default look=classic layout=dagre"
+  }
+}

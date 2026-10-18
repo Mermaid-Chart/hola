@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "internet",
+      "width": 118.40625,
+      "height": 54
+    },
+    {
+      "id": "nat",
+      "width": 83.5,
+      "height": 54
+    },
+    {
+      "id": "router",
+      "width": 104.84375,
+      "height": 54
+    },
+    {
+      "id": "compute1",
+      "width": 130.90625,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "508f8d1463dd308fff9b654324960b6d60e75cc4938d2fbf37877d61c6c7d309",
+    "capturedAt": "2026-10-04T10:00:05.198Z",
+    "capturedFrom": "dev-explorer test-dataset/SUBGRAPH knsv2-12-flowchart-dagre-tb-subgraphs.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}

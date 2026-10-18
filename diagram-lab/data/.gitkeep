@@ -1,0 +1,2 @@
+Scores and metrics land here as records.json, written by the lab server.
+Kept in git so a scoring run survives a branch switch; delete the file to start over.

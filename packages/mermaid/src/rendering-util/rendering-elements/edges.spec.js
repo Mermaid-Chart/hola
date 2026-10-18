@@ -74,19 +74,32 @@ describe('insertEdge clips for the engine that drew the edge', () => {
     expect(drawn).toHaveLength(2);
   });
 
-  it('would empty a two-point route if it went by the configured layout instead', () => {
+  it('would reverse a two-point route if it went by the configured layout instead', () => {
     // The clipping written for dagre drops the first and last point, which leaves a
     // two-point route with nothing to meet. A bpmn diagram is always laid out in
     // swimlanes while `layout` resolves to the global default, so the two disagree and
     // this is what the argument above exists to prevent.
+    //
+    // Upstream asserts a TypeError here, because its dagre path slices the route down
+    // to nothing and then calls `intersect(undefined)`. This fork guards `points.length
+    // <= 2` and clips each endpoint toward the other instead, so the mismatch shows up
+    // as a reversed route rather than a crash. The guard is deliberate - restoring the
+    // crash to match upstream's assertion would be a regression - so the assertion
+    // tracks the fork's behaviour while testing the same thing: routing a two-point
+    // edge by the configured layout rather than the engine that drew it is wrong.
     document.body.innerHTML = '';
     const svg = select(document.body).append('svg');
 
     withConfiguredLayout('elk', () => {
-      expect(() =>
-        insertEdge(svg, twoPointEdge(), null, 'bpmn', shapeMeeting(), shapeMeeting(), 'd')
-      ).toThrow(TypeError);
+      insertEdge(svg, twoPointEdge(), null, 'bpmn', shapeMeeting(), shapeMeeting(), 'd');
     });
+
+    const drawn = JSON.parse(atob(svg.select('path').attr('data-points')));
+    // The swimlane path above yields [{0,0}, {0,100}]; going by the configured layout
+    // walks the endpoints in the opposite order.
+    expect(drawn).toHaveLength(2);
+    expect(drawn[0]).toMatchObject({ x: 0, y: 100 });
+    expect(drawn[1]).toMatchObject({ x: 0, y: 0 });
   });
 });
 
@@ -144,6 +157,58 @@ describe('computeLabelTransform', () => {
 });
 
 describe('insertEdge swimlane endpoint clipping', () => {
+  it('preserves deliberate right angles from a settled orthogonal route', () => {
+    document.body.innerHTML = '';
+    const svg = select(document.body).append('svg');
+    const edge = {
+      id: 'orthogonal-route',
+      cssCompiledStyles: {},
+      style: [],
+      thickness: 'normal',
+      pattern: 'solid',
+      classes: 'flowchart-link',
+      curve: 'linear',
+      hasIntersectionPoints: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 0, y: 40 },
+        { x: 60, y: 40 },
+      ],
+    };
+
+    insertEdge(svg, edge, null, 'flowchart', {}, {}, 'diagram', true);
+
+    expect(svg.select('path').attr('d')).toBe('M0,0L0,40L60,40');
+  });
+
+  it('keeps a straight terminal stub before rounding an orthogonal route', () => {
+    document.body.innerHTML = '';
+    const svg = select(document.body).append('svg');
+    const tail = { intersect: vi.fn(() => ({ x: 25, y: 0 })) };
+    const head = { intersect: vi.fn(() => ({ x: 50, y: 25 })) };
+    const edge = {
+      id: 'rounded-orthogonal-route',
+      cssCompiledStyles: {},
+      style: [],
+      thickness: 'normal',
+      pattern: 'solid',
+      classes: 'flowchart-link',
+      curve: 'rounded',
+      hasIntersectionPoints: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 0, y: 10 },
+        { x: 50, y: 10 },
+      ],
+    };
+
+    insertEdge(svg, edge, null, 'flowchart', tail, head, 'diagram');
+
+    expect(svg.select('path').attr('d')).toBe('M0,0L0,8Q0,10 2,10L50,10');
+    expect(tail.intersect).not.toHaveBeenCalled();
+    expect(head.intersect).not.toHaveBeenCalled();
+  });
+
   it('honors duplicated endpoint pins instead of recomputing polygon intersections', () => {
     document.body.innerHTML = '';
     const svg = select(document.body).append('svg');

@@ -1,0 +1,60 @@
+{
+  "nodes": [
+    {
+      "id": "a",
+      "width": 68.40625,
+      "height": 54
+    },
+    {
+      "id": "a1",
+      "width": 76.796875,
+      "height": 54
+    },
+    {
+      "id": "a2",
+      "width": 76.796875,
+      "height": 54
+    },
+    {
+      "id": "a3",
+      "width": 76.796875,
+      "height": 54
+    },
+    {
+      "id": "a4",
+      "width": 76.796875,
+      "height": 54
+    },
+    {
+      "id": "b",
+      "width": 68.921875,
+      "height": 54
+    },
+    {
+      "id": "b1",
+      "width": 77.3125,
+      "height": 54
+    },
+    {
+      "id": "b2",
+      "width": 77.3125,
+      "height": 54
+    },
+    {
+      "id": "b3",
+      "width": 77.3125,
+      "height": 54
+    },
+    {
+      "id": "b4",
+      "width": 77.3125,
+      "height": 54
+    }
+  ],
+  "metadata": {
+    "captureVersion": 1,
+    "sourceSha256": "9ec49019d64a411335f6c027571397ef84864ef4e17b9e9208487bed3e2323e3",
+    "capturedAt": "2026-10-04T09:59:06.537Z",
+    "capturedFrom": "dev-explorer test-dataset/SIMPLE unconnected trees.mmd theme=default look=classic layout=stress-and-grid"
+  }
+}
