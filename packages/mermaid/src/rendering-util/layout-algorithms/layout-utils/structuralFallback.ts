@@ -17,6 +17,16 @@ import { isPlanar } from './planarity.js';
 /** Layouts this pre-check applies to. Everything else dispatches unchanged. */
 const GRID_LIKE_LAYOUTS: ReadonlySet<string> = new Set(['hola', 'gipsec']);
 
+/**
+ * Whether `layout` is one of the grid-like layouts this module governs.
+ *
+ * Exported so callers can ask the question without reaching for the set, and so
+ * there is one list of these layouts rather than two that can drift apart.
+ */
+export function isGridLikeLayout(layout: string): boolean {
+  return GRID_LIKE_LAYOUTS.has(layout);
+}
+
 /** Where a graph that fails the pre-check is sent instead. */
 export const STRUCTURAL_FALLBACK_LAYOUT = 'elk';
 

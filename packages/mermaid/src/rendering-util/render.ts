@@ -7,6 +7,7 @@ import type { LayoutData } from './types.js';
 import { ELK_ALGORITHMS } from './layout-algorithms/elk/algorithms.js';
 import {
   STRUCTURAL_FALLBACK_LAYOUT,
+  isGridLikeLayout,
   structuralFallbackVerdict,
 } from './layout-algorithms/layout-utils/structuralFallback.js';
 
@@ -133,6 +134,13 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: Posi
     throw new Error(`Unknown layout algorithm: ${data4Layout.layoutAlgorithm}`);
   }
 
+  // `positions` is a legacy affordance that predates the grid-like layouts, and
+  // is deliberately not applied to them. Decided from the *requested* layout and
+  // captured before the structural gate below can rewrite `layoutAlgorithm`, so
+  // that a redirect to ELK does not reinstate it for a diagram that asked for
+  // hola or gipsec.
+  const honoursPositions = !isGridLikeLayout(data4Layout.layoutAlgorithm);
+
   // Grid-like layouts opt out of graphs their core/tree decomposition handles
   // badly; see `structuralFallbackVerdict`. Resolved through
   // `getRegisteredLayoutAlgorithm` so the tiny build, which ships no ELK, lands
@@ -167,7 +175,7 @@ export const render = async (data4Layout: LayoutData, svg: SVG, positions?: Posi
     {
       algorithm: layoutDefinition.algorithm,
     },
-    positions
+    honoursPositions ? positions : undefined
   );
 };
 
