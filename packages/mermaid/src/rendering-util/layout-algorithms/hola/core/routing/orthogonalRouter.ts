@@ -297,6 +297,143 @@ interface Grid {
 }
 
 /**
+ * Already-routed segments bucketed against one search's grid.
+ *
+ * Every A* move runs between two *adjacent* grid lines, so only a few segments can
+ * ever count against it: a perpendicular segment strictly between those two lines
+ * can cross it, and a parallel segment lying on its own line can overlap it.
+ * Scanning every routed segment on every move instead made the search quadratic
+ * in practice. On the 13-subgraph `architecture` fixture, rerouting around frames
+ * spent more than a minute in the three counting functions.
+ *
+ * The buckets are only a pre-filter. Each candidate still goes through the original
+ * counting function, and every bucket is a superset of the segments that function
+ * could count, so the totals are unchanged.
+ *
+ * Segments are classified exactly as the counting functions classify them:
+ * horizontal when the endpoints share a y, otherwise vertical at `a.x`.
+ */
+interface SegmentIndex {
+  /** Vertical segments with `xs[i] < x < xs[i + 1]`, by `i`. */
+  verticalsBetweenColumns: Segment[][];
+  /** Horizontal segments with `ys[i] < y < ys[i + 1]`, by `i`. */
+  horizontalsBetweenRows: Segment[][];
+  /** Vertical segments within EPSILON of column `i`, by `i`. */
+  verticalsOnColumn: Segment[][];
+  /** Horizontal segments within EPSILON of row `i`, by `i`. */
+  horizontalsOnRow: Segment[][];
+}
+
+/** Index of the last line `<= value`, or -1 when every line is above it. */
+function lastLineAtOrBelow(lines: number[], value: number): number {
+  let lo = 0;
+  let hi = lines.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (lines[mid] <= value) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+  return lo - 1;
+}
+
+function bucketSegment(
+  lines: number[],
+  at: number,
+  segment: Segment,
+  between: Segment[][],
+  on: Segment[][]
+): void {
+  const below = lastLineAtOrBelow(lines, at);
+  if (below >= 0 && below < lines.length - 1 && lines[below] < at) {
+    between[below].push(segment);
+  }
+  // Grid lines are at least ~1e-3 apart, so at most the two lines either side of
+  // `at` can be within EPSILON of it.
+  for (const line of [below, below + 1]) {
+    if (line >= 0 && line < lines.length && Math.abs(lines[line] - at) <= EPSILON) {
+      on[line].push(segment);
+    }
+  }
+}
+
+function indexSegments(grid: Grid, segments: Segment[]): SegmentIndex {
+  const index: SegmentIndex = {
+    verticalsBetweenColumns: grid.xs.map(() => []),
+    horizontalsBetweenRows: grid.ys.map(() => []),
+    verticalsOnColumn: grid.xs.map(() => []),
+    horizontalsOnRow: grid.ys.map(() => []),
+  };
+  for (const segment of segments) {
+    if (Math.abs(segment.a.y - segment.b.y) < EPSILON) {
+      bucketSegment(
+        grid.ys,
+        segment.a.y,
+        segment,
+        index.horizontalsBetweenRows,
+        index.horizontalsOnRow
+      );
+    } else {
+      bucketSegment(
+        grid.xs,
+        segment.a.x,
+        segment,
+        index.verticalsBetweenColumns,
+        index.verticalsOnColumn
+      );
+    }
+  }
+  return index;
+}
+
+/**
+ * Whether a move between two grid points passes through any obstacle's interior.
+ *
+ * A horizontal move can only enter an obstacle whose interior spans its row, and a
+ * vertical move only one whose interior spans its column, so the obstacles are
+ * filtered once per grid line, on first use, rather than all of them on every
+ * move. The search calls this for every neighbour it considers, which made the full
+ * scan its single largest cost. Candidates still go through `segmentCrossesInterior`,
+ * so the answer is unchanged; a point off the grid falls back to the full scan.
+ */
+function blockedOnGrid(
+  grid: Grid,
+  obstacles: { bounds: Bounds }[]
+): (a: Point, b: Point) => boolean {
+  const byRow: (Bounds[] | undefined)[] = [];
+  const byColumn: (Bounds[] | undefined)[] = [];
+  const spanning = (at: number, min: 'minX' | 'minY', max: 'maxX' | 'maxY'): Bounds[] =>
+    obstacles
+      .map((o) => o.bounds)
+      .filter((bounds) => at > bounds[min] + EPSILON && at < bounds[max] - EPSILON);
+  const crossesAny = (a: Point, b: Point, candidates: Bounds[]): boolean =>
+    candidates.some((bounds) => segmentCrossesInterior(a, b, bounds));
+
+  return (a, b) => {
+    if (Math.abs(a.y - b.y) < EPSILON) {
+      const row = grid.indexY.get(round(a.y));
+      if (row !== undefined && grid.ys[row] === a.y) {
+        byRow[row] ??= spanning(a.y, 'minY', 'maxY');
+        return crossesAny(a, b, byRow[row]);
+      }
+    } else if (Math.abs(a.x - b.x) < EPSILON) {
+      const column = grid.indexX.get(round(a.x));
+      if (column !== undefined && grid.xs[column] === a.x) {
+        byColumn[column] ??= spanning(a.x, 'minX', 'maxX');
+        return crossesAny(a, b, byColumn[column]);
+      }
+    }
+    return crossesAny(
+      a,
+      b,
+      obstacles.map((o) => o.bounds)
+    );
+  };
+}
+
+/**
  * Grid lines are deduplicated on a 1e-3 key so nearly-equal coordinates merge,
  * but the value stored is the *exact* coordinate of the first contributor.
  * Ports and mandatory waypoints are contributed first, so a route line that a
@@ -453,6 +590,7 @@ function searchGrid(
   open.push(start);
   bestG.set(key(sx, sy, initialAxis), 0);
 
+  const segmentIndex = indexSegments(grid, existingSegments);
   let expansions = 0;
   const crossingsAt = new Map<SearchNode, number>();
   crossingsAt.set(start, 0);
@@ -516,15 +654,25 @@ function searchGrid(
       }
       const distance = Math.abs(there.x - here.x) + Math.abs(there.y - here.y);
       const bend = current.axis !== 0 && current.axis !== n.axis ? config.bendPenalty : 0;
+      const horizontalMove = n.yi === current.yi;
+      const crossingCandidates = horizontalMove
+        ? segmentIndex.verticalsBetweenColumns[Math.min(current.xi, n.xi)]
+        : segmentIndex.horizontalsBetweenRows[Math.min(current.yi, n.yi)];
       const crossed =
         existingSegments.length > 0
-          ? countCrossings(here, there, existingSegments) +
+          ? countCrossings(here, there, crossingCandidates) +
             (accountForVertexCrossings && current.parent
               ? countVertexCrossings(
                   { x: grid.xs[current.parent.xi], y: grid.ys[current.parent.yi] },
                   here,
                   there,
-                  existingSegments
+                  segmentIndex.verticalsOnColumn[current.xi]
+                ) +
+                countVertexCrossings(
+                  { x: grid.xs[current.parent.xi], y: grid.ys[current.parent.yi] },
+                  here,
+                  there,
+                  segmentIndex.horizontalsOnRow[current.yi]
                 )
               : 0)
           : 0;
@@ -533,7 +681,15 @@ function searchGrid(
       // crossing count cannot see it, because it only looks at perpendicular
       // segments, and the detour that avoids it is usually one grid step sideways.
       const shared =
-        existingSegments.length > 0 ? countCollinearOverlaps(here, there, existingSegments) : 0;
+        existingSegments.length > 0
+          ? countCollinearOverlaps(
+              here,
+              there,
+              horizontalMove
+                ? segmentIndex.horizontalsOnRow[current.yi]
+                : segmentIndex.verticalsOnColumn[current.xi]
+            )
+          : 0;
       // The last move also joins the target's fixed terminal run. Charge that
       // turn while searching, so a cheap body cannot hide two extra stub bends.
       const terminalBend =
@@ -682,8 +838,7 @@ export function routeWithSides(
         : inflate(nodeBounds(o.rect), config.clearance),
   }));
 
-  const blocked = (a: Point, b: Point): boolean =>
-    obstacleBounds.some((o) => segmentCrossesInterior(a, b, o.bounds));
+  const blocked = blockedOnGrid(grid, obstacleBounds);
 
   const existing = request.existingSegments ?? [];
   const assembled: Point[] = [start];
