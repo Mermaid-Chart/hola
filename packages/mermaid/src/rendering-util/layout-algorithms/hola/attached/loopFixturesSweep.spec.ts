@@ -21,7 +21,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { addDiagrams } from '../../../../diagram-api/diagram-orchestration.js';
-import { log, setLogLevel } from '../../../../logger.js';
+import { setLogLevel } from '../../../../logger.js';
 import { combineValidateLayoutResults } from '../../ddlt/aggregateValidate.js';
 import type { NamedValidateResult } from '../../ddlt/aggregateValidate.js';
 import { applyFixtureEdgeLabelSizes } from '../../ddlt/backends.js';
@@ -67,6 +67,18 @@ function discover(): DiscoveredFixtures {
 }
 
 /**
+ * Print one report line.
+ *
+ * Straight to the console rather than through mermaid's `log`: raising the log level
+ * to `debug` for these lines also turned on every parser and renderer debug message,
+ * and the sweep's own report drowned in hundreds of thousands of them.
+ */
+function print(line: string): void {
+  // eslint-disable-next-line no-console
+  console.log(line);
+}
+
+/**
  * Per-issue counts and a few examples, for picking what to work on next.
  *
  * Off by default because the sweep's job is the total; set `LOOP_FIXTURES_ISSUES=1`
@@ -81,9 +93,9 @@ function reportIssues(name: string, result: ValidateLayoutResult): void {
     counts.set(issue.type, (counts.get(issue.type) ?? 0) + 1);
   }
   const summary = [...counts].map(([type, n]) => `${type}×${n}`).join(' ');
-  log.debug(`LOOP-FIXTURES-ISSUES: ${name} ${summary}`);
+  print(`LOOP-FIXTURES-ISSUES: ${name} ${summary}`);
   for (const issue of result.issues.slice(0, 4)) {
-    log.debug(`LOOP-FIXTURES-ISSUES:   ${name} | ${issue.type} | ${issue.message}`);
+    print(`LOOP-FIXTURES-ISSUES:   ${name} | ${issue.type} | ${issue.message}`);
   }
 }
 
@@ -91,7 +103,7 @@ function reportIssues(name: string, result: ValidateLayoutResult): void {
 // 30s default.
 describe('Loop Fixtures score sweep', { timeout: 600_000 }, () => {
   beforeAll(() => {
-    setLogLevel('debug');
+    setLogLevel('fatal');
     addDiagrams();
   });
 
@@ -99,7 +111,7 @@ describe('Loop Fixtures score sweep', { timeout: 600_000 }, () => {
     const { pairs, skipped } = discover();
 
     for (const name of skipped) {
-      log.debug(`LOOP-FIXTURES-AGG: skipped (no sizes) ${name}.mmd`);
+      print(`LOOP-FIXTURES-AGG: skipped (no sizes) ${name}.mmd`);
     }
 
     // An empty corpus is not a passing sweep — it is a sweep with nothing to say. Fail
@@ -130,16 +142,18 @@ describe('Loop Fixtures score sweep', { timeout: 600_000 }, () => {
 
     const report = combineValidateLayoutResults(results);
 
-    log.debug('LOOP-FIXTURES-AGG: aggregate report', {
-      total: report.totalScore,
-      avg: Math.round(report.avgScore),
-      min: report.minScore,
-      invalid: report.invalidCount,
-      cases: report.byCase.length,
-      skipped: skipped.length,
-    });
+    print(
+      `LOOP-FIXTURES-AGG: aggregate report ${JSON.stringify({
+        total: report.totalScore,
+        avg: Math.round(report.avgScore),
+        min: report.minScore,
+        invalid: report.invalidCount,
+        cases: report.byCase.length,
+        skipped: skipped.length,
+      })}`
+    );
     for (const row of report.byCase) {
-      log.debug(
+      print(
         `LOOP-FIXTURES-AGG: ${row.id} score=${row.score} valid=${row.valid} issues=${
           row.issueTypes.join(',') || '-'
         }`

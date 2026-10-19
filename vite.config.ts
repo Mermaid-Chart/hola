@@ -3,6 +3,34 @@ import jsonSchemaPlugin from './.vite/jsonSchemaPlugin.js';
 import typescript from '@rollup/plugin-typescript';
 import { defaultExclude, defineConfig } from 'vitest/config';
 
+/**
+ * Layout corpora: whole-fixture-corpus checks for the HOLA layouts. They gate
+ * merges, but each lays out dozens of real diagrams — several minutes of CPU —
+ * and run inside the default suite they starved each other and everything else
+ * of workers until they timed out. They run as their own CI job instead, with
+ * `pnpm test:layout-corpus`.
+ */
+const LAYOUT_CORPUS_SPECS = [
+  '**/layout-algorithms/hola/attached/fixtureCorpus.spec.ts',
+  '**/layout-algorithms/hola/core/holaFaithfulDdlt.spec.ts',
+  '**/layout-algorithms/hola/core/holaFaithfulWiderCorpus.spec.ts',
+];
+
+/**
+ * Layout sweeps: score reports for hill-climbing a layout, not pass/fail checks.
+ * No CI job runs them; `pnpm test:layout-sweep` does.
+ */
+const LAYOUT_SWEEP_SPECS = [
+  '**/layout-algorithms/hola/attached/scoreSweep.spec.ts',
+  '**/layout-algorithms/hola/attached/loopFixturesSweep.spec.ts',
+];
+
+const SUITE_SPECS: Record<string, string[]> = {
+  'layout-corpus': LAYOUT_CORPUS_SPECS,
+  'layout-sweep': LAYOUT_SWEEP_SPECS,
+};
+const suiteSpecs = SUITE_SPECS[process.env.MERMAID_TEST_SUITE ?? ''];
+
 export default defineConfig({
   resolve: {
     extensions: ['.js'],
@@ -28,6 +56,7 @@ export default defineConfig({
      * slow-but-correct tests it runs, not by how fast a hang is caught.
      */
     testTimeout: 30_000,
+    ...(suiteSpecs && { include: suiteSpecs }),
     exclude: [
       ...defaultExclude,
       'e2e/rendering/**',
@@ -35,6 +64,7 @@ export default defineConfig({
       './tests/**',
       '**/__mocks__/**',
       '**/generated/',
+      ...(suiteSpecs ? [] : [...LAYOUT_CORPUS_SPECS, ...LAYOUT_SWEEP_SPECS]),
     ],
     // TODO: should we move this to a mermaid-core package?
     coverage: {
@@ -55,7 +85,7 @@ export default defineConfig({
         '**/generated/',
       ],
     },
-    includeSource: ['packages/*/src/**/*.{js,ts}'],
+    includeSource: suiteSpecs ? [] : ['packages/*/src/**/*.{js,ts}'],
     clearMocks: true,
   },
   build: {

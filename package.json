@@ -75,6 +75,8 @@
     "load:env": "dotenv -e .env",
     "test": "pnpm lint && vitest run",
     "test:hola": "node scripts/test-hola.mjs",
+    "test:layout-corpus": "cross-env MERMAID_TEST_SUITE=layout-corpus vitest run --project '!@mermaid-js/docs'",
+    "test:layout-sweep": "cross-env MERMAID_TEST_SUITE=layout-sweep vitest run --project '!@mermaid-js/docs'",
     "test:hola:unit": "node scripts/test-hola.mjs unit",
     "test:hola:browser": "node scripts/test-hola.mjs browser",
     "test:watch": "vitest --watch",
