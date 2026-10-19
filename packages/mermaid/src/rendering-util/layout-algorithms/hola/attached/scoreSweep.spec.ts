@@ -14,15 +14,20 @@
  * connectors from its rank connector — so the judge sees what it expects.
  *
  * Deliberately no assertion on the total. A score is a measurement, and a test that
- * fails when a number moves either way is a tripwire, not a check. What *is* asserted
- * is the floor: the fixtures that validate today must keep validating, so a change
- * that breaks one is caught here rather than showing up as a quietly lower total.
+ * fails when a number moves either way is a tripwire, not a check. The floor — the
+ * fixtures that validate today must keep validating — is asserted per fixture in
+ * `fixtureCorpus.spec.ts`, against layouts that file already caches, so this sweep no
+ * longer lays the corpus out a second time just to check it.
+ *
+ * Like the other corpus sweeps it is excluded from the default run and is not a CI
+ * gate; run it with `pnpm test:layout-sweep`, adding `GRID_ATTACHED_ISSUES=1` for
+ * per-issue detail.
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { addDiagrams } from '../../../../diagram-api/diagram-orchestration.js';
-import { log, setLogLevel } from '../../../../logger.js';
+import { setLogLevel } from '../../../../logger.js';
 import { combineValidateLayoutResults } from '../../ddlt/aggregateValidate.js';
 import type { NamedValidateResult } from '../../ddlt/aggregateValidate.js';
 import { applyFixtureEdgeLabelSizes } from '../../ddlt/backends.js';
@@ -34,78 +39,6 @@ import type { ValidateLayoutResult } from '../../layout-utils/validateLayout.js'
 import { runGridAttachedLayoutCore } from './layoutCore.js';
 
 const FIXTURE_DIR = join(layoutTestsDir(), 'hola');
-
-/**
- * Fixtures `validateLayout` currently rejects outright, and why they are not a floor
- * violation. A fixture scores 0 when it is invalid, so these are also the biggest
- * pieces of headroom in the total.
- *
- * Anything *not* listed here must stay valid: that is the floor this file guards.
- */
-const KNOWN_INVALID: Record<string, string> = {
-  // Added when the mermaid 12 merge landed: v12's `minNodeWidth` widens short
-  // labels, so these four lay out at node sizes the router was not tuned for.
-  // Listed rather than deleted, so the sweep still reports their score and the
-  // floor still catches anything NEW going invalid.
-  'GRAPH - hola 4 nodes loop + trees - Long Labels':
-    'edge-intersects-obstacle, edge-port-direction-mismatch',
-  'nested-subgraphs': 'group-dead-space, node-close-to-own-frame, node-too-close-to-group',
-  'ortho-mini-2': 'edge-intersects-obstacle, edge-port-direction-mismatch',
-  'subgraph-variation':
-    'edge-bend-near-endpoint, edge-border-hugging, group-dead-space, group-elongation, node-close-to-own-frame, node-too-close-to-group',
-  '___ Hola paper main example algorithm':
-    "57 edge-intersects-obstacle — tree connectors crossing core nodes and other trees' nodes",
-  architecture:
-    'edge-intersects-obstacle, and a label cut by a frame border now that frames are drawn',
-  'Company-simp': 'edge-bend-near-endpoint, and a label over a foreign edge',
-  domus1: 'edge-bend-near-endpoint',
-  'edge-types': 'edge-bend-near-endpoint, and a label over a foreign edge',
-  'GRAPH - Bipartite Graph k3,3': 'non-planar: shared ports and shared subpaths on a tiny core',
-  'GRAPH - complete_graph_k4':
-    'dense bidirectional core: terminal bends, near-parallel lanes, and one shared subpath',
-  'GRAPH - hola paper graph 8': 'edge-bend-near-endpoint',
-  'incremental-editing': 'edge-bend-near-endpoint',
-  'life-choices': 'edge-bend-near-endpoint',
-  'multiple-edges': 'edge-endpoint-detached-from-node on a bundle of parallel edges',
-  // Subgraph fixtures. The frames themselves are fitted correctly; what these three
-  // trip is the pre-existing terminal-bend defect, plus one new interaction:
-  // `validateLayout` treats a frame's *border* as a line an edge may cross but not
-  // run along, and a frame is fitted `groupPadding` outside its members, which can
-  // land the border beside a route that was settled long before any frame existed.
-  // Neither side can give way once both are drawn — the padding is already the
-  // minimum, and growing it would put the route inside the frame — so this needs
-  // frames to be known before routing, not a wider padding.
-  'nested-subgraphs-reverse-order':
-    'edge-border-hugging: a route rail settles 1px outside frame "A" and runs 32 units along it',
-  'right-angles-not-curves': 'edge-bend-near-endpoint',
-  'subgraph-labels-2': 'edge-bend-near-endpoint, and a label over a foreign edge',
-  'subgraph-labels-3': 'edge-bend-near-endpoint',
-  'project-sox2': 'edge-bend-near-endpoint',
-
-  // Drawing frames, and drawing the edges that name them, exposes two issue types
-  // that could not fire before: neither a frame border nor an edge stopping on one
-  // existed. Both are real, and both are the next thing to fix here.
-  //
-  //  - `edge-label-overlaps-group-border`: `validateLayout` treats a frame's border
-  //    as a line a label must not be cut by. Labels are placed before frames are
-  //    fitted, so nothing is keeping them off it.
-  //  - `edge-corner-connection`: an edge naming a container is cut where its route
-  //    crosses the frame, and that crossing can land on a corner.
-  'nested-sb-edges-in-out': 'edge-corner-connection where a container edge meets a frame corner',
-  'nested-sg-outgoing-2': 'edge-corner-connection, edge-port-direction-mismatch',
-  'nested-sg-outgoing-5': 'edge-label-overlaps-own-arrowhead',
-  'nested-subgraphs-2': 'edge-bend-near-endpoint',
-  'nested-subgraphs-3': 'edge-corner-connection where a container edge meets a frame corner',
-
-  // Added to the corpus while this work was in progress, recorded as found rather
-  // than investigated. Only the first has a subgraph.
-  'Extreme-Subgraphs-WindRose': 'edge-bend-near-endpoint',
-  event: 'edge-border-hugging',
-  'GRAPH - hola 5 nodes loop + trees':
-    'shared ports and subpaths on a five-cycle with a tree on every node',
-  'GRAPH - hola 7 nodes double loop + trees':
-    'shared ports and subpaths, and edges through nodes, on two joined cycles',
-};
 
 function fixtures(): { name: string; sizes: string }[] {
   const files = readdirSync(FIXTURE_DIR);
@@ -121,6 +54,18 @@ function fixtures(): { name: string; sizes: string }[] {
       return [];
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Print one report line.
+ *
+ * Straight to the console rather than through mermaid's `log`: raising the log level
+ * to `debug` for these lines also turned on every parser and renderer debug message,
+ * and the sweep's own report drowned in hundreds of thousands of them.
+ */
+function print(line: string): void {
+  // eslint-disable-next-line no-console
+  console.log(line);
 }
 
 /**
@@ -143,19 +88,17 @@ function reportIssues(name: string, result: ValidateLayoutResult): void {
     .sort((a, b) => b[1] - a[1])
     .map(([type, count]) => `${type}=${count}`)
     .join(' ');
-  log.debug(`GRID-ATTACHED-ISSUES: ${name} ${summary}`);
+  print(`GRID-ATTACHED-ISSUES: ${name} ${summary}`);
   for (const issue of result.issues.slice(0, 4)) {
-    log.debug(`GRID-ATTACHED-ISSUES:   ${name} | ${issue.type} | ${issue.message}`);
+    print(`GRID-ATTACHED-ISSUES:   ${name} | ${issue.type} | ${issue.message}`);
   }
 }
 
-// Lays out and scores every fixture in one test — minutes of work, not the
-// 30s default.
-// One test lays out and scores the entire corpus: 104s alone, and well past 600s
-// when it is competing with the rest of the suite for workers.
-describe('grid-attached score sweep', { timeout: 1_800_000 }, () => {
+// One test lays out and scores the entire corpus: 104s alone, so minutes of work
+// rather than the 30s default.
+describe('grid-attached score sweep', { timeout: 600_000 }, () => {
   beforeAll(() => {
-    setLogLevel('debug');
+    setLogLevel('fatal');
     addDiagrams();
   });
 
@@ -177,15 +120,17 @@ describe('grid-attached score sweep', { timeout: 1_800_000 }, () => {
 
     const report = combineValidateLayoutResults(results);
 
-    log.debug('GRID-ATTACHED-AGG: aggregate report', {
-      total: report.totalScore,
-      avg: Math.round(report.avgScore),
-      min: report.minScore,
-      invalid: report.invalidCount,
-      cases: report.byCase.length,
-    });
+    print(
+      `GRID-ATTACHED-AGG: aggregate report ${JSON.stringify({
+        total: report.totalScore,
+        avg: Math.round(report.avgScore),
+        min: report.minScore,
+        invalid: report.invalidCount,
+        cases: report.byCase.length,
+      })}`
+    );
     for (const row of report.byCase) {
-      log.debug(
+      print(
         `GRID-ATTACHED-AGG: ${row.id} score=${row.score} valid=${row.valid} issues=${
           row.issueTypes.join(',') || '-'
         }`
@@ -193,10 +138,5 @@ describe('grid-attached score sweep', { timeout: 1_800_000 }, () => {
     }
 
     expect(report.byCase.length).toBeGreaterThan(5);
-
-    const brokeTheFloor = report.byCase
-      .filter((row) => !row.valid && KNOWN_INVALID[row.id] === undefined)
-      .map((row) => `${row.id} (${row.issueTypes.join(',')})`);
-    expect(brokeTheFloor).toEqual([]);
   });
 });
