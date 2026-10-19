@@ -523,6 +523,39 @@ function bendPenaltyForPoints(n: number): number {
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Rules that encode how a *grid* drawing is supposed to look: how full a group
+ * ought to be, where a port may sit along a node side, and whether an edge may
+ * leave its own group and come back.
+ *
+ * They are judgements about one drawing style, not statements about correctness,
+ * so they do not transfer to a layout built on different conventions. A swimlane
+ * deliberately leaves lanes partly empty — that is what a lane is — and
+ * `group-dead-space` reads a perfectly good swimlane as 38% full and therefore
+ * defective.
+ */
+const GRID_CONVENTION_RULES: ReadonlySet<LayoutIssueType> = new Set([
+  'group-dead-space',
+  'edge-reenters-own-group',
+  'port-near-corner',
+]);
+
+/**
+ * Layouts known to draw to conventions {@link GRID_CONVENTION_RULES} does not
+ * describe.
+ *
+ * This is deliberately a list of what to EXEMPT rather than a list of what to
+ * check. A layout nobody has classified still gets the full rule set, so a
+ * missing entry here makes a suite noisier — never silently weaker, which is the
+ * failure you would not notice.
+ */
+const NON_GRID_CONVENTION_LAYOUTS: ReadonlySet<string> = new Set(['swimlane']);
+
+function usesNonGridConventions(layout: LayoutData): boolean {
+  const algorithm = (layout as { layoutAlgorithm?: unknown }).layoutAlgorithm;
+  return typeof algorithm === 'string' && NON_GRID_CONVENTION_LAYOUTS.has(algorithm);
+}
+
 export type LayoutIssueType =
   | 'node-overlap'
   | 'edge-missing-points'
@@ -3240,6 +3273,19 @@ export function validateLayout(
     const key: '2' | '3' | '4' | '5' | '6' | '7+' =
       n <= 2 ? '2' : n === 3 ? '3' : n === 4 ? '4' : n === 5 ? '5' : n === 6 ? '6' : '7+';
     pointsHistogram[key]++;
+  }
+
+  // Rules that encode the drawing conventions of the grid-like layouts are not
+  // meaningful for a layout that draws to a different convention, so they are
+  // dropped here — before `ok`, the soft penalty and the score are derived from
+  // the list, so a later filter would leave the verdict disagreeing with the
+  // issues it reports.
+  if (usesNonGridConventions(layout)) {
+    for (let index = issues.length - 1; index >= 0; index--) {
+      if (GRID_CONVENTION_RULES.has(issues[index].type)) {
+        issues.splice(index, 1);
+      }
+    }
   }
 
   const isSoftType = (t: LayoutIssueType): boolean => SOFT_PENALTY_BY_TYPE[t] !== undefined;
