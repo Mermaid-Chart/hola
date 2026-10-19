@@ -56,6 +56,7 @@ export default defineConfig({
      * slow-but-correct tests it runs, not by how fast a hang is caught.
      */
     testTimeout: 30_000,
+    setupFiles: ['./.vite/vitestSetup.ts'],
     ...(suiteSpecs && { include: suiteSpecs }),
     exclude: [
       ...defaultExclude,
