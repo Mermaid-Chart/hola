@@ -161,7 +161,7 @@ describe('faithful HOLA — wider fixture corpus', () => {
         }
       }
     },
-    60_000
+    240_000
   );
 
   /**
@@ -201,7 +201,7 @@ describe('faithful HOLA — wider fixture corpus', () => {
       }
       expect(bent).toEqual([]);
     },
-    60_000
+    240_000
   );
 
   /**
@@ -261,7 +261,7 @@ describe('faithful HOLA — wider fixture corpus', () => {
         }
       }
     },
-    60_000
+    240_000
   );
 
   /**
@@ -298,7 +298,7 @@ describe('faithful HOLA — wider fixture corpus', () => {
       (edge) => (edge.start === 'D' && edge.end === 'E') || (edge.start === 'E' && edge.end === 'D')
     )!;
     expect(connector.points!.length).toBeLessThanOrEqual(4);
-  }, 60_000);
+  }, 240_000);
 
   for (const fx of fixtures) {
     /**
@@ -354,7 +354,7 @@ describe('faithful HOLA — wider fixture corpus', () => {
         }
         expect(shared).toEqual([]);
       },
-      60_000
+      240_000
     );
 
     itUnlessSkipped(
@@ -377,7 +377,7 @@ describe('faithful HOLA — wider fixture corpus', () => {
         ].sort();
         expect(types).toEqual([]);
       },
-      60_000
+      240_000
     );
   }
 });

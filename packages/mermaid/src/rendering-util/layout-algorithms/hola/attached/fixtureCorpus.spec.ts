@@ -488,7 +488,11 @@ async function layOnce(name: string, sizesFile: string): Promise<Laid> {
 // test that is depends on what SKIPPED excludes, and `architecture` alone runs
 // past the 30s default — so the suite gets a budget large enough that any of
 // them can be the one to pay, rather than the pass/fail depending on ordering.
-describe('grid-attached over the hola-faithful fixture corpus', { timeout: 180_000 }, () => {
+// The budget is for contention, not for slowness: `architecture` lays out in
+// 77s on its own, and the same case overruns 180s when the whole suite runs in
+// parallel and these heavy files compete for workers. Sized from the measured
+// solo time with room for that.
+describe('grid-attached over the hola-faithful fixture corpus', { timeout: 600_000 }, () => {
   /**
    * Cases this corpus does not register.
    *

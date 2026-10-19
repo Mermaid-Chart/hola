@@ -151,7 +151,9 @@ function reportIssues(name: string, result: ValidateLayoutResult): void {
 
 // Lays out and scores every fixture in one test — minutes of work, not the
 // 30s default.
-describe('grid-attached score sweep', { timeout: 600_000 }, () => {
+// One test lays out and scores the entire corpus: 104s alone, and well past 600s
+// when it is competing with the rest of the suite for workers.
+describe('grid-attached score sweep', { timeout: 1_800_000 }, () => {
   beforeAll(() => {
     setLogLevel('debug');
     addDiagrams();
