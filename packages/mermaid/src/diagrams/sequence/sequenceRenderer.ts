@@ -298,6 +298,7 @@ const drawCentralConnection = function (
   const fromActor = actors.get(msg.from);
   const toActor = actors.get(msg.to);
   const isAutoNumberOn = msgModel.sequenceVisible;
+  const isSelfConnection = startx === stopx;
   let fromCenter = fromActor.x + fromActor.width / 2;
   let toCenter = toActor.x + toActor.width / 2;
 
@@ -316,10 +317,10 @@ const drawCentralConnection = function (
     return isReverse ? -baseOffset : baseOffset;
   };
 
-  const drawCircle = (cx: number) => {
+  const drawCircle = (cx: number, cy?: number) => {
     g.append('circle')
       .attr('cx', cx)
-      .attr('cy', lineStartY)
+      .attr('cy', cy ?? lineStartY)
       .attr('r', 5)
       .attr('width', 10)
       .attr('height', 10);
@@ -328,6 +329,47 @@ const drawCentralConnection = function (
   const { CENTRAL_CONNECTION, CENTRAL_CONNECTION_REVERSE, CENTRAL_CONNECTION_DUAL } =
     diagObj.db.LINETYPE;
 
+  // Handle self-connection arrows
+  if (isSelfConnection) {
+    if (conf.rightAngles) {
+      // Right angle self-connection: horizontal line goes right, then down, then back left
+      const verticalEndY = lineStartY + 25;
+
+      switch (msg.centralConnection) {
+        case CENTRAL_CONNECTION:
+          drawCircle(startx, verticalEndY);
+          break;
+        case CENTRAL_CONNECTION_REVERSE:
+          drawCircle(startx, lineStartY);
+          break;
+        case CENTRAL_CONNECTION_DUAL:
+          drawCircle(startx, lineStartY);
+          drawCircle(startx, verticalEndY);
+          break;
+      }
+    } else {
+      // Curved self-connection
+      const curveStartX =
+        startx + (isAutoNumberOn && (isReverse || isBidirectionalArrowType(msg, diagObj)) ? 10 : 0);
+      const curveEndY = lineStartY + 20;
+
+      switch (msg.centralConnection) {
+        case CENTRAL_CONNECTION:
+          drawCircle(startx, curveEndY);
+          break;
+        case CENTRAL_CONNECTION_REVERSE:
+          drawCircle(curveStartX, lineStartY);
+          break;
+        case CENTRAL_CONNECTION_DUAL:
+          drawCircle(curveStartX, lineStartY);
+          drawCircle(startx, curveEndY);
+          break;
+      }
+    }
+    return;
+  }
+
+  // Handle regular (non-self) connection arrows
   // Calculate circle position adjustments when autonumber is enabled
   if (isAutoNumberOn) {
     switch (msg.centralConnection) {
@@ -492,6 +534,7 @@ export const drawMessage = async function (
   const textWidth = textDims.width;
 
   let line;
+
   if (startx === stopx) {
     const isAutoNumberOn = sequenceVisible || conf.showSequenceNumbers;
     const isReverse = isReverseArrowType(msg, diagObj);
@@ -544,8 +587,7 @@ export const drawMessage = async function (
       drawCentralConnection(diagram, msg, msgModel, diagObj, startx, stopx, lineStartY);
     }
   }
-  // Make an SVG Container
-  // Draw the line
+
   if (
     type === diagObj.db.LINETYPE.DOTTED ||
     type === diagObj.db.LINETYPE.DOTTED_CROSS ||
@@ -1415,6 +1457,18 @@ export const draw = async function (_text: string, id: string, _version: string,
   const requiredBoxSize = drawActorsPopup(diagram, actors, actorKeys, doc);
 
   const { bounds: box } = bounds.getBounds();
+  if (box.startx === undefined) {
+    box.startx = 0;
+  }
+  if (box.starty === undefined) {
+    box.starty = 0;
+  }
+  if (box.stopx === undefined) {
+    box.stopx = 0;
+  }
+  if (box.stopy === undefined) {
+    box.stopy = 0;
+  }
 
   if (box.startx === undefined) {
     box.startx = 0;
@@ -1789,41 +1843,6 @@ const hasCentralConnection = function (msg, diagObj) {
 };
 
 /**
- * Calculate the positioning offset for central connection arrows
- * @param msg - The message object
- * @param diagObj - The diagram object containing LINETYPE constants
- * @param isArrowToRight - Whether the arrow is pointing to the right
- * @returns The offset to apply to startx position
- */
-const calculateCentralConnectionOffset = function (msg, diagObj, isArrowToRight) {
-  const {
-    CENTRAL_CONNECTION_REVERSE,
-    CENTRAL_CONNECTION_DUAL,
-    BIDIRECTIONAL_SOLID,
-    BIDIRECTIONAL_DOTTED,
-  } = diagObj.db.LINETYPE;
-
-  let offset = 0;
-
-  if (
-    msg.centralConnection === CENTRAL_CONNECTION_REVERSE ||
-    msg.centralConnection === CENTRAL_CONNECTION_DUAL
-  ) {
-    offset += CENTRAL_CONNECTION_BASE_OFFSET;
-  }
-
-  if (
-    (msg.centralConnection === CENTRAL_CONNECTION_REVERSE ||
-      msg.centralConnection === CENTRAL_CONNECTION_DUAL) &&
-    (msg.type === BIDIRECTIONAL_SOLID || msg.type === BIDIRECTIONAL_DOTTED)
-  ) {
-    offset += isArrowToRight ? 0 : -CENTRAL_CONNECTION_BIDIRECTIONAL_OFFSET;
-  }
-
-  return offset;
-};
-
-/**
  * Check if a message is a reverse arrow type
  * @param msg - The message object
  * @param diagObj - The diagram object containing LINETYPE constants
@@ -1851,6 +1870,44 @@ const isReverseArrowType = function (msg, diagObj) {
     STICK_ARROW_BOTTOM_REVERSE,
     STICK_ARROW_BOTTOM_REVERSE_DOTTED,
   ].includes(msg.type);
+};
+
+/**
+ * Calculate the positioning offset for central connection arrows
+ * @param msg - The message object
+ * @param diagObj - The diagram object containing LINETYPE constants
+ * @param isArrowToRight - Whether the arrow is pointing to the right
+ * @returns The offset to apply to startx position
+ */
+const calculateCentralConnectionOffset = function (msg, diagObj, isArrowToRight) {
+  const {
+    CENTRAL_CONNECTION_REVERSE,
+    CENTRAL_CONNECTION_DUAL,
+    BIDIRECTIONAL_SOLID,
+    BIDIRECTIONAL_DOTTED,
+  } = diagObj.db.LINETYPE;
+
+  let offset = 0;
+
+  if (
+    msg.centralConnection === CENTRAL_CONNECTION_REVERSE ||
+    msg.centralConnection === CENTRAL_CONNECTION_DUAL
+  ) {
+    if (isReverseArrowType(msg, diagObj)) {
+      offset += CENTRAL_CONNECTION_BASE_OFFSET + (isArrowToRight ? 3.5 : -10);
+    } else {
+      offset += CENTRAL_CONNECTION_BASE_OFFSET;
+    }
+  }
+  if (
+    (msg.centralConnection === CENTRAL_CONNECTION_REVERSE ||
+      msg.centralConnection === CENTRAL_CONNECTION_DUAL) &&
+    (msg.type === BIDIRECTIONAL_SOLID || msg.type === BIDIRECTIONAL_DOTTED)
+  ) {
+    offset += isArrowToRight ? 0 : -CENTRAL_CONNECTION_BIDIRECTIONAL_OFFSET;
+  }
+
+  return offset;
 };
 
 /**

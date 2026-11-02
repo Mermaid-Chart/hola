@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/DetailedError.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/DetailedError.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
@@ -30,11 +30,27 @@ Defined in: [packages/mermaid/src/utils.ts:785](https://github.com/mermaid-js/me
 
 ---
 
+### loc?
+
+> `optional` **loc**: `any`
+
+Defined in: [packages/mermaid/src/utils.ts:790](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L790)
+
+---
+
 ### message?
 
 > `optional` **message**: `string`
 
 Defined in: [packages/mermaid/src/utils.ts:788](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L788)
+
+---
+
+### parser?
+
+> `optional` **parser**: `string`
+
+Defined in: [packages/mermaid/src/utils.ts:789](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/utils.ts#L789)
 
 ---
 

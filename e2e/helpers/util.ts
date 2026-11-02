@@ -5,6 +5,7 @@ import { dirname, join, relative, sep } from 'node:path';
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import { Buffer } from 'buffer';
 import type { MermaidConfig } from '../../packages/mermaid/src/config.type.js';
+import type { Positions } from '../../packages/mermaid/src/diagram-api/types.js';
 import { applitoolsBatch, applitoolsTestName } from './applitools.ts';
 import { buildCaptureMetadata, writeArgosMetadataSidecar } from './argos-metadata.ts';
 import { collectCoverage, startCoverage } from './coverage.js';
@@ -29,6 +30,8 @@ type E2EMermaidConfig = MermaidConfig & E2EConfig;
 interface CodeObject {
   code: string | string[];
   mermaid: E2EMermaidConfig;
+  /** Fixed-layout positions, forwarded to `mermaid.render` by the API render page. */
+  positions?: Positions;
 }
 
 export const utf8ToB64 = (str: string): string => {
@@ -68,6 +71,21 @@ export const mermaidUrl = (
   }
 
   return url;
+};
+
+/**
+ * URL for the API render page (`xss.html`), which calls `mermaid.render` directly and so
+ * can hand the fixed layout its `positions`. The plain page goes through `mermaid.run`,
+ * which has no way to pass them.
+ */
+export const apiRenderUrl = (
+  graphStr: string,
+  options: E2EMermaidConfig,
+  positions?: Positions
+): string => {
+  options.handDrawnSeed = 1;
+  const codeObject: CodeObject = { code: graphStr, mermaid: options, positions };
+  return `/xss.html?graph=${utf8ToB64(JSON.stringify(codeObject))}`;
 };
 
 export const imgSnapshotTest = async (

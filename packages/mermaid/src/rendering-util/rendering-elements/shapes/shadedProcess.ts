@@ -18,15 +18,23 @@ export async function shadedProcess<T extends SVGGraphicsElement>(
 
   const paddingX = node.look === 'neo' ? 16 : (node.padding ?? 0);
   const paddingY = node.look === 'neo' ? 12 : (node.padding ?? 0);
-  const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
-  const totalWidth =
-    (node?.width ?? bbox.width) +
-    paddingX * 2 +
-    (node.look === 'neo' ? FRAME_WIDTH : FRAME_WIDTH * 2);
-  const totalHeight = (node?.height ?? bbox.height) + paddingY * 2;
+
+  // If incoming height & width are present, subtract the padding from them
+  // as labelHelper does not take padding into account
+  // also check if the width or height is less than minimum default values (10),
+  // if so set it to min value
+  if (node.width || node.height) {
+    node.width = Math.max((node?.width ?? 0) - paddingX * 2 - FRAME_WIDTH, 10);
+    node.height = Math.max((node?.height ?? 0) - paddingY * 2, 10);
+  }
+
+  const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
+
+  const totalWidth = (node?.width ? node?.width : bbox.width) + paddingX * 2 + FRAME_WIDTH;
+  const totalHeight = (node?.height ? node?.height : bbox.height) + paddingY * 2;
   const w = totalWidth - FRAME_WIDTH;
   const h = totalHeight;
-  const x = FRAME_WIDTH - totalWidth / 2;
+  const x = -(totalWidth - FRAME_WIDTH) / 2;
   const y = -totalHeight / 2;
 
   const { cssStyles } = node;
@@ -67,13 +75,6 @@ export async function shadedProcess<T extends SVGGraphicsElement>(
   if (cssStyles && node.look !== 'handDrawn') {
     rect.selectAll('path').attr('style', nodeStyles);
   }
-
-  // The inner main rect is centered at FRAME_WIDTH/2, not at 0.
-  // Shift the label right by FRAME_WIDTH/2 so it's centered inside the main rect.
-  label.attr(
-    'transform',
-    `translate(${FRAME_WIDTH / 2 - bbox.width / 2 - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) - (bbox.y - (bbox.top ?? 0))})`
-  );
 
   updateNodeBounds(node, rect);
 

@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/README.md](../../../../packages/mermaid/src/docs/config/setup/mermaid/README.md).
 
-[**mermaid**](../README.md)
+[**@mermaid-chart/mermaid**](../README.md)
 
 ---
 
@@ -14,6 +14,8 @@
 
 - [AsyncIconLoader](interfaces/AsyncIconLoader.md)
 - [DetailedError](interfaces/DetailedError.md)
+- [ElementMapping](interfaces/ElementMapping.md)
+- [ElementPosition](interfaces/ElementPosition.md)
 - [ExternalDiagramDefinition](interfaces/ExternalDiagramDefinition.md)
 - [LayoutData](interfaces/LayoutData.md)
 - [LayoutLoaderDefinition](interfaces/LayoutLoaderDefinition.md)
@@ -24,6 +26,7 @@
 - [RenderOptions](interfaces/RenderOptions.md)
 - [RenderResult](interfaces/RenderResult.md)
 - [RunOptions](interfaces/RunOptions.md)
+- [SequenceAST](interfaces/SequenceAST.md)
 - [SyncIconLoader](interfaces/SyncIconLoader.md)
 - [UnknownDiagramError](interfaces/UnknownDiagramError.md)
 
@@ -38,3 +41,9 @@
 ## Variables
 
 - [default](variables/default.md)
+
+## Functions
+
+- [calcIntersect](functions/calcIntersect.md)
+- [calcIntersections](functions/calcIntersections.md)
+- [calcNodeIntersections](functions/calcNodeIntersections.md)

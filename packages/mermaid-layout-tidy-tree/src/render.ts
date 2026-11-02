@@ -1,4 +1,4 @@
-import type { InternalHelpers, LayoutData, RenderOptions, SVG } from 'mermaid';
+import type { InternalHelpers, LayoutData, RenderOptions, SVG } from '@mermaid-chart/mermaid';
 import { executeTidyTreeLayout } from './layout.js';
 
 interface NodeWithPosition {
@@ -52,7 +52,7 @@ export const render = async (
   log.debug('Inserting nodes into DOM for dimension calculation');
 
   await Promise.all(
-    data4Layout.nodes.map(async (node) => {
+    data4Layout.nodes.map(async (node: any) => {
       if (node.isGroup) {
         const clusterNode: NodeWithPosition = {
           ...node,
@@ -106,7 +106,7 @@ export const render = async (
   // Step 3: Position the nodes based on bidirectional layout results
   log.debug('Positioning nodes based on bidirectional layout results');
 
-  layoutResult.nodes.forEach((positionedNode) => {
+  layoutResult.nodes.forEach((positionedNode: any) => {
     const node = nodeDb[positionedNode.id];
     if (node?.domId) {
       // Position the node at the calculated coordinates from bidirectional layout
@@ -126,7 +126,7 @@ export const render = async (
   log.debug('Inserting and positioning edges');
 
   await Promise.all(
-    data4Layout.edges.map(async (edge) => {
+    data4Layout.edges.map(async (edge: any) => {
       await insertEdgeLabel(edgeLabels, edge);
 
       const startNode = nodeDb[edge.start ?? ''];

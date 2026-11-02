@@ -130,9 +130,14 @@ export async function linedCylinder<T extends SVGGraphicsElement>(
 
   updateNodeBounds(node, cylinder);
 
+  // label.attr(
+  //   'transform',
+  //   `translate(${-(bbox.width / 2) - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) + ry / 2 - (bbox.y - (bbox.top ?? 0))})`
+  // );
+
   label.attr(
     'transform',
-    `translate(${-(bbox.width / 2) - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) + ry - (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-(bbox.width / 2) - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) + (labelPaddingY ?? 0) / 2 - (bbox.y - (bbox.top ?? 0))})`
   );
 
   node.intersect = function (point) {

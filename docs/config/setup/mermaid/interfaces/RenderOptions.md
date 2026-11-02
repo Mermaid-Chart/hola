@@ -4,13 +4,13 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/RenderOptions.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/RenderOptions.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
 # Interface: RenderOptions
 
-Defined in: [packages/mermaid/src/rendering-util/render.ts:16](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L16)
+Defined in: [packages/mermaid/src/rendering-util/render.ts:17](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L17)
 
 ## Properties
 
@@ -18,4 +18,4 @@ Defined in: [packages/mermaid/src/rendering-util/render.ts:16](https://github.co
 
 > `optional` **algorithm**: `string`
 
-Defined in: [packages/mermaid/src/rendering-util/render.ts:17](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L17)
+Defined in: [packages/mermaid/src/rendering-util/render.ts:18](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/rendering-util/render.ts#L18)

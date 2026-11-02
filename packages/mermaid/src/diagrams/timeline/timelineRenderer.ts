@@ -31,7 +31,8 @@ export const draw = function (text: string, id: string, version: string, diagObj
   const conf = getConfig();
   const { look, theme, themeVariables } = conf;
   const { useGradient, gradientStart, gradientStop } = themeVariables;
-  const LEFT_MARGIN = conf.timeline?.leftMargin ?? 50;
+  // @ts-expect-error - wrong config?
+  const LEFT_MARGIN = conf.leftMargin ?? 50;
 
   log.debug('timeline', diagObj.db);
 
@@ -210,7 +211,7 @@ export const draw = function (text: string, id: string, version: string, diagObj
     svg
       .append('text')
       .text(title)
-      .attr('x', look === 'neo' ? box.x * 2 + LEFT_MARGIN : box.width / 2 - LEFT_MARGIN)
+      .attr('x', box.x * 2 + LEFT_MARGIN)
       .attr('font-size', '4ex')
       .attr('font-weight', 'bold')
       .attr('y', 20);

@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/variables/default.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/variables/default.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
@@ -12,4 +12,4 @@
 
 > `const` **default**: [`Mermaid`](../interfaces/Mermaid.md)
 
-Defined in: [packages/mermaid/src/mermaid.ts:458](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/mermaid.ts#L458)
+Defined in: [packages/mermaid/src/mermaid.ts:462](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/mermaid.ts#L462)

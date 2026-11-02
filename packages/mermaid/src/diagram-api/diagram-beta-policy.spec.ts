@@ -4,6 +4,9 @@
  * - NEVER_BETA_DIAGRAMS: stable diagrams that never had a beta phase (frozen list).
  * - GRADUATED_DIAGRAMS: diagrams that left beta but keep an optional `-beta` suffix for
  *   backwards compatibility. The detector must accept both `{id}` and `{id}-beta`.
+ * - DUAL_KEYWORD_DIAGRAMS: diagrams that are still in beta but also accept the plain
+ *   keyword, because documents written before the `-beta` policy already use it. The
+ *   detector must accept both `{id}` and `{id}-beta`; `{id}-beta` stays the documented one.
  * - Any other registered diagram must require `-beta` in its syntax: the detector accepts
  *   the `-beta` keyword and rejects the same keyword without the `-beta` suffix. For
  *   diagrams whose keyword differs from `{id}-beta`, list the keyword in BETA_KEYWORD_OVERRIDES.
@@ -59,6 +62,18 @@ const GRADUATED_DIAGRAMS = new Set([
   'treemap',
 ]);
 
+/**
+ * Diagrams still in beta whose detector also accepts the plain keyword.
+ *
+ * `agentflow` shipped on the 11.15 line under the plain `agentflow` header before the
+ * `-beta` policy applied to it, so every stored agentflow document starts that way
+ * (issue #159). The diagram has not graduated: `agentflow-beta` remains the documented
+ * keyword and the syntax may still change. The test below enforces that both `{id}` and
+ * `{id}-beta` are detected. Add an entry here only for the same reason — an already
+ * deployed plain keyword — not to skip the beta phase for a new diagram.
+ */
+const DUAL_KEYWORD_DIAGRAMS = new Set(['agentflow']);
+
 /** Internal or pseudo-diagram types — not subject to beta policy. */
 const EXCLUDED_DIAGRAMS = new Set(['error', '---']);
 
@@ -83,7 +98,12 @@ describe('diagram beta policy', () => {
     const violations: string[] = [];
 
     for (const [id, { detector }] of Object.entries(detectors)) {
-      if (NEVER_BETA_DIAGRAMS.has(id) || GRADUATED_DIAGRAMS.has(id) || EXCLUDED_DIAGRAMS.has(id)) {
+      if (
+        NEVER_BETA_DIAGRAMS.has(id) ||
+        GRADUATED_DIAGRAMS.has(id) ||
+        DUAL_KEYWORD_DIAGRAMS.has(id) ||
+        EXCLUDED_DIAGRAMS.has(id)
+      ) {
         continue;
       }
 
@@ -123,11 +143,28 @@ describe('diagram beta policy', () => {
     ).toEqual([]);
   });
 
+  it('dual-keyword diagrams accept both the plain and the -beta keyword', () => {
+    const violations: string[] = [];
+
+    for (const id of DUAL_KEYWORD_DIAGRAMS) {
+      const { detector } = detectors[id] ?? {};
+      if (!detector || !detector(id) || !detector(`${id}-beta`)) {
+        violations.push(id);
+      }
+    }
+
+    expect(
+      violations,
+      `Dual-keyword diagram(s) must accept both \`{id}\` and \`{id}-beta\`: ${violations.join(', ')}`
+    ).toEqual([]);
+  });
+
   it('beta-policy lists contain no stale or overlapping entries', () => {
     const registered = new Set(Object.keys(detectors));
     const lists = {
       NEVER_BETA_DIAGRAMS,
       GRADUATED_DIAGRAMS,
+      DUAL_KEYWORD_DIAGRAMS,
     };
 
     for (const [name, set] of Object.entries(lists)) {
@@ -135,7 +172,7 @@ describe('diagram beta policy', () => {
       expect(stale, `Stale ${name}: ${stale.join(', ')}`).toEqual([]);
     }
 
-    const all = [...NEVER_BETA_DIAGRAMS, ...GRADUATED_DIAGRAMS];
+    const all = [...NEVER_BETA_DIAGRAMS, ...GRADUATED_DIAGRAMS, ...DUAL_KEYWORD_DIAGRAMS];
     const duplicates = all.filter((id, i) => all.indexOf(id) !== i);
     expect(duplicates, `Diagram(s) listed in multiple sets: ${duplicates.join(', ')}`).toEqual([]);
   });

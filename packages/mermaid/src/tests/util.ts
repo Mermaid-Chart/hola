@@ -106,6 +106,11 @@ export function jsdomIt(
             // Mocks DOM functions that require rendering, JSDOM doesn't
             setOnProtectedConstant(_window.Element.prototype, 'getBBox', () => MOCKED_BBOX);
             setOnProtectedConstant(_window.Element.prototype, 'getComputedTextLength', () => 200);
+            setOnProtectedConstant(_window.Element.prototype, 'getTotalLength', () => 100);
+            // Mock getTotalLength for SVG path elements if SVGPathElement exists
+            if (_window.SVGPathElement) {
+              setOnProtectedConstant(_window.SVGPathElement.prototype, 'getTotalLength', () => 100);
+            }
           },
         });
         setOnProtectedConstant(global, 'window', dom.window); // Fool D3 into thinking it's in a browser

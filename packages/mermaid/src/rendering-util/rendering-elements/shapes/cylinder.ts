@@ -96,10 +96,20 @@ export async function cylinder<T extends SVGGraphicsElement>(parent: D3Selection
     const outerPathData = createOuterCylinderPathD(0, 0, w, h, rx, ry);
     const innerPathData = createInnerCylinderPathD(0, ry, w, h, rx, ry);
     const options = userNodeOverrides(node, {});
-    const outerNode = rc.path(outerPathData, options);
-    const innerLine = rc.path(innerPathData, userNodeOverrides(node, { fill: 'none' }));
+    const overrides = {};
+    // node.look === 'neo'
+    //   ? {
+    //       roughness: 0,
+    //       stroke: 'none',
+    //       fillStyle: 'solid',
+    //     }
+    //   : {};
 
-    cylinder = shapeSvg.insert(() => innerLine, ':first-child');
+    const outerNode = rc.path(outerPathData, { ...options, ...overrides });
+    const innerLine = rc.path(innerPathData, { ...options, ...overrides });
+
+    const innerLineEl = shapeSvg.insert(() => innerLine, ':first-child');
+    innerLineEl.attr('class', 'neo-line');
     cylinder = shapeSvg.insert(() => outerNode, ':first-child');
     cylinder.attr('class', 'basic label-container');
     if (cssStyles) {
@@ -115,6 +125,7 @@ export async function cylinder<T extends SVGGraphicsElement>(parent: D3Selection
       .attr('style', nodeStyles);
   }
 
+  // find label and move it down
   cylinder.attr('label-offset-y', ry);
   cylinder.attr('transform', `translate(${-w / 2}, ${-(h / 2 + ry)})`);
 
@@ -122,7 +133,7 @@ export async function cylinder<T extends SVGGraphicsElement>(parent: D3Selection
 
   label.attr(
     'transform',
-    `translate(${-(bbox.width / 2) - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) + (node.padding ?? 0) / 1.5 - (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-(bbox.width / 2) - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) + (nodePadding ?? 0) / 2 - (bbox.y - (bbox.top ?? 0))})`
   );
 
   node.intersect = function (point) {

@@ -4,13 +4,13 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/ExternalDiagramDefinition.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/ExternalDiagramDefinition.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
 # Interface: ExternalDiagramDefinition
 
-Defined in: [packages/mermaid/src/diagram-api/types.ts:141](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L141)
+Defined in: [packages/mermaid/src/diagram-api/types.ts:152](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L152)
 
 ## Properties
 
@@ -18,7 +18,7 @@ Defined in: [packages/mermaid/src/diagram-api/types.ts:141](https://github.com/m
 
 > **detector**: `DiagramDetector`
 
-Defined in: [packages/mermaid/src/diagram-api/types.ts:143](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L143)
+Defined in: [packages/mermaid/src/diagram-api/types.ts:154](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L154)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [packages/mermaid/src/diagram-api/types.ts:143](https://github.com/m
 
 > **id**: `string`
 
-Defined in: [packages/mermaid/src/diagram-api/types.ts:142](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L142)
+Defined in: [packages/mermaid/src/diagram-api/types.ts:153](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L153)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [packages/mermaid/src/diagram-api/types.ts:142](https://github.com/m
 
 > **loader**: `DiagramLoader`
 
-Defined in: [packages/mermaid/src/diagram-api/types.ts:144](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L144)
+Defined in: [packages/mermaid/src/diagram-api/types.ts:155](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L155)

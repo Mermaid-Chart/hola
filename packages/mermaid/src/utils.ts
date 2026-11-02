@@ -786,6 +786,8 @@ export interface DetailedError {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   error?: any;
   message?: string;
+  parser?: string;
+  loc?: any;
 }
 
 /** @param error - The error to check */
@@ -947,6 +949,7 @@ export const getEdgeId = (
   if (id) {
     return id;
   }
+  log.debug('Disabled addition of id:', id);
   return `${prefix ? `${prefix}_` : ''}${from}_${to}_${counter}${suffix ? `_${suffix}` : ''}`;
 };
 

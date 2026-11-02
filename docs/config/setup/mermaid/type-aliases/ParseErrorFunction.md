@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/type-aliases/ParseErrorFunction.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/type-aliases/ParseErrorFunction.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
@@ -12,7 +12,7 @@
 
 > **ParseErrorFunction** = (`err`, `hash?`) => `void`
 
-Defined in: [packages/mermaid/src/Diagram.ts:12](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/Diagram.ts#L12)
+Defined in: [packages/mermaid/src/Diagram.ts:13](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/Diagram.ts#L13)
 
 ## Parameters
 

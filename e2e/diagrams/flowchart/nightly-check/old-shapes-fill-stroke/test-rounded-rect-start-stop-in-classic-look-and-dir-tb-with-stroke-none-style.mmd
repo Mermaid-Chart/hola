@@ -1,0 +1,18 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/common-tests/visual-check/oldShapes.spec.ts (Test rounded, rect,
+  start, stop in classic look and dir TB > with stroke none style). Alana-only
+  coverage, so it lives in nightly-check.
+config:
+  look: classic
+---
+flowchart TB
+  n0 --> n00@{ shape: rounded, label: 'stroke none rounded' }
+  style n00 fill:#bbf,stroke:none,stroke-width:2px
+  n1 --> n11@{ shape: rect, label: 'stroke none rect' }
+  style n11 fill:#bbf,stroke:none,stroke-width:2px
+  n2 --> n22@{ shape: start, label: 'stroke none start' }
+  style n22 fill:#bbf,stroke:none,stroke-width:2px
+  n3 --> n33@{ shape: stop, label: 'stroke none stop' }
+  style n33 fill:#bbf,stroke:none,stroke-width:2px

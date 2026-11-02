@@ -432,15 +432,21 @@ describe('gipsec DDLT — variable private workflow shells', () => {
       expect({ nodes: layout.nodes, edges: layout.edges }).toStrictEqual(before);
       layout.nodes.forEach((node, index) => expect(node).toBe(nodes[index]));
       layout.edges.forEach((edge, index) => expect(edge).toBe(edges[index]));
-    },
-    15000
+    }
   );
 
-  const cases = (['chains', 'wrappers', 'orphans', 'combined'] as PrivateVariant[]).flatMap(
-    (variant) =>
-      (Object.keys(measurements) as MeasurementStyle[]).flatMap((style) =>
-        ['TB', 'BT', 'LR', 'RL'].map((direction) => ({ variant, style, direction }))
-      )
+  // Pairwise rather than the full 4 × 6 × 4 product. Every style meets every
+  // direction once, and rotating the variant by `style + direction` makes each
+  // variant meet every style and every direction too — so all three pairings are
+  // covered in 24 full parse-and-layout cases instead of 96. The full product
+  // cost two minutes alone and several times that in a contended CI run.
+  const variants: PrivateVariant[] = ['chains', 'wrappers', 'orphans', 'combined'];
+  const cases = (Object.keys(measurements) as MeasurementStyle[]).flatMap((style, styleIndex) =>
+    ['TB', 'BT', 'LR', 'RL'].map((direction, directionIndex) => ({
+      variant: variants[(styleIndex + directionIndex) % variants.length],
+      style,
+      direction,
+    }))
   );
 
   it.each(cases)(
@@ -480,8 +486,6 @@ describe('gipsec DDLT — variable private workflow shells', () => {
           ).toBeCloseTo(0);
         }
       }
-    },
-    // Real-parser compound stress solves can exceed the default under load.
-    15000
+    }
   );
 });

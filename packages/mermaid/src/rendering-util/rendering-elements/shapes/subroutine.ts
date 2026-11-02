@@ -44,6 +44,15 @@ export async function subroutine<T extends SVGGraphicsElement>(parent: D3Selecti
   const labelPaddingX = node.look === 'neo' ? 28 : nodePadding;
   const labelPaddingY = node.look === 'neo' ? 12 : nodePadding;
 
+  // If incoming height & width are present, subtract the padding from them
+  // as labelHelper does not take padding into account
+  // also check if the width or height is less than minimum default values (50),
+  // if so set it to min value
+  if (node.width || node.height) {
+    node.width = Math.max((node?.width ?? 0) - labelPaddingX - 2 * FRAME_WIDTH, 10);
+    node.height = Math.max((node?.height ?? 0) - labelPaddingY, 10);
+  }
+
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
 
   const totalWidth = Math.max(bbox.width + 2 * FRAME_WIDTH + labelPaddingX, node.width ?? 0);
@@ -60,11 +69,11 @@ export async function subroutine<T extends SVGGraphicsElement>(parent: D3Selecti
     { x: w, y: -h },
     { x: 0, y: -h },
     { x: 0, y: 0 },
-    { x: -8, y: 0 },
-    { x: w + 8, y: 0 },
-    { x: w + 8, y: -h },
-    { x: -8, y: -h },
-    { x: -8, y: 0 },
+    { x: -FRAME_WIDTH, y: 0 },
+    { x: w + FRAME_WIDTH, y: 0 },
+    { x: w + FRAME_WIDTH, y: -h },
+    { x: -FRAME_WIDTH, y: -h },
+    { x: -FRAME_WIDTH, y: 0 },
   ];
 
   if (node.look === 'handDrawn') {
@@ -72,15 +81,19 @@ export async function subroutine<T extends SVGGraphicsElement>(parent: D3Selecti
     const rc = rough.svg(shapeSvg);
     const options = userNodeOverrides(node, {});
 
-    const roughNode = rc.rectangle(x, y, w + 16, h, options);
-    const l1 = rc.line(x + FRAME_WIDTH, y, x + FRAME_WIDTH, y + h, options);
-    const l2 = rc.line(x + FRAME_WIDTH + w, y, x + FRAME_WIDTH + w, y + h, options);
+    const roughNode = rc.rectangle(x - FRAME_WIDTH, y, w + 2 * FRAME_WIDTH, h, options);
+    const l1 = rc.line(x, y, x, y + h, options);
+    const l2 = rc.line(x + w, y, x + w, y + h, options);
 
-    shapeSvg.insert(() => l1, ':first-child');
-    shapeSvg.insert(() => l2, ':first-child');
+    const l1El = shapeSvg.insert(() => l1, ':first-child');
+    const l2El = shapeSvg.insert(() => l2, ':first-child');
+    l1El.attr('class', 'neo-line');
+    l2El.attr('class', 'neo-line');
     const rect = shapeSvg.insert(() => roughNode, ':first-child');
     const { cssStyles } = node;
-    rect.attr('class', 'basic label-container').attr('style', handleUndefinedAttr(cssStyles));
+    rect
+      .attr('class', 'basic label-container outer-path')
+      .attr('style', handleUndefinedAttr(cssStyles));
     updateNodeBounds(node, rect);
   } else {
     const el = insertPolygonShape(shapeSvg, w, h, points);

@@ -1,6 +1,6 @@
 {
-  "name": "@mermaid-js/layout-elk",
-  "version": "1.0.1",
+  "name": "@mermaid-chart/layout-elk",
+  "version": "1.0.1-a.3",
   "description": "ELK layout engine for mermaid builds that do not bundle it (e.g. mermaid.tiny.js)",
   "module": "dist/mermaid-layout-elk.core.mjs",
   "types": "./types.d.ts",
@@ -23,7 +23,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mermaid-js/mermaid"
+    "url": "https://github.com/Mermaid-Chart/alana-mermaid",
+    "directory": "packages/mermaid-layout-elk"
   },
   "publishConfig": {
     "access": "public"
@@ -38,10 +39,10 @@
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",
-    "mermaid": "workspace:^"
+    "@mermaid-chart/mermaid": "workspace:^"
   },
   "peerDependencies": {
-    "mermaid": "^12.0.0"
+    "@mermaid-chart/mermaid": "workspace:^"
   },
   "files": [
     "dist",
@@ -50,9 +51,9 @@
   "dependencies": {
     "d3": "^7.9.0",
     "dagre-d3-es": "7.0.14",
-    "dayjs": "^1.11.21",
+    "dayjs": "^1.11.23",
     "dompurify": "^3.4.12",
     "elkjs": "^0.9.3",
-    "katex": "^0.18.0"
+    "katex": "^0.18.10"
   }
 }

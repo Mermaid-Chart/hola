@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Mermaid Quick Test Page</title>
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Recursive:wght@300..1000&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      .recursive-500 {
+        font-family: 'Recursive', serif;
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-style: normal;
+        font-variation-settings:
+          'slnt' 0,
+          'CASL' 0,
+          'CRSV' 0.5,
+          'MONO' 0;
+      }
+      body {
+        font-family: 'Recursive', serif;
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-style: normal;
+        font-variation-settings:
+          'slnt' 0,
+          'CASL' 0,
+          'CRSV' 0.5,
+          'MONO' 0;
+      }
+      .gridify.tiny {
+        background-image:
+          linear-gradient(transparent 11px, rgba(220, 220, 200, 0.8) 12px, transparent 12px),
+          linear-gradient(90deg, transparent 11px, rgba(220, 220, 200, 0.8) 12px, transparent 12px);
+        background-size:
+          100% 12px,
+          12px 100%;
+      }
+
+      .gridify.dots {
+        background-image: radial-gradient(
+          circle at center,
+          rgba(220, 220, 200, 0.8) 1px,
+          transparent 1px
+        );
+        background-size: 24px 24px;
+      }
+
+      h1 {
+        color: grey;
+      }
+
+      .mermaid2 {
+        display: none;
+      }
+
+      .mermaid svg {
+        font-size: 16px !important;
+        font-family: 'Recursive', serif;
+        font-optical-sizing: auto;
+        font-weight: 500;
+        font-style: normal;
+        font-variation-settings:
+          'slnt' 0,
+          'CASL' 0,
+          'CRSV' 0.5,
+          'MONO' 0;
+      }
+
+      pre {
+        width: 100%;
+        /*box-shadow: 4px 4px 0px 0px #0000000F;*/
+      }
+    </style>
+  </head>
+
+  <body class="gridify dots">
+    <pre class="mermaid">
+      sequenceDiagram
+      actor Alice
+      actor Bob
+      Alice->>Bob: Hi Bob
+      Bob->>Alice: Hi Alice  
+    </pre>
+    <hr />
+    <pre class="mermaid">
+      sequenceDiagram
+      autonumber
+      Alice->>John: Hello John, how are you?
+      loop HealthCheck
+          John->>John: Fight against hypochondria
+      end
+      Note right of John: Rational thoughts!
+      John-->>Alice: Great!
+      John->>Bob: How about you?
+      Bob-->>John: Jolly good!
+  
+  
+    </pre>
+    <hr />
+    <pre class="mermaid">
+      sequenceDiagram
+      Alice->>Bob: Hello Bob, how are you ?
+      Bob->>Alice: Fine, thank you. And you?
+      create participant Carl
+      Alice->>Carl: Hi Carl!
+      create actor D as Donald
+      Carl->>D: Hi!
+      destroy Carl
+      Alice-xCarl: We are too many
+      destroy Bob
+      Bob->>Alice: I agree
+    </pre>
+    <hr />
+    <script type="module">
+      import mermaid from './mermaid.esm.mjs';
+      window.callback = function () {
+        alert('A callback was triggered');
+      };
+      function callback() {
+        alert('It worked');
+      }
+      await mermaid.initialize({
+        startOnLoad: false,
+        theme: 'redux-color',
+        // theme: 'default',
+        // theme: 'forest',
+        // handDrawnSeed: 12,
+        look: 'neo',
+        // look: 'classic',
+        // 'elk.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+        // layout: 'dagre',
+        // layout: 'elk',
+        // layout: 'fixed',
+        // htmlLabels: false,
+        flowchart: { titleTopMargin: 10 },
+
+        // fontFamily: 'Caveat',
+        // fontFamily: 'Kalam',
+        // fontFamily: 'courier',
+        fontFamily: 'Recursive',
+        sequence: {
+          actorFontFamily: 'Recursive',
+          noteFontFamily: 'Recursive',
+          messageFontFamily: 'Recursive',
+        },
+        kanban: {
+          htmlLabels: false,
+        },
+        fontSize: 16,
+        logLevel: 0,
+        securityLevel: 'loose',
+        callback,
+      });
+      mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+      // }, 1000);
+      mermaid.parseError = function (err, hash) {
+        console.error('In parse error:');
+        console.error(err);
+      };
+    </script>
+  </body>
+</html>

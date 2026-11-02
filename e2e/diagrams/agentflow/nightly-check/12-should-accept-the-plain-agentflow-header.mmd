@@ -1,0 +1,14 @@
+%% Issue #159: the plain `agentflow` header is accepted next to the documented
+%% `agentflow-beta`, and parses identically. Before the fix this diagram was not
+%% detected as an agentflow diagram at all.
+agentflow TB
+  flow triage["Triage Agent"]
+    ticket["Incoming ticket"]@{ shape: input }
+    classify["Classify"]@{ shape: task }
+    lookup["search_kb"]@{ shape: tool }
+    known["Known issue?"]@{ shape: decision }
+
+    ticket --> classify --> lookup --> known
+    known -- yes --> reply["Send answer"]
+    known -- no --> escalate["Escalate"]
+  end

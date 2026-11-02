@@ -1,13 +1,16 @@
-import type { InternalHelpers, LayoutData, RenderOptions, SVG, SVGGroup } from 'mermaid';
+import type { SVG } from '../../../diagram-api/types.js';
+import type { InternalHelpers } from '../../../internals.js';
+import type { LayoutData } from '../../types.js';
 import { executeCoseBilkentLayout } from './layout.js';
 import type { D3Selection } from '../../../types.js';
+import type { RenderOptions } from '../../render.js';
 
 type Node = Record<string, unknown>;
 
 interface NodeWithPosition extends Node {
   x?: number;
   y?: number;
-  domId?: string | SVGGroup | D3Selection<SVGAElement>;
+  domId?: string | D3Selection<SVGAElement>;
   width?: number;
   height?: number;
   id?: string;
@@ -99,7 +102,7 @@ export const render = async (
         const boundingBox = nodeEl.node()!.getBBox();
         nodeWithPosition.width = boundingBox.width;
         nodeWithPosition.height = boundingBox.height;
-        nodeWithPosition.domId = nodeEl;
+        nodeWithPosition.domId = nodeEl as any;
 
         log.debug(`Node ${node.id} dimensions: ${boundingBox.width}x${boundingBox.height}`);
       }
@@ -166,7 +169,7 @@ export const render = async (
     data4Layout.edges.map(async (edge) => {
       // Insert edge label first
       const _edgeLabel = await insertEdgeLabel(edgeLabels, edge);
-
+      log.info('_edgeLabel', _edgeLabel);
       // Get start and end nodes
       const startNode = nodeDb[edge.start ?? ''];
       const endNode = nodeDb[edge.end ?? ''];

@@ -368,4 +368,21 @@ describe('[Singlenodes] when parsing', () => {
       expect(vert.get(`node${specialChar}`).text).toBe(`node${specialChar}`);
     }
   );
+
+  it('should preserve node label when node is referenced later without a label', function () {
+    const res = flow.parser.parse(`flowchart LR
+      D[sddfsdf]
+      I
+      D --> I
+    `);
+
+    const vert = flow.parser.yy.getVertices();
+    const edges = flow.parser.yy.getEdges();
+
+    expect(vert.get('D').text).toBe('sddfsdf');
+    expect(vert.get('I').text).toBe('I');
+    expect(edges.length).toBe(1);
+    expect(edges[0].start).toBe('D');
+    expect(edges[0].end).toBe('I');
+  });
 });

@@ -3,6 +3,7 @@ import type { FilledMindMapNode } from './mindmapTypes.js';
 import type { Point, D3Element } from '../../types.js';
 import { parseFontSize } from '../../utils.js';
 import type { MermaidConfig } from '../../config.type.js';
+import * as configApi from '../../config.js';
 import type { MindmapDB } from './mindmapDb.js';
 
 export const MAX_SECTIONS = 12;
@@ -157,13 +158,20 @@ const hexagonBkg: ShapeFunction = function (
 };
 
 const roundedRectBkg: ShapeFunction = function (db, elem, node) {
+  const config = configApi.getConfig();
+  const { look, themeVariables } = config;
+  const { radius } = themeVariables;
+  let rx = 0;
+  let ry = 0;
+
+  rx = ry = look === 'neo' ? radius : node.padding;
   elem
     .append('rect')
     .attr('id', 'node-' + node.id)
     .attr('class', 'node-bkg node-' + db.type2Str(node.type))
     .attr('height', node.height)
-    .attr('rx', node.padding)
-    .attr('ry', node.padding)
+    .attr('rx', rx)
+    .attr('ry', ry)
     .attr('width', node.width);
 };
 
@@ -182,6 +190,8 @@ export const drawNode = async function (
   fullSection: number,
   conf: MermaidConfig
 ): Promise<number> {
+  const config = configApi.getConfig();
+  const { look, theme } = config;
   const htmlLabels = conf.htmlLabels;
   const section = fullSection % (MAX_SECTIONS - 1);
   const nodeElem = elem.append('g');
@@ -190,7 +200,15 @@ export const drawNode = async function (
   if (section < 0) {
     sectionClass += ' section-root';
   }
+
+  if (look === 'neo') {
+    nodeElem.attr('data-look', `neo`);
+  }
+
   nodeElem.attr('class', (node.class ? node.class + ' ' : '') + 'mindmap-node ' + sectionClass);
+  nodeElem.attr('data-id', node.id);
+  nodeElem.attr('data-node', true);
+  nodeElem.attr('data-et', 'node');
   const bkgElem = nodeElem.append('g');
 
   // Create the wrapped text element
@@ -272,7 +290,11 @@ export const drawNode = async function (
 
   switch (node.type) {
     case db.nodeType.DEFAULT:
-      defaultBkg(db, bkgElem, node, section);
+      if (theme?.includes('redux')) {
+        roundedRectBkg(db, bkgElem, node, section);
+      } else {
+        defaultBkg(db, bkgElem, node, section);
+      }
       break;
     case db.nodeType.ROUNDED_RECT:
       roundedRectBkg(db, bkgElem, node, section);

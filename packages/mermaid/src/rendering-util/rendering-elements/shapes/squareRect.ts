@@ -13,8 +13,8 @@ export async function squareRect<T extends SVGGraphicsElement>(parent: D3Selecti
     rx: 0,
     ry: 0,
     classes: '',
-    labelPaddingX: node.labelPaddingX ?? labelPaddingX,
-    labelPaddingY: labelPaddingY,
+    labelPaddingX: node.labelPaddingX ?? labelPaddingX ?? (node?.padding || 0) * 2,
+    labelPaddingY: labelPaddingY ?? (node?.padding || 0) * 1,
   } as RectOptions;
   const shapeSvg = await drawRect(parent, node, options);
 

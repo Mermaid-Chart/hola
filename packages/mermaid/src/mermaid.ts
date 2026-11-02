@@ -21,10 +21,13 @@ import type { LayoutData } from './rendering-util/types.js';
 import type { ParseOptions, ParseResult, RenderResult } from './types.js';
 import type { DetailedError } from './utils.js';
 import utils, { isDetailedError } from './utils.js';
+import type { SequenceAST, ElementMapping, ElementPosition } from './diagrams/sequence/types.js';
 
 export type {
   AsyncIconLoader,
   DetailedError,
+  ElementMapping,
+  ElementPosition,
   ExternalDiagramDefinition,
   IconLoader,
   InternalHelpers,
@@ -36,6 +39,7 @@ export type {
   ParseResult,
   RenderOptions,
   RenderResult,
+  SequenceAST,
   SVG,
   SVGGroup,
   SyncIconLoader,
@@ -182,7 +186,7 @@ const runThrowsErrors = async function (
       log.debug('Detected early reinit: ', init);
     }
     try {
-      const { svg, bindFunctions } = await render(id, txt, element);
+      const { svg, bindFunctions } = await render(id, txt, element, undefined);
       element.innerHTML = svg;
       if (postRenderCallback) {
         await postRenderCallback(id);
@@ -329,7 +333,7 @@ const executeQueue = async () => {
  * Parse the text and validate the syntax.
  * @param text - The mermaid diagram definition.
  * @param parseOptions - Options for parsing. @see {@link ParseOptions}
- * @returns If valid, {@link ParseResult} otherwise `false` if parseOptions.suppressErrors is `true`.
+ * @returns If valid, {@link Diagram} otherwise `false` if parseOptions.suppressErrors is `true`.
  * @throws Error if the diagram is invalid and parseOptions.suppressErrors is false or not set.
  *
  * @example
@@ -351,11 +355,11 @@ const parse: typeof mermaidAPI.parse = async (text, parseOptions) => {
     const performCall = () =>
       new Promise((res, rej) => {
         mermaidAPI.parse(text, parseOptions).then(
-          (r) => {
+          (result) => {
             // This resolves for the promise for the queue handling
-            res(r);
+            res(result);
             // This fulfills the promise sent to the value back to the original caller
-            resolve(r);
+            resolve(result);
           },
           (e) => {
             log.error('Error parsing', e);
@@ -393,13 +397,13 @@ const parse: typeof mermaidAPI.parse = async (text, parseOptions) => {
  *   element will be removed when rendering is completed.
  * @returns Returns the SVG Definition and BindFunctions.
  */
-const render: typeof mermaidAPI.render = (id, text, container) => {
+const render: typeof mermaidAPI.render = (id, text, container, positions) => {
   return new Promise((resolve, reject) => {
     // This promise will resolve when the mermaidAPI.render call is done.
     // It will be queued first and will be executed when it is first in line
     const performCall = () =>
       new Promise((res, rej) => {
-        mermaidAPI.render(id, text, container).then(
+        mermaidAPI.render(id, text, container, positions).then(
           (r) => {
             // This resolves for the promise for the queue handling
             res(r);
@@ -474,3 +478,9 @@ const mermaid: Mermaid = {
 };
 
 export default mermaid;
+
+export {
+  calcIntersections,
+  calcNodeIntersections,
+  calcIntersect,
+} from './rendering-util/layout-algorithms/fixed/index.js';

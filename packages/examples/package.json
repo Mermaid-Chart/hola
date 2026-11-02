@@ -29,7 +29,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "mermaid": "workspace:*"
+    "@mermaid-chart/mermaid": "workspace:*"
   },
   "publishConfig": {
     "access": "public"

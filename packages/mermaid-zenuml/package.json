@@ -39,10 +39,10 @@
     "@zenuml/core": "^3.47.9"
   },
   "devDependencies": {
-    "mermaid": "workspace:^"
+    "@mermaid-chart/mermaid": "workspace:^"
   },
   "peerDependencies": {
-    "mermaid": "^10 || ^11 || ^12"
+    "@mermaid-chart/mermaid": "^10 || ^11 || ^12"
   },
   "files": [
     "dist"

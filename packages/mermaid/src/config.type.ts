@@ -81,6 +81,7 @@ export interface MermaidConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   themeVariables?: any;
   themeCSS?: string;
@@ -279,7 +280,7 @@ export interface MermaidConfig {
   /**
    * Level of trust for parsed diagram
    */
-  securityLevel?: 'strict' | 'loose' | 'antiscript' | 'sandbox';
+  securityLevel?: 'strict' | 'loose' | 'antiscript' | 'sandbox' | 'parseOnly';
   /**
    * Dictates whether mermaid starts on Page load
    */
@@ -396,6 +397,7 @@ export interface FlowchartDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -466,6 +468,11 @@ export interface FlowchartDiagramConfig extends BaseDiagramConfig {
     | 'stepBefore'
     | 'rounded';
   /**
+   * Highlights the points in an edge for debugging.
+   *
+   */
+  edgeDebug?: boolean;
+  /**
    * Represents the padding between the labels and the shape
    *
    * **Only used in new experimental rendering.**
@@ -511,6 +518,10 @@ export interface BaseDiagramConfig {
    */
   useMaxWidth?: boolean;
   /**
+   * The parser to use for this diagram type
+   */
+  parser?: 'jison' | 'antlr' | 'langium';
+  /**
    * Theme, the CSS style sheet.
    * You may also use `themeCSS` to override this value.
    *
@@ -527,6 +538,7 @@ export interface BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -568,6 +580,7 @@ export interface SwimlaneDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -635,6 +648,7 @@ export interface AgentflowDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -710,6 +724,7 @@ export interface SequenceDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -1135,6 +1150,7 @@ export interface ClassDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -1198,6 +1214,7 @@ export interface StateDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -1280,6 +1297,7 @@ export interface ErDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -1571,6 +1589,7 @@ export interface RequirementDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -2356,6 +2375,7 @@ export interface UsecaseDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.
@@ -2484,6 +2504,7 @@ export interface VennDiagramConfig extends BaseDiagramConfig {
     | 'redux-dark'
     | 'redux-color'
     | 'redux-dark-color'
+    | 'mc'
     | 'null';
   /**
    * Defines which main look to use for the diagram.

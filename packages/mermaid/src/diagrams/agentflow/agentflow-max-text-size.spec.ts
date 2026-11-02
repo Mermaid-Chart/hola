@@ -86,12 +86,16 @@ describe('agentflow under maxTextSize', () => {
   });
 
   jsdomIt('says nothing for a comment-heavy diagram that never parses comments', async () => {
-    // A flowchart does not set `preserveCommentsWhenParsing`, so the
+    // A pie chart does not set `preserveCommentsWhenParsing`, so the
     // comment-preserving variant is irrelevant to it. Warning about "reported
     // source positions" there would be noise about a feature it does not have.
+    //
+    // Upstream uses a flowchart here; in this fork the flowchart *does* opt in
+    // (it reports inline Jison positions for editor sync), so this case needs a
+    // diagram type that genuinely never parses comments.
     const warn = vi.spyOn(log, 'warn').mockImplementation(() => undefined);
     const comments = Array.from({ length: 4000 }, () => COMMENT_LINE).join('\n');
-    await mermaidAPI.render('flowchart-maxsize', `flowchart TD\n${comments}\n  A --> B`);
+    await mermaidAPI.render('pie-maxsize', `pie title Sizes\n${comments}\n  "A" : 10`);
 
     expect(
       warn.mock.calls.filter((call) => String(call[0]).includes('Comment-preserving source'))

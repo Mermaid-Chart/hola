@@ -1,32 +1,32 @@
 import { log } from '../../../logger.js';
 import { getNodeClasses, updateNodeBounds } from './util.js';
 import type { Node } from '../../types.js';
-import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
+import { userNodeOverrides } from './handDrawnShapeStyles.js';
 import rough from 'roughjs';
 import intersect from '../intersect/index.js';
 import { createPathFromPoints } from './util.js';
 import type { D3Selection } from '../../../types.js';
 
 export function lightningBolt<T extends SVGGraphicsElement>(parent: D3Selection<T>, node: Node) {
-  const { labelStyles, nodeStyles } = styles2String(node);
   node.label = '';
-  node.labelStyle = labelStyles;
   const shapeSvg = parent
     .insert('g')
     .attr('class', getNodeClasses(node))
     .attr('id', node.domId ?? node.id);
   const { cssStyles } = node;
-  const width = Math.max(35, node?.width ?? 0);
-  const height = Math.max(35, node?.height ?? 0);
-  const gap = 7;
+
+  const gapX = Math.max(5, (node.width ?? 0) * 0.1);
+  const gapY = Math.max(5, (node.height ?? 0) * 0.1);
+  const width = node?.width ? node?.width : 50;
+  const height = node?.height ? node?.height : 50;
 
   const points = [
     { x: width, y: 0 },
-    { x: 0, y: height + gap / 2 },
-    { x: width - 2 * gap, y: height + gap / 2 },
-    { x: 0, y: 2 * height },
-    { x: width, y: height - gap / 2 },
-    { x: 2 * gap, y: height - gap / 2 },
+    { x: 0, y: height / 2 + gapY / 2 },
+    { x: width - 4 * gapX, y: height / 2 + gapY / 2 },
+    { x: 0, y: height },
+    { x: width, y: height / 2 - gapY / 2 },
+    { x: 4 * gapX, y: height / 2 - gapY / 2 },
   ];
 
   // @ts-expect-error shapeSvg d3 class is incorrect?
@@ -48,11 +48,7 @@ export function lightningBolt<T extends SVGGraphicsElement>(parent: D3Selection<
     lightningBolt.selectAll('path').attr('style', cssStyles);
   }
 
-  if (nodeStyles && node.look !== 'handDrawn') {
-    lightningBolt.selectAll('path').attr('style', nodeStyles);
-  }
-
-  lightningBolt.attr('transform', `translate(-${width / 2},${-height})`);
+  lightningBolt.attr('transform', `translate(-${width / 2},${-height / 2})`);
 
   updateNodeBounds(node, lightningBolt);
 

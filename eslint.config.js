@@ -182,7 +182,8 @@ export default tseslint.config(
     },
   },
   {
-    files: ['e2e/**', 'demos/**', '.esbuild/**', 'diagram-lab/**'],
+    // `.github/fork-sync/**` is fork-only: the sync pipeline's own scripts.
+    files: ['e2e/**', 'demos/**', '.esbuild/**', '.github/fork-sync/**'],
     rules: {
       'no-console': 'off',
       // Dev tooling files often use lower-friction style (single-line ifs,

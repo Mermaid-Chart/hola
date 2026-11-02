@@ -20,6 +20,8 @@ describe('diagram-orchestration', () => {
       { text: 'flowchart-v2 TD;', expected: 'flowchart-v2' },
       { text: 'flowchart-elk TD;', expected: 'flowchart-elk' },
       { text: 'swimlane-beta TD;', expected: 'swimlane' },
+      { text: 'agentflow-beta TD;', expected: 'agentflow' },
+      { text: 'agentflow TD;', expected: 'agentflow' },
       { text: 'error', expected: 'error' },
       { text: 'C4Context;', expected: 'c4' },
       { text: 'classDiagram', expected: 'classDiagram' },
@@ -93,6 +95,61 @@ describe('diagram-orchestration', () => {
         detectType(`pie title: "flowchart"
       flowchart: 1 "pie" pie: 2 "pie"`)
       ).toBe('pie');
+    });
+
+    it('should detect proper diagram when the flowchart layout is elk', () => {
+      expect(
+        detectType('mindmap\n  root\n    Photograph\n      Waterfall', {
+          flowchart: { layout: 'elk' },
+        })
+      ).toBe('mindmap');
+      expect(
+        detectType(
+          `
+          classDiagram
+            class Person {
+              +String name
+              -Int id
+              #double age
+              +Text demographicProfile
+            }
+          `,
+          { flowchart: { layout: 'elk' } }
+        )
+        // The fork's anchored detection answers `classDiagram` here, with or without the
+        // elk config. The old `class` expectation came from `flowchart.defaultRenderer`,
+        // which upstream removed once ELK became the default layout.
+      ).toBe('classDiagram');
+      expect(
+        detectType(
+          `
+          erDiagram
+            p[Photograph] {
+              varchar(12) jobId
+              date dateCreated
+            }
+          `,
+          {
+            flowchart: { layout: 'elk' },
+          }
+        )
+      ).toBe('er');
+    });
+
+    it('should detect sequence/state even if config strings contain other diagram names', () => {
+      // sequenceDiagram with config string mentioning stateDiagram
+      expect(
+        detectType(
+          `---
+title: Hello Title
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#00ff00"
+---
+sequenceDiagram\nA->B: hi`
+        )
+      ).toBe('sequence');
     });
   });
 });

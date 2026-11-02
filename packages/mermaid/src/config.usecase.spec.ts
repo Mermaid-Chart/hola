@@ -63,6 +63,10 @@ const supportedConfig = {
   diagramPadding: 20,
   colorScheme: 'role',
   useMaxWidth: true,
+  // Fork-only: this fork adds `parser` to BaseDiagramConfig (JISON/ANTLR
+  // selection), which every diagram config inherits through its `allOf`, so it
+  // shows up in the generated runtime defaults. Absent upstream.
+  parser: 'jison',
 } satisfies UsecaseDiagramConfig;
 
 describe('usecase configuration', () => {

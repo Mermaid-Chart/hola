@@ -5,6 +5,7 @@ import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
 import rough from 'roughjs';
 import { insertPolygonShape } from './insertPolygonShape.js';
 import type { D3Selection } from '../../../types.js';
+import { getIconSVG } from '../../icons.js';
 
 export const createHexagonPathD = (
   x: number,
@@ -32,6 +33,10 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
   const wa = 70;
   const ha = 32;
 
+  const iconSize = 20;
+  const iconGap = 8;
+  const iconWidth = node.icon ? iconSize + iconGap : 0;
+
   const labelPaddingX = node.look === 'neo' ? wa : nodePadding;
   const labelPaddingY = node.look === 'neo' ? ha : nodePadding;
   if (node.width || node.height) {
@@ -41,12 +46,12 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
     node.height = (node.height ?? 0) - labelPaddingX;
   }
 
-  const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
+  const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
 
   const h = (node?.height ? node?.height : bbox.height) + labelPaddingX;
   const m = h / f;
 
-  const w = (node?.width ? node?.width : bbox.width) + 2 * m + labelPaddingY;
+  const w = (node?.width ? node?.width : bbox.width) + 2 * m + labelPaddingY + iconWidth;
   const points = [
     { x: m, y: 0 },
     { x: w - m, y: 0 },
@@ -85,6 +90,27 @@ export async function hexagon<T extends SVGGraphicsElement>(parent: D3Selection<
   node.height = h;
 
   updateNodeBounds(node, polygon);
+
+  // Shift label right to make room for icon on the left, and render icon
+  if (node.icon) {
+    const currentTransform = label.attr('transform') ?? 'translate(0,0)';
+    label.attr(
+      'transform',
+      currentTransform.replace(/translate\(([^,]+),([^)]+)\)/, (_m, x, y) => {
+        return `translate(${parseFloat(x) + iconWidth / 2}, ${y})`;
+      })
+    );
+
+    const iconElem = shapeSvg.append('g').attr('class', 'mindmap-icon');
+    iconElem.html(
+      `<g>${await getIconSVG(node.icon, { height: iconSize, fallbackPrefix: '' })}</g>`
+    );
+    const iconBBox = iconElem.node()!.getBBox();
+    const iconTargetCenterX = -(bbox.width + iconGap) / 2;
+    const tx = iconTargetCenterX - iconBBox.x - iconBBox.width / 2;
+    const ty = -iconBBox.y - iconBBox.height / 2;
+    iconElem.attr('transform', `translate(${tx}, ${ty})`);
+  }
 
   node.intersect = function (point) {
     return intersect.polygon(node, points, point);

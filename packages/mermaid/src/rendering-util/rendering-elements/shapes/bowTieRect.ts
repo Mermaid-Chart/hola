@@ -14,7 +14,9 @@ function generateArcPoints(
   ry: number,
   clockwise: boolean
 ) {
-  const numPoints = 20;
+  // this must be an odd number, so that the midpoint is included
+  // otherwise the width of the bowtie will be off
+  const numPoints = 21;
   // Calculate midpoint
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
@@ -97,6 +99,19 @@ export async function bowTieRect<T extends SVGGraphicsElement>(parent: D3Selecti
     return [rx, ry];
   };
 
+  // If incoming height & width are present, subtract the padding from them
+  // as labelHelper does not take padding into account
+  // also check if the width or height is less than minimum default values (50),
+  // if so set it to min value
+  if (node.width || node.height) {
+    node.height = Math.max((node?.height ?? 0) - labelPaddingY * 2, 10);
+    const totalHeight = calcTotalHeight(node.height);
+    const [rx, ry] = calcEllipseRadius(totalHeight);
+    node.width = Math.max(
+      (node?.width ?? 0) - labelPaddingX * 2 - calculateArcSagitta(totalHeight, rx, ry),
+      10
+    );
+  }
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
 
   const totalHeight = calcTotalHeight(node?.height ? node?.height : bbox.height);

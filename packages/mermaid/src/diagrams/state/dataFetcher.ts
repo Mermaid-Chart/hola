@@ -116,17 +116,38 @@ const setupDoc = (
   edges: Edge[],
   altFlag: boolean,
   look: MermaidConfig['look'],
-  classes: Map<string, StyleClass>
+  classes: Map<string, StyleClass>,
+  config: MermaidConfig
 ) => {
   // graphItemCount = 0;
   log.trace('items', doc);
   doc.forEach((item) => {
     switch (item.stmt) {
       case STMT_STATE:
-        dataFetcher(parentParsedItem, item, diagramStates, nodes, edges, altFlag, look, classes);
+        dataFetcher(
+          parentParsedItem,
+          item,
+          diagramStates,
+          nodes,
+          edges,
+          altFlag,
+          look,
+          classes,
+          config
+        );
         break;
       case DEFAULT_STATE_TYPE:
-        dataFetcher(parentParsedItem, item, diagramStates, nodes, edges, altFlag, look, classes);
+        dataFetcher(
+          parentParsedItem,
+          item,
+          diagramStates,
+          nodes,
+          edges,
+          altFlag,
+          look,
+          classes,
+          config
+        );
         break;
       case STMT_RELATION:
         {
@@ -138,7 +159,8 @@ const setupDoc = (
             edges,
             altFlag,
             look,
-            classes
+            classes,
+            config
           );
           dataFetcher(
             parentParsedItem,
@@ -148,7 +170,8 @@ const setupDoc = (
             edges,
             altFlag,
             look,
-            classes
+            classes,
+            config
           );
           const isNeo = look === 'neo';
           const edgeData = {
@@ -246,13 +269,14 @@ export const dataFetcher = (
   edges: Edge[],
   altFlag: boolean,
   look: MermaidConfig['look'],
-  classes: Map<string, StyleClass>
+  classes: Map<string, StyleClass>,
+  config: MermaidConfig
 ) => {
   const itemId = parsedItem.id;
   const dbState = diagramStates.get(itemId);
   const classStr = getClassesFromDbInfo(dbState);
   const style = getStylesFromDbInfo(dbState);
-  const config = getConfig();
+  //const config = getConfig();
 
   /**
    * Whether the author has styled this state themselves, via `classDef`/`class` or a
@@ -472,7 +496,17 @@ export const dataFetcher = (
   }
   if (parsedItem.doc) {
     log.trace('Adding nodes children ');
-    setupDoc(parsedItem, parsedItem.doc, diagramStates, nodes, edges, !altFlag, look, classes);
+    setupDoc(
+      parsedItem,
+      parsedItem.doc,
+      diagramStates,
+      nodes,
+      edges,
+      !altFlag,
+      look,
+      classes,
+      config
+    );
   }
 };
 

@@ -547,6 +547,7 @@ export class ClassDB implements DiagramDB {
         el.classed('hover', true);
       })
       .on('mouseout', (event: MouseEvent) => {
+        // @ts-ignore - transition is not part of the d3 type definition
         tooltipElem.transition().duration(500).style('opacity', 0);
         select(event.currentTarget as HTMLElement).classed('hover', false);
       });
@@ -791,7 +792,7 @@ export class ClassDB implements DiagramDB {
       const noteParentId = hierarchical ? note.parent : this.resolveExplicitAncestor(note.parent);
       const noteNode: Node = {
         id: note.id,
-        label: note.text,
+        label: note.text.replace(/\\n/g, '\n'),
         isGroup: false,
         shape: 'note',
         padding: config.class!.padding ?? 6,
@@ -824,6 +825,7 @@ export class ClassDB implements DiagramDB {
           style: ['fill: none'],
           pattern: 'dotted',
           look: config.look,
+          curve: 'rounded',
         };
         edges.push(edge);
       }
@@ -866,6 +868,7 @@ export class ClassDB implements DiagramDB {
         style: classRelation.style || '',
         pattern: classRelation.relation.lineType == 1 ? 'dashed' : 'solid',
         look: config.look,
+        curve: 'rounded',
         labelType: 'markdown',
       };
       edges.push(edge);

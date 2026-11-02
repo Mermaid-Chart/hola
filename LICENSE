@@ -1,21 +1,36 @@
-The MIT License (MIT)
+PROPRIETARY SOFTWARE LICENSE
 
-Copyright (c) 2014 - 2022 Knut Sveidqvist
+Copyright (c) 2024 Mermaid Chart Inc. All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software and its documentation are protected by copyright law and international treaties. This software is provided under the following terms and conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. LICENSE GRANT
+   Mermaid Chart ("the Licensor") grants you a limited, non-transferable, non-exclusive license to:
+   a) Use this software ONLY as a component within plugins/extensions that are explicitly authorized by Mermaid Chart
+   b) Distribute this software ONLY as a bundled component within authorized plugins/extensions
+   c) Allow end users to use this software functionality ONLY through authorized plugins/extensions
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. RESTRICTIONS
+   You may NOT:
+   a) Use, copy, modify, merge, publish, distribute, sublicense, or sell the source code outside of explicitly authorized plugins/extensions
+   b) Use the software in any plugins/extensions without explicit written authorization from Mermaid Chart
+   c) Extract, reverse engineer, decompile, disassemble, or create derivative works of the software
+   d) Remove any proprietary notices or labels from the software
+   e) Incorporate the software or its code into any unauthorized software projects or products
+
+3. AUTHORIZED PLUGINS/EXTENSIONS
+   The list of authorized plugins/extensions shall be maintained by Mermaid Chart. Usage of this software is strictly limited to these authorized implementations. Contact Mermaid Chart for authorization requests.
+
+4. OWNERSHIP
+   All title, ownership, and intellectual property rights in and to the software remain with Mermaid Chart.
+
+5. WARRANTY DISCLAIMER
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. MERMAID CHART MAKES NO WARRANTIES OR REPRESENTATIONS REGARDING THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+6. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL MERMAID CHART BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+7. TERMINATION
+   This license is effective until terminated. Your rights under this license will terminate automatically without notice if you fail to comply with any terms of this license.
+
+By using this software, you agree to be bound by the terms of this license.

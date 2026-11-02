@@ -44,8 +44,25 @@ export async function curlyBraceLeft<T extends SVGGraphicsElement>(
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
   const paddingX = node.look === 'neo' ? 18 : (node.padding ?? 0);
   const paddingY = node.look === 'neo' ? 12 : (node.padding ?? 0);
-  const w = bbox.width + paddingX;
-  const h = bbox.height + paddingY;
+  if (node.width || node.height) {
+    let radius = 5;
+    const cal_height = (((node?.height ?? 0) - paddingY * 2) * 10) / 11;
+    if (cal_height / 10 > 5) {
+      radius = cal_height / 10;
+    }
+
+    node.height = (node?.height ?? 0) - paddingY * 2 - 2 * radius;
+    if (node.height < 10) {
+      node.height = 10;
+    }
+    node.width = (node?.width ?? 0) - paddingX * 2 - 2 * radius;
+    if (node.width < 10) {
+      node.width = 10;
+    }
+  }
+
+  const w = (node.width ? node.width : bbox.width) + (paddingX ?? 0) * 2;
+  const h = (node.height ? node.height : bbox.height) + (paddingY ?? 0) * 2;
   const radius = Math.max(5, h * 0.1);
   const { cssStyles } = node;
 
@@ -101,7 +118,7 @@ export async function curlyBraceLeft<T extends SVGGraphicsElement>(
 
   label.attr(
     'transform',
-    `translate(${-w / 2 + radius - (bbox.x - (bbox.left ?? 0))},${-h / 2 + (node.padding ?? 0) / 2 - (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-w / 2 + (paddingX ?? 0) - (bbox.x - (bbox.left ?? 0))}, ${-bbox.height / 2})`
   );
 
   updateNodeBounds(node, curlyBraceLeftShape);

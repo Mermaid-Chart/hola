@@ -1,4 +1,4 @@
-import type { SVG } from '../diagram-api/types.js';
+import type { Positions, SVG } from '../diagram-api/types.js';
 import type { InternalHelpers } from '../internals.js';
 import { internalHelpers } from '../internals.js';
 import { log } from '../logger.js';
@@ -7,6 +7,7 @@ import type { LayoutData } from './types.js';
 import { ELK_ALGORITHMS } from './layout-algorithms/elk/algorithms.js';
 import {
   STRUCTURAL_FALLBACK_LAYOUT,
+  isGridLikeLayout,
   structuralFallbackVerdict,
 } from './layout-algorithms/layout-utils/structuralFallback.js';
 
@@ -22,7 +23,8 @@ export interface LayoutAlgorithm {
     layoutData: LayoutData,
     svg: SVG,
     helpers: InternalHelpers,
-    options?: RenderOptions
+    options?: RenderOptions,
+    positions?: Positions
   ): Promise<void>;
 }
 
@@ -81,6 +83,10 @@ const registerDefaultLayoutLoaders = () => {
       loader: async () => await import('./layout-algorithms/dagre/index.js'),
     },
     {
+      name: 'fixed',
+      loader: async () => await import('./layout-algorithms/fixed/index.js'),
+    },
+    {
       name: 'swimlane',
       loader: async () => await import('./layout-algorithms/swimlanes/index.js'),
     },
@@ -123,10 +129,17 @@ const registerDefaultLayoutLoaders = () => {
 
 registerDefaultLayoutLoaders();
 
-export const render = async (data4Layout: LayoutData, svg: SVG) => {
+export const render = async (data4Layout: LayoutData, svg: SVG, positions?: Positions) => {
   if (!Object.hasOwn(layoutAlgorithms, data4Layout.layoutAlgorithm)) {
     throw new Error(`Unknown layout algorithm: ${data4Layout.layoutAlgorithm}`);
   }
+
+  // `positions` is a legacy affordance that predates the grid-like layouts, and
+  // is deliberately not applied to them. Decided from the *requested* layout and
+  // captured before the structural gate below can rewrite `layoutAlgorithm`, so
+  // that a redirect to ELK does not reinstate it for a diagram that asked for
+  // hola or gipsec.
+  const honoursPositions = !isGridLikeLayout(data4Layout.layoutAlgorithm);
 
   // Grid-like layouts opt out of graphs their core/tree decomposition handles
   // badly; see `structuralFallbackVerdict`. Resolved through
@@ -155,9 +168,15 @@ export const render = async (data4Layout: LayoutData, svg: SVG) => {
 
   insertLookDefs(svg, data4Layout.config);
 
-  return layoutRenderer.render(data4Layout, svg, internalHelpers, {
-    algorithm: layoutDefinition.algorithm,
-  });
+  return layoutRenderer.render(
+    data4Layout,
+    svg,
+    internalHelpers,
+    {
+      algorithm: layoutDefinition.algorithm,
+    },
+    honoursPositions ? positions : undefined
+  );
 };
 
 /** Always registered, so the fallback chain can always end. */

@@ -1,0 +1,20 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/common-tests/visual-check/oldShapes.spec.ts (Test text, card,
+  lin-rect, diamond, hexagon in handDrawn look and dir LR > with fill none
+  style). Alana-only coverage, so it lives in nightly-check.
+config:
+  look: handDrawn
+---
+flowchart LR
+  n0 --> n00@{ shape: text, label: 'none text' }
+  style n00 fill:none,stroke:#666,stroke-width:3px
+  n1 --> n11@{ shape: card, label: 'none card' }
+  style n11 fill:none,stroke:#666,stroke-width:3px
+  n2 --> n22@{ shape: lin-rect, label: 'none lin-rect' }
+  style n22 fill:none,stroke:#666,stroke-width:3px
+  n3 --> n33@{ shape: diamond, label: 'none diamond' }
+  style n33 fill:none,stroke:#666,stroke-width:3px
+  n4 --> n44@{ shape: hexagon, label: 'none hexagon' }
+  style n44 fill:none,stroke:#666,stroke-width:3px

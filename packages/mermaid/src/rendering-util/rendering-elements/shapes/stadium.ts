@@ -84,7 +84,12 @@ export async function stadium<T extends SVGGraphicsElement>(parent: D3Selection<
   const paddingX = node.look === 'neo' ? 40 : nodePadding;
   const paddingY = node.look === 'neo' ? 24 : nodePadding;
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
-  const { w, h } = stadiumDimensions(bbox, paddingX, paddingY);
+  // Fork delta: a fixed-layout node carries its own size through `positions`
+  // (see `NodePosition`), so an explicit dimension wins over the label-derived one.
+  // Everything else here, including the cap geometry below, is upstream's.
+  const fromLabel = stadiumDimensions(bbox, paddingX, paddingY);
+  const w = node.width ?? fromLabel.w;
+  const h = node.height ?? fromLabel.h;
 
   const radius = h / 2;
   const { cssStyles } = node;

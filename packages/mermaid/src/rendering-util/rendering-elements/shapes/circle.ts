@@ -25,8 +25,15 @@ export async function circle<T extends SVGGraphicsElement>(
   // Half the label box's diagonal, not half its width: a circle sized from the width alone
   // clips every label taller than it is wide, which is what a narrow wrappingWidth produces.
   const labelRadius = Math.sqrt(bbox.width ** 2 + bbox.height ** 2) / 2;
+  // Fork delta, and the only one in this file: a fixed-layout node carries its own size
+  // through `positions` (see `NodePosition`), so an explicit width wins over the
+  // label-derived radius. Every other shape honours it in upstream's own code.
   // The diagonal already contains the label, so neo needs only one padding step (as doubleCircle's inner ring).
-  const radius = node.look === 'neo' ? labelRadius + labelPadding : labelRadius + padding;
+  const radius = node.width
+    ? node.width / 2
+    : node.look === 'neo'
+      ? labelRadius + labelPadding
+      : labelRadius + padding;
 
   let circleElem;
   const { cssStyles } = node;

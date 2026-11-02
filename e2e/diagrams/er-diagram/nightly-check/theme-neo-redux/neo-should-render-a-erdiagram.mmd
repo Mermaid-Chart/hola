@@ -1,0 +1,29 @@
+---
+description: >-
+  Ported from the fork-only e2e/rendering/er/erDiagram-theme-neo-redux.spec.js
+  (ER Diagram > neo > should render a erDiagram). Alana-only coverage, so it
+  lives in nightly-check.
+config:
+  theme: neo
+  look: neo
+---
+erDiagram
+ CAR ||--o{ DRIVER : allows
+ CAR {
+     string registrationNumber PK
+     string make
+     string model
+     string[] parts
+ }
+ PERSON ||--o{ DRIVER : is
+ PERSON {
+     string driversLicense PK "The license #"
+     string(99) firstName "Only 99 characters are allowed"
+     string lastName
+     string phone UK
+     int age
+ }
+ DRIVER {
+     string carRegistrationNumber PK, FK
+     string driverLicense PK, FK
+ }

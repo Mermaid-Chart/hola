@@ -25,7 +25,12 @@ import { getEffectiveHtmlLabels } from './config.js';
 import type { MermaidConfig } from './config.type.js';
 import { addDiagrams } from './diagram-api/diagram-orchestration.js';
 import { detectType } from './diagram-api/detectType.js';
-import type { DiagramCode, DiagramMetadata, DiagramStyleClassDef } from './diagram-api/types.js';
+import type {
+  DiagramCode,
+  DiagramMetadata,
+  DiagramStyleClassDef,
+  Positions,
+} from './diagram-api/types.js';
 import { Diagram } from './Diagram.js';
 import { evaluate } from './diagrams/common/common.js';
 import errorRenderer from './diagrams/error/errorRenderer.js';
@@ -46,7 +51,7 @@ import { decodeEntities, getErrorMessage } from './utils.js';
 import { toBase64 } from './utils/base64.js';
 import { sanitizeCss } from './utils/sanitizeDirective.js';
 
-const MAX_TEXTLENGTH = 50_000;
+const MAX_TEXTLENGTH = 100_000;
 const MAX_TEXTLENGTH_EXCEEDED_MSG =
   'graph TB;a[Maximum text size in diagram exceeded];style a fill:#faa';
 
@@ -96,19 +101,23 @@ function processAndSetConfigs(text: string) {
 async function parse(
   text: string,
   parseOptions: ParseOptions & { suppressErrors: true }
-): Promise<ParseResult | false>;
+): Promise<ParseResult & { error?: unknown }>;
 async function parse(text: string, parseOptions?: ParseOptions): Promise<ParseResult>;
-async function parse(text: string, parseOptions?: ParseOptions): Promise<ParseResult | false> {
+async function parse(
+  text: string,
+  parseOptions?: ParseOptions
+): Promise<ParseResult & { error?: unknown }> {
   addDiagrams();
   try {
-    const { code, config } = processAndSetConfigs(text);
+    const { code, config, title } = processAndSetConfigs(text);
+    log.debug('code', code);
     // Pass the whole DiagramCode object so diagrams that report source
     // positions see the same text (and frontmatter offset) that render() uses.
-    const diagram = await Diagram.fromText(code);
-    return { diagramType: diagram.type, config };
+    const diagram = await Diagram.fromText(code, { title });
+    return { diagram, code: code.cleaned, config, title, success: true };
   } catch (error) {
     if (parseOptions?.suppressErrors) {
-      return false;
+      return { code: '', config: {}, success: false, error };
     }
     throw error;
   } finally {
@@ -367,7 +376,6 @@ export const cleanUpSvgCode = (
 
   // replace old br tags with newer style
   cleanedUpSvg = cleanedUpSvg.replace(/<br>/g, '<br/>');
-
   return cleanedUpSvg;
 };
 
@@ -476,8 +484,9 @@ export const removeExistingElements = (
 
 const renderDiagram = async function (
   id: string,
-  text: string,
-  svgContainingElement?: Element
+  inputText: string,
+  svgContainingElement?: Element,
+  positions?: Positions
 ): Promise<RenderResult> {
   addDiagrams();
 
@@ -485,16 +494,20 @@ const renderDiagram = async function (
     profiler.start('render');
   }
 
-  const processed = processAndSetConfigs(text);
+  const processed = processAndSetConfigs(inputText);
   // Keep the DiagramCode object, not just the cleaned string: diagrams that
   // report source positions need `withComments` and `frontmatterLineOffset`,
   // and dropping them here silently disabled that on the render path while
   // `parse()` still had them.
   let code: DiagramCode = processed.code;
-  text = code.cleaned;
+  let text = code.cleaned;
 
   const config = configApi.getConfig();
   log.debug(config);
+  if (config.securityLevel === 'parseOnly') {
+    log.warn('Cannot render diagram in parseOnly mode');
+    return { svg: '<!-- security level is parseOnly -->', diagramType: 'unknown' };
+  }
 
   // Check the maximum allowed text size. `Diagram.fromText` separately caps the
   // comment-preserving variant, which only diagrams that report source
@@ -610,9 +623,11 @@ const renderDiagram = async function (
   // Draw the diagram with the renderer
   try {
     if (injected.profiling) {
-      await profiler.span('draw', () => diag.renderer.draw(text, id, injected.version, diag));
+      await profiler.span('draw', () =>
+        diag.renderer.draw(text, id, injected.version, diag, positions)
+      );
     } else {
-      await diag.renderer.draw(text, id, injected.version, diag);
+      await diag.renderer.draw(text, id, injected.version, diag, positions);
     }
   } catch (e) {
     if (config.suppressErrorRendering) {
@@ -689,10 +704,11 @@ const renderDiagram = async function (
 const render = async function (
   id: string,
   text: string,
-  svgContainingElement?: Element
+  svgContainingElement?: Element,
+  positions?: Positions
 ): Promise<RenderResult> {
   try {
-    return await renderDiagram(id, text, svgContainingElement);
+    return await renderDiagram(id, text, svgContainingElement, positions);
   } finally {
     configApi.setDiagramConfigScope(undefined);
   }
@@ -705,9 +721,7 @@ function initialize(userOptions: MermaidConfig = {}) {
   const options: MermaidConfig = assignWithDepth({}, userOptions);
   // Handle legacy location of font-family configuration
   if (options?.fontFamily && !options.themeVariables?.fontFamily) {
-    if (!options.themeVariables) {
-      options.themeVariables = {};
-    }
+    options.themeVariables ??= {};
     options.themeVariables.fontFamily = options.fontFamily;
   }
 
@@ -736,7 +750,7 @@ function initialize(userOptions: MermaidConfig = {}) {
 
   const config =
     typeof options === 'object' ? configApi.setSiteConfig(options) : configApi.getSiteConfig();
-
+  // console.log('IPI config', config.themeVariables.useGradient);
   setLogLevel(config.logLevel);
   addDiagrams();
 }

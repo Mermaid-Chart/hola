@@ -68,7 +68,7 @@ export async function waveRectangle<T extends SVGGraphicsElement>(
 
   const waveRect = shapeSvg.insert(() => waveRectNode, ':first-child');
 
-  waveRect.attr('class', 'basic label-container');
+  waveRect.attr('class', 'basic label-container outer-path');
 
   if (cssStyles && node.look !== 'handDrawn') {
     waveRect.selectAll('path').attr('style', cssStyles);
@@ -77,6 +77,9 @@ export async function waveRectangle<T extends SVGGraphicsElement>(
   if (nodeStyles && node.look !== 'handDrawn') {
     waveRect.selectAll('path').attr('style', nodeStyles);
   }
+
+  node.width = w;
+  node.height = finalH;
 
   updateNodeBounds(node, waveRect);
   node.intersect = function (point) {

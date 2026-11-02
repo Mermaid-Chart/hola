@@ -25,6 +25,10 @@ jobs:
         run: |
           issues=()
 
+          echo "🔍 Validating lockfile for PR #${{ github.event.pull_request.number }}"
+          echo "Base SHA: ${{ github.event.pull_request.base.sha }}"
+          echo "Head SHA: ${{ github.event.pull_request.head.sha }}"
+
           # 1) No tarball references
           if grep -qF 'tarball:' pnpm-lock.yaml; then
             issues+=('- Tarball references found (forbidden)')

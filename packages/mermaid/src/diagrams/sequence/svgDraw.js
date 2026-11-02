@@ -807,7 +807,7 @@ const drawActorTypeControl = function (elem, actor, conf, isFooter, diagramId, a
     actor.actorCnt = actorCnt;
   }
   const actElem = elem.append('g');
-  let cssClass = ACTOR_MAN_FIGURE_CLASS;
+  let cssClass = 'actor';
   if (isFooter) {
     cssClass += ` ${BOTTOM_ACTOR_CLASS}`;
   } else {
@@ -1157,7 +1157,7 @@ const drawActorTypeBoundary = function (elem, actor, conf, isFooter, diagramId, 
     actor.actorCnt = actorCnt;
   }
   const actElem = elem.append('g');
-  let cssClass = ACTOR_MAN_FIGURE_CLASS;
+  let cssClass = 'actor';
   if (isFooter) {
     cssClass += ` ${BOTTOM_ACTOR_CLASS}`;
   } else {
@@ -1727,10 +1727,11 @@ export const insertSequenceNumber = function (elem, id) {
     .attr('markerWidth', 60)
     .attr('markerHeight', 40)
     .attr('orient', 'auto')
+    .attr('markerUnits', 'userSpaceOnUse')
     .append('circle')
     .attr('cx', 15)
     .attr('cy', 15)
-    .attr('r', 6);
+    .attr('r', 10);
   // .style("fill", '#f00');
 };
 

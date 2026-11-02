@@ -1,4 +1,4 @@
-import type { LayoutData } from 'mermaid';
+import type { LayoutData } from '@mermaid-chart/mermaid';
 
 export type Node = LayoutData['nodes'][number];
 export type Edge = LayoutData['edges'][number];

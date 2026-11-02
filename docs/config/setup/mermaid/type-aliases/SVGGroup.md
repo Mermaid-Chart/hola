@@ -4,7 +4,7 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/type-aliases/SVGGroup.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/type-aliases/SVGGroup.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
@@ -12,4 +12,4 @@
 
 > **SVGGroup** = `d3.Selection`<`SVGGElement`, `unknown`, `Element` | `null`, `unknown`>
 
-Defined in: [packages/mermaid/src/diagram-api/types.ts:175](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L175)
+Defined in: [packages/mermaid/src/diagram-api/types.ts:214](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/diagram-api/types.ts#L214)

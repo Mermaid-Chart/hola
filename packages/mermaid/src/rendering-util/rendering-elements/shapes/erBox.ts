@@ -63,6 +63,7 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
       config.er!.minEntityWidth!
     ) {
       node.width = config.er!.minEntityWidth;
+      node.height = (config.er!.minEntityHeight ?? 0) + PADDING / 2;
     }
     const shapeSvg = await drawRect(parent, node, options);
     if (theme != null && COLOR_THEMES.has(theme)) {
@@ -70,12 +71,6 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
       shapeSvg.attr('data-color-id', `color-${colorIndex % borderColorArray.length}`);
     }
 
-    // drawRect doesn't center non-htmlLabels correctly as of now, so translate label
-    if (!evaluate(config.htmlLabels)) {
-      const textElement = shapeSvg.select('text');
-      const bbox = (textElement.node() as SVGTextElement)?.getBBox();
-      textElement.attr('transform', `translate(${-bbox.width / 2}, 0)`);
-    }
     return shapeSvg;
   }
 
@@ -195,7 +190,6 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
     options.roughness = 0;
     options.fillStyle = 'solid';
   }
-
   let totalShapeBBoxHeight = 0;
   if (rows.length > 0) {
     totalShapeBBoxHeight = rows.reduce((sum, row) => sum + (row?.rowHeight ?? 0), 0);
@@ -339,6 +333,45 @@ export async function erBox<T extends SVGGraphicsElement>(parent: D3Selection<T>
   return shapeSvg;
 }
 
+function lineToPolygon(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  thickness: number
+): { x: number; y: number }[] {
+  if (x1 === x2) {
+    // Vertical line
+    return [
+      { x: x1 - thickness / 2, y: y1 },
+      { x: x1 + thickness / 2, y: y1 },
+      { x: x2 + thickness / 2, y: y2 },
+      { x: x2 - thickness / 2, y: y2 },
+    ];
+  } else if (y1 === y2) {
+    // Horizontal line
+    return [
+      { x: x1, y: y1 - thickness / 2 },
+      { x: x1, y: y1 + thickness / 2 },
+      { x: x2, y: y2 + thickness / 2 },
+      { x: x2, y: y2 - thickness / 2 },
+    ];
+  } else {
+    // Diagonal or angled line (general case)
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const offsetX = (dy / len) * (thickness / 2);
+    const offsetY = -(dx / len) * (thickness / 2);
+    return [
+      { x: x1 - offsetX, y: y1 - offsetY },
+      { x: x1 + offsetX, y: y1 + offsetY },
+      { x: x2 + offsetX, y: y2 + offsetY },
+      { x: x2 - offsetX, y: y2 - offsetY },
+    ];
+  }
+}
+
 // Helper function to add label text g with translate position and style
 async function addText<T extends SVGGraphicsElement>(
   shapeSvg: D3Selection<T>,
@@ -396,29 +429,4 @@ async function addText<T extends SVGGraphicsElement>(
   }
 
   return bbox;
-}
-
-function lineToPolygon(
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  thickness: number
-): { x: number; y: number }[] {
-  if (x1 === x2) {
-    // Vertical line
-    return [
-      { x: x1 - thickness / 2, y: y1 },
-      { x: x1 + thickness / 2, y: y1 },
-      { x: x2 + thickness / 2, y: y2 },
-      { x: x2 - thickness / 2, y: y2 },
-    ];
-  }
-  // Horizontal line (ER dividers are always axis-aligned)
-  return [
-    { x: x1, y: y1 - thickness / 2 },
-    { x: x1, y: y1 + thickness / 2 },
-    { x: x2, y: y2 + thickness / 2 },
-    { x: x2, y: y2 - thickness / 2 },
-  ];
 }

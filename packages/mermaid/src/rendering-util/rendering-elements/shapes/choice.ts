@@ -1,11 +1,15 @@
 import intersect from '../intersect/index.js';
-import type { Node } from '../../types.js';
+import type { Node, ShapeRenderOptions } from '../../types.js';
 import rough from 'roughjs';
 import { styles2String, userNodeOverrides } from './handDrawnShapeStyles.js';
 import { createPathFromPoints, getNodeClasses } from './util.js';
 import type { D3Selection } from '../../../types.js';
 
-export function choice<T extends SVGGraphicsElement>(parent: D3Selection<T>, node: Node) {
+export function choice<T extends SVGGraphicsElement>(
+  parent: D3Selection<T>,
+  node: Node,
+  { config: { theme } }: ShapeRenderOptions
+) {
   const { nodeStyles } = styles2String(node);
   node.label = '';
   const shapeSvg = parent
@@ -42,6 +46,9 @@ export function choice<T extends SVGGraphicsElement>(parent: D3Selection<T>, nod
 
   if (nodeStyles && node.look !== 'handDrawn') {
     choiceShape.selectAll('path').attr('style', nodeStyles);
+  }
+  if (theme?.includes('redux') && node.look !== 'handDrawn') {
+    choiceShape.attr('style', 'filter:url(#drop-shadow-small)');
   }
 
   node.width = 28;

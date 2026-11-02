@@ -203,6 +203,7 @@ tsdoc
 tunables
 typeof
 typestr
+uninstrumented
 unpositioned
 unrouted
 unscored

@@ -21,8 +21,12 @@ gantt
 gitgraph
 gzipped
 handDrawn
+headerless
+invtrapezoid
 jsobj
 kanban
+leanleft
+leanright
 marginx
 marginy
 Markdownish

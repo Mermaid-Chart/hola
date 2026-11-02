@@ -34,14 +34,16 @@ const maxSafeSizeForWidth = 16384;
 async function addHtmlSpan(
   element: D3Selection<SVGGElement>,
   node: { label: string; labelStyle: string; isNode: boolean },
-  width: number,
+  _width: number,
   classes: string,
   addBackground = false,
   // TODO: Make config mandatory
   config: MermaidConfig = getConfig(),
+  overflowWrap: 'break-word' | 'anywhere' = 'break-word',
   minWidth = 0
 ) {
   const fo = element.append('foreignObject');
+  const width = _width < 0 ? 0 : _width;
   // This is not the final width but used in order to make sure the foreign
   // object in firefox gets a width at all. The final width is fetched from the div
   fo.attr('width', `${Math.min(10 * width, maxSafeSizeForWidth)}px`);
@@ -59,7 +61,10 @@ async function addHtmlSpan(
 
   applyStyle(div, node.labelStyle);
   div.style('display', 'table-cell');
-  div.style('white-space', 'nowrap');
+  // KS: Why is this here?
+  // div.style('white-space', 'nowrap');
+  div.style('white-space', 'wrap');
+  div.style('overflow-wrap', overflowWrap);
   div.style('line-height', '1.5');
   if (width !== Number.POSITIVE_INFINITY) {
     div.style('max-width', width + 'px');
@@ -323,6 +328,7 @@ export const createText = async (
      */
     minWidth = 0,
     addSvgBackground = false,
+    overflowWrap = 'break-word' as 'break-word' | 'anywhere',
   } = {},
   config?: MermaidConfig
 ) => {
@@ -358,6 +364,7 @@ export const createText = async (
       classes,
       addSvgBackground,
       config,
+      overflowWrap,
       minWidth
     );
     return vertexNode;

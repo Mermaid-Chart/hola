@@ -1,0 +1,22 @@
+---
+description: >-
+  Ported from the fork-only e2e/rendering/theme-additional-tests.spec.js
+  (Extended theme test > dark > should render a block diagram). Alana-only
+  coverage, so it lives in nightly-check.
+config:
+  theme: dark
+---
+block-beta
+columns 1
+  db(("DB"))
+  blockArrowId6<["&nbsp;&nbsp;&nbsp;"]>(down)
+  block:ID
+    A
+    B["A wide one in the middle"]
+    C
+  end
+  space
+  D
+  ID --> D
+  C --> D
+  style B fill:#d6d,stroke:#333,stroke-width:4px

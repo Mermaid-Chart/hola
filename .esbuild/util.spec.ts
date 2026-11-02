@@ -22,7 +22,7 @@ describe('getBuildConfig externals', () => {
     // renders against its own stale copy instead of the host's, so mermaid
     // fixes silently fail to reach it until the plugin is republished.
     const external = buildFor('mermaid-layout-elk', true).external ?? [];
-    expect(external).toContain('mermaid');
+    expect(external).toContain('@mermaid-chart/mermaid');
   });
 
   it('externalizes dependencies in the core build', () => {
@@ -36,12 +36,12 @@ describe('getBuildConfig externals', () => {
     // must keep inlining mermaid rather than emitting a bare import. Only the
     // node built-ins stay external there.
     const external = buildFor('mermaid-layout-elk', false).external ?? [];
-    expect(external).not.toContain('mermaid');
+    expect(external).not.toContain('@mermaid-chart/mermaid');
     expect(external).not.toContain('elkjs');
   });
 
   it('leaves mermaid itself unaffected — it has no peerDependencies', () => {
     const external = buildFor('mermaid', true).external ?? [];
-    expect(external).not.toContain('mermaid');
+    expect(external).not.toContain('@mermaid-chart/mermaid');
   });
 });

@@ -101,42 +101,139 @@
   </head>
 
   <body>
-    <pre id="diagram4" class="mermaid2">
-      block
-columns 1
-  db(("DB"))
-  blockArrowId6<["&nbsp;&nbsp;&nbsp;"]>(down)
-  block:ID
-    A
-    B["A wide one in the middle"]
-    C
-  end
-  space
-  D
-  ID --> D
-  C --> D
-  style B fill:#969,stroke:#333,stroke-width:4px
+    <pre id="diagram4" class="mermaid">
+flowchart LR
+    n1["Rectangle"] --> n2("New 1") & n3("New 2")
+    n4(["New 3"])
+    n5["Rectangle 2"] --> n6("New 4") & n7("New 5")
+    n4("Apa")
+
     </pre>
     <pre id="diagram4" class="mermaid2">
-block
-  columns 3
-  a["A label"] b:2 c:2 d
+      sequenceDiagram
+      participant OrderModel@{ "type": "entity" }
+      participant SQL@{ "type": "database" }
+      participant Orchestrator@{ "type": "control" }
+      participant Jobs@{ "type": "queue" }
+      participant Bob
+      participant Alice as Alice2
+      participant API@{ "type": "boundary", "name": "API22"}
+      participant Cache@{ "type": "collections" }
 
+
+
+
+
+      %% Hello
+      Alice-//Bob: 21
+      rect rgb(250,250,200)
+        Alice-\\Bob: 24-s
+        Alice-//Bob: 23-s
+      end
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+      ---
+      config:
+        layout: elk
+      ---
+      mindmap
+      root((mindmap))
+        Origins
+          Long history
+          ::icon(fa fa-book)
+          Popularisation
+            British popular psychology author Tony Buzan
+        Research
+          On effectiveness&lt;br/>and features
+          On Automatic creation
+            Uses
+                Creative techniques
+                Strategic planning
+                Argument mapping
+        Tools
+              id)I am a cloud(
+                  id))I am a bang((
+                    Tools
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+
+      graph TD
+      subgraph Security ["Auth"]
+          casbin[Casbin Auth]
+          jwt[JWT Auth]
+          noop[No Auth]
+      end
+
+      subgraph Server
+          subgraph API ["API Plugins"]
+              Processor
+
+          end
+      end
+
+      subgraph Storage
+          subgraph Graphlette
+              Searcher
+          end
+
+          subgraph Restlette
+              Repository
+          end
+      end
+
+      subgraph Plugins[Storage Adapters]
+          subgraph Mongo
+              MongoRepository
+              MongoSearcher
+          end
+
+          subgraph Postres
+              PostresRepository
+              PostresSearcher
+          end
+
+          subgraph Sqlite3
+              SqliteRepository
+              SqliteSearcher
+          end
+      end
+
+      Processor --> Restlette
+      Processor --> Graphlette
+
+      Repository --> MongoRepository
+      Repository --> PostresRepository
+      Repository --> SqliteRepository
+
+
+      Searcher --> MongoSearcher
+      Searcher --> PostresSearcher
+      Searcher --> SqliteSearcher
+
+
+      %% Core Dependencies
+      server --> common
+      cli --> common
+      cli --> server
+
+
+
+      %% Security Dependencies
+      casbin --> common
+
+      style Storage fill:#f9f,stroke:#333,stroke-width:2px
+      style API fill:#bbf,stroke:#333,stroke-width:2px
+      style Core fill:#dfd,stroke:#333,stroke-width:2px
+      style Security fill:#fdd,stroke:#333,stroke-width:2px
   </pre
     >
-    <pre id="diagram4" class="mermaid">
-block
-  columns 3
-  a:3
-  block:group1:2
-    columns 2
-    h i j k
-  end
-  g
-  block:group2:3
-    %% columns auto (default)
-    l m n o p q r
-  end
+    <pre id="diagram4" class="mermaid2">
+      ---
+      config:
+        layout: elk
+      ---
+      mindmap
+      aid0
 
     </pre>
     <pre id="diagram4" class="mermaid2">
@@ -534,7 +631,219 @@ config:
       D-->I
       D-->I
     </pre>
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  layout: elk
+---
+flowchart LR
+ subgraph s1["Untitled subgraph"]
+        n1["Evaluate"]
+        n2["Option 1"]
+        n3["Option 2"]
+        n4["fa:fa-car Option 3"]
+  end
+ subgraph s2["Untitled subgraph"]
+        n5["Evaluate"]
+        n6["Option 1"]
+        n7["Option 2"]
+        n8["fa:fa-car Option 3"]
+  end
+    A["Start"] -- Some text --> B("Continue")
+    B --> C{"Evaluate"}
+    C -- One --> D["Option 1"]
+    C -- Two --> E["Option 2"]
+    C -- Three --> F["fa:fa-car Option 3"]
+    n1 -- One --> n2
+    n1 -- Two --> n3
+    n1 -- Three --> n4
+    n5 -- One --> n6
+    n5 -- Two --> n7
+    n5 -- Three --> n8
+    n1@{ shape: diam}
+    n2@{ shape: rect}
+    n3@{ shape: rect}
+    n4@{ shape: rect}
+    n5@{ shape: diam}
+    n6@{ shape: rect}
+    n7@{ shape: rect}
+    n8@{ shape: rect}
 
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  layout: elk
+---
+flowchart LR
+ subgraph s1["Untitled subgraph"]
+        n1["Evaluate"]
+        n2["Option 1"]
+  end
+    n1 -- One --> n2
+
+
+
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  layout: elk
+---
+flowchart LR
+    A{A} --> B & C
+</pre
+    >
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  layout: elk
+---
+flowchart LR
+    A{A} --> B & C
+    subgraph "subbe"
+      A
+    end
+</pre
+    >
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  layout: elk
+---
+flowchart LR
+    n2@{ shape: rect}
+    n3@{ shape: rect}
+    n4@{ shape: rect}
+    A["Start"] -- Some text --> B("Continue")
+    B --> C{"Evaluate"}
+    C -- One --> D["Option 1"]
+    C -- Two --> E["Option 2"]
+    C -- Three --> F["fa:fa-car Option 3"]
+    %% C@{ shape: hexagon}
+
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  kanban:
+    ticketBaseUrl: 'https://github.com/your-repo/issues/#TICKET#'
+---
+kanban
+  Backlog
+    task1[📝 Define project requirements]@{ ticket: a101 }
+  To Do
+    task2[🔍 Research technologies]@{ ticket: a102 }
+  Review
+    task4[🔍 Code review for login feature]@{ ticket: a104 }
+  Done
+    task5[✅ Deploy initial version]@{ ticket: a105 }
+  In Progress
+    task3[💻 Develop login feature]@{ ticket: 103 }
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Default] --> A@{ icon: 'fa:bell', form: 'rounded' }
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Style] --> A@{ icon: 'fa:bell', form: 'rounded' }
+style A fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Class] --> A@{ icon: 'fa:bell', form: 'rounded' }
+A:::AClass
+classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+  nA[Class] --> A@{ icon: 'logos:aws', form: 'rounded' }
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Default] --> A@{ icon: 'fa:bell', form: 'square' }
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Style] --> A@{ icon: 'fa:bell', form: 'square' }
+style A fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Class] --> A@{ icon: 'fa:bell', form: 'square' }
+A:::AClass
+classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+  nA[Class] --> A@{ icon: 'logos:aws', form: 'square' }
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Default] --> A@{ icon: 'fa:bell', form: 'circle' }
+
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Style] --> A@{ icon: 'fa:bell', form: 'circle' }
+style A fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+nA[Class] --> A@{ icon: 'fa:bell', form: 'circle' }
+A:::AClass
+classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+  nA[Class] --> A@{ icon: 'logos:aws', form: 'circle' }
+  A:::AClass
+  classDef AClass fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+flowchart LR
+  nA[Style] --> A@{ icon: 'logos:aws', form: 'circle' }
+  style A fill:#f9f,stroke:#333,stroke-width:4px
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+kanban
+  id2[In progress]
+    docs[Create Blog about the new diagram]@{ priority: 'Very Low', ticket: MC-2037, assigned: 'knsv' }
+    </pre>
+    <pre id="diagram4" class="mermaid2">
+---
+config:
+  kanban:
+    ticketBaseUrl: 'https://mermaidchart.atlassian.net/browse/#TICKET#'
+    # sectionWidth: 300
+---
+kanban
+  Todo
+    [Create Documentation]
+    docs[Create Blog about the new diagram]
+  id7[In progress]
+    id6[Create renderer so that it works in all cases. We also add some extra text here for testing purposes. And some more just for the extra flare.]
+  id9[Ready for deploy]
+    id8[Design grammar]@{ assigned: 'knsv' }
+  id10[Ready for test]
+    id4[Create parsing tests]@{ ticket: MC-2038, assigned: 'K.Sveidqvist', priority: 'High' }
+    id66[last item]@{ priority: 'Very Low', assigned: 'knsv' }
+  id11[Done]
+    id5[define getData]
+    id2[Title of diagram is more than 100 chars when user duplicates diagram with 100 char]@{ ticket: MC-2036, priority: 'Very High'}
+    id3[Update DB function]@{ ticket: MC-2037, assigned: knsv, priority: 'High' }
+
+  id12[Can't reproduce]
+    id3[Weird flickering in Firefox]
+    </pre>
     <script type="module">
       import mermaid from './mermaid.esm.mjs';
       import layouts from './mermaid-layout-elk.esm.mjs';
@@ -580,10 +889,10 @@ config:
         // look: 'handDrawn',
         // 'elk.nodePlacement.strategy': 'NETWORK_SIMPLEX',
         // layout: 'dagre',
-        layout: 'elk',
+        // layout: 'elk',
         // layout: 'fixed',
         // htmlLabels: false,
-        flowchart: { titleTopMargin: 10 },
+        flowchart: { titleTopMargin: 10, parser: 'antlr' },
 
         // fontFamily: 'Caveat',
         // fontFamily: 'Kalam',
@@ -593,6 +902,7 @@ config:
           actorFontFamily: 'courier',
           noteFontFamily: 'courier',
           messageFontFamily: 'courier',
+          parser: 'antlr',
         },
         kanban: {
           htmlLabels: false,
@@ -604,8 +914,43 @@ config:
       });
 
       mermaid.parseError = function (err, hash) {
-        console.error('In parse error:');
-        console.error(err);
+        console.warn('In parse error:', err);
+        console.warn('Error message:', err.message);
+        console.warn('Parser type:', err.parser); // 'antlr' for ANTLR errors, undefined for Jison
+        console.warn('Hash parameter:', hash);
+        console.warn('Hash from err.hash:', err.hash);
+        console.warn('Top-level loc from err.loc:', err.loc);
+
+        // Use hash from err.hash if the hash parameter is not provided
+        const errorHash = hash || err.hash;
+
+        // Log hash details if available
+        if (errorHash) {
+          console.warn('Hash details:', {
+            line: errorHash.line,
+            text: errorHash.text,
+            token: errorHash.token,
+            loc: errorHash.loc,
+            expected: errorHash.expected,
+          });
+        }
+
+        // Log top-level loc if available
+        if (err.loc) {
+          console.warn('Top-level loc details:', {
+            first_line: err.loc.first_line,
+            last_line: err.loc.last_line,
+            first_column: err.loc.first_column,
+            last_column: err.loc.last_column,
+          });
+        }
+
+        // Log parser-specific information
+        if (err.parser === 'antlr') {
+          console.warn(
+            'ANTLR error detected - line numbers point to start of problematic statement'
+          );
+        }
       };
     </script>
   </body>

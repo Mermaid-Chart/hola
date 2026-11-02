@@ -1,3 +1,6 @@
+import type { MermaidConfig } from './config.type.js';
+import type { Diagram } from './Diagram.js';
+
 export interface NodeMetaData {
   shape?: string;
   label?: string;
@@ -50,7 +53,6 @@ export interface EdgeMetaData {
     | 'stepAfter'
     | 'stepBefore';
 }
-import type { MermaidConfig } from './config.type.js';
 
 export interface Point {
   x: number;
@@ -102,14 +104,21 @@ export interface ParseOptions {
 }
 
 export interface ParseResult {
+  success: boolean;
   /**
-   * The diagram type, e.g. 'flowchart', 'sequence', etc.
+   * The mermaid code after extracting the config.
    */
-  diagramType: string;
+  code: string;
   /**
    * The config passed as YAML frontmatter or directives
    */
   config: MermaidConfig;
+  title?: string;
+  diagram?: Diagram;
+  /**
+   * The error that occurred during parsing, if any.
+   */
+  error?: unknown;
 }
 
 /**

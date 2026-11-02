@@ -48,8 +48,10 @@ const UNCHANGED_DIAGRAMS = {
  * re-established here over the same directives to read back the resolution it performed.
  */
 const configFor = async (text: string) => {
-  const { diagramType } = await mermaidAPI.parse(text);
-  setDiagramConfigScope(diagramType);
+  // This fork's `parse()` resolves to `{ diagram, code, config, title, success }` rather
+  // than upstream's `{ diagramType, config }`, so the type comes off the diagram.
+  const { diagram } = await mermaidAPI.parse(text);
+  setDiagramConfigScope(diagram?.type);
   const config = getConfig();
   setDiagramConfigScope(undefined);
   return config;

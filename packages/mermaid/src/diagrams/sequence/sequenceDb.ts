@@ -15,8 +15,9 @@ import {
 } from '../common/commonDb.js';
 import type { Actor, AddMessageParams, Box, Message, Note } from './types.js';
 import type { ParticipantMetaData } from '../../types.js';
-
+import type { SequenceAST } from './types.ts';
 interface SequenceState {
+  ast?: SequenceAST;
   prevActor?: string;
   actors: Map<string, Actor>;
   createdActors: Map<string, number>;
@@ -126,6 +127,7 @@ export class SequenceDB implements DiagramDB {
     currentBox: undefined,
     lastCreated: undefined,
     lastDestroyed: undefined,
+    ast: undefined,
   }));
 
   constructor() {
@@ -194,6 +196,11 @@ export class SequenceDB implements DiagramDB {
       // Don't allow description nulling
       if (old && name === old.name && description == null) {
         return;
+      }
+
+      // Preserve existing type if no new metadata is provided
+      if (metadata === undefined && old.type) {
+        type = old.type;
       }
     }
 
@@ -325,6 +332,12 @@ export class SequenceDB implements DiagramDB {
   public getActors() {
     return this.state.records.actors;
   }
+  public setAST(_ast: SequenceAST) {
+    this.state.records.ast = _ast;
+  }
+  public getAST() {
+    return this.state.records.ast;
+  }
   public getCreatedActors() {
     return this.state.records.createdActors;
   }
@@ -377,12 +390,12 @@ export class SequenceDB implements DiagramDB {
     commonClear();
   }
 
-  public parseMessage(str: string) {
+  public parseMessage(str: string): { text: string; wrap: boolean } {
     const trimmedStr = str.trim();
     const { wrap, cleanedText } = this.extractWrap(trimmedStr);
     const message = {
-      text: cleanedText,
-      wrap,
+      text: cleanedText ?? '',
+      wrap: wrap ?? this.autoWrap(),
     };
     log.debug(`parseMessage: ${JSON.stringify(message)}`);
     return message;
@@ -391,30 +404,33 @@ export class SequenceDB implements DiagramDB {
   // We expect the box statement to be color first then description
   // The color can be rgb,rgba,hsl,hsla, or css code names  #hex codes are not supported for now because of the way the char # is handled
   // We extract first segment as color, the rest of the line is considered as text
-  public parseBoxData(str: string) {
+  public parseBoxData(str: string): { text: string; color: string; wrap: boolean } {
+    const config = getConfig();
+    const { themeVariables } = config;
+    const { clusterBkg } = themeVariables;
     const match = /^((?:rgba?|hsla?)\s*\(.*\)|\w*)(.*)$/.exec(str);
-    let color = match?.[1] ? match[1].trim() : 'transparent';
+    let color = match?.[1] ? match[1].trim() : (clusterBkg ?? 'transparent');
     let title = match?.[2] ? match[2].trim() : undefined;
 
     // check that the string is a color
     if (window?.CSS) {
       if (!window.CSS.supports('color', color)) {
-        color = 'transparent';
+        color = clusterBkg ?? 'transparent';
         title = str.trim();
       }
     } else {
       const style = new Option().style;
       style.color = color;
       if (style.color !== color) {
-        color = 'transparent';
+        color = clusterBkg ?? 'transparent';
         title = str.trim();
       }
     }
     const { wrap, cleanedText } = this.extractWrap(title);
     return {
-      text: cleanedText ? sanitizeText(cleanedText, getConfig()) : undefined,
+      text: cleanedText ? sanitizeText(cleanedText, getConfig()) : '',
       color,
-      wrap,
+      wrap: wrap ?? this.autoWrap(),
     };
   }
 
@@ -519,7 +535,7 @@ export class SequenceDB implements DiagramDB {
     }
   }
 
-  private boxEnd() {
+  public boxEnd() {
     this.state.records.currentBox = undefined;
   }
 

@@ -476,15 +476,15 @@ const drawCommitTags = (
         ${commitPosition.x + LAYOUT_OFFSET + maxTagBboxWidth + 4},${yOrigin + h2 + 2}
         ${commitPosition.x + LAYOUT_OFFSET},${yOrigin + h2 + 2}`
           )
-          .attr('transform', 'translate(12,12) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(7,17) rotate(45, ${commitPosition.x} ,${pos})`);
         hole
           .attr('cx', commitPosition.x + PX / 2)
           .attr('cy', yOrigin)
-          .attr('transform', 'translate(12,12) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(8,18) rotate(45, ${commitPosition.x} ,${pos})`);
         tag
           .attr('x', commitPosition.x + 5)
           .attr('y', yOrigin + 3)
-          .attr('transform', 'translate(14,14) rotate(45, ' + commitPosition.x + ',' + pos + ')');
+          .attr('transform', `translate(9,19) rotate(45, ${commitPosition.x} ,${pos})`);
       }
     }
   }
@@ -997,7 +997,6 @@ const setBranchPosition = function (
 
 export const draw: DrawDefinition = function (txt, id, ver, diagObj) {
   clear();
-
   log.debug('in gitgraph renderer', txt + '\n', 'id:', id, ver);
   const db = diagObj.db as GitGraphDBRenderProvider;
   if (!db.getConfig) {

@@ -18,8 +18,8 @@ export function forkJoin<T extends SVGGraphicsElement>(
     .attr('id', node.domId ?? node.id);
 
   const { cssStyles } = node;
-  let width = Math.max(70, node?.width ?? 0);
-  let height = Math.max(10, node?.height ?? 0);
+  let width = node?.width ? node?.width : 70;
+  let height = node?.height ? node?.height : 10;
 
   // The bar must run perpendicular to the flow: with a horizontal flow the
   // long side faces the incoming/outgoing edges, so the bar is drawn vertical.
@@ -46,7 +46,9 @@ export function forkJoin<T extends SVGGraphicsElement>(
   const roughNode = rc.rectangle(x, y, width, height, options);
 
   const shape = shapeSvg.insert(() => roughNode, ':first-child');
-
+  if (node.look !== 'handDrawn') {
+    shape.attr('class', 'outer-path');
+  }
   if (cssStyles && node.look !== 'handDrawn') {
     shape.selectAll('path').attr('style', cssStyles);
   }

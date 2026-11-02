@@ -1,0 +1,22 @@
+---
+description: >-
+  Ported from the fork-only
+  e2e/rendering/requirement/requirement-theme-neo-redux.spec.js (Requirement
+  diagram > neo > should render a Requirement Diagram). Alana-only coverage, so
+  it lives in nightly-check.
+config:
+  theme: neo
+---
+requirementDiagram
+
+requirement test_req {
+id: 1
+text: the test text.
+risk: high
+}
+
+element test_entity {
+type: simulation
+}
+
+test_entity - satisfies -> test_req

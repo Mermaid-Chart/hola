@@ -17,6 +17,7 @@ import {
   type VersionsResponse,
 } from './dev-explorer/compare-versions.js';
 import 'dotenv/config';
+import { generateAntlr } from '../scripts/antlr-generate.mts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -325,6 +326,9 @@ async function createServer() {
       console.log(`${path} changed. Rebuilding...`);
       if (path.endsWith('.langium')) {
         await generateLangium();
+      }
+      if (path.endsWith('.g4')) {
+        generateAntlr();
       }
       handleFileChange();
     });

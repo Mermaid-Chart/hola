@@ -21,9 +21,7 @@ const processFrontmatter = (code: string) => {
   const { displayMode, title, config = {} } = metadata;
   if (displayMode) {
     // Needs to be supported for legacy reasons
-    if (!config.gantt) {
-      config.gantt = {};
-    }
+    config.gantt ??= {};
     config.gantt.displayMode = displayMode;
   }
 
@@ -43,7 +41,8 @@ const processDirectives = (code: string) => {
     directive: initDirective,
   };
 };
-
+export const antlrDiagram = (diagramType: string) =>
+  ['flowchart', 'sequence', 'classDiagram', 'class'].includes(diagramType);
 /**
  * Preprocess the given code by cleaning it up, extracting front matter and directives,
  * cleaning and merging configuration, and removing comments.

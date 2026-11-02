@@ -44,8 +44,27 @@ export async function curlyBraces<T extends SVGGraphicsElement>(
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
   const labelPaddingX = node.look === 'neo' ? 18 : (node.padding ?? 0);
   const labelPaddingY = node.look === 'neo' ? 12 : (node.padding ?? 0);
-  const w = bbox.width + (node.look === 'neo' ? labelPaddingX * 2 : labelPaddingX);
-  const h = bbox.height + (node.look === 'neo' ? labelPaddingY * 2 : labelPaddingY);
+
+  if (node.width || node.height) {
+    let radius = 5;
+    const cal_height = (((node?.height ?? 0) - labelPaddingY * 2) * 10) / 11;
+    if (cal_height / 10 > 5) {
+      radius = cal_height / 10;
+    }
+
+    node.width = (node?.width ?? 0) - labelPaddingX * 2 - radius * 2.5;
+    if (node.width < 10) {
+      node.width = 10;
+    }
+
+    node.height = (node?.height ?? 0) - labelPaddingY * 2 - radius * 2;
+    if (node.height < 10) {
+      node.height = 10;
+    }
+  }
+
+  const w = (node.width ? node.width : bbox.width) + (labelPaddingX ?? 0) * 2;
+  const h = (node.height ? node.height : bbox.height) + (labelPaddingY ?? 0) * 2;
   const radius = Math.max(5, h * 0.1);
   const { cssStyles } = node;
 
@@ -88,7 +107,7 @@ export async function curlyBraces<T extends SVGGraphicsElement>(
 
   // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
   const rc = rough.svg(shapeSvg);
-  const options = userNodeOverrides(node, { fill: 'none' });
+  const options = userNodeOverrides(node, { fill: 'transparent' });
 
   if (node.look !== 'handDrawn') {
     options.roughness = 0;
@@ -120,9 +139,8 @@ export async function curlyBraces<T extends SVGGraphicsElement>(
 
   label.attr(
     'transform',
-    `translate(${-w / 2 + (node.padding ?? 0) / 2 - (bbox.x - (bbox.left ?? 0))},${-h / 2 + (node.padding ?? 0) / 2 - (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-w / 2 + (labelPaddingX ?? 0) - (bbox.x - (bbox.left ?? 0))}, ${-bbox.height / 2})`
   );
-
   updateNodeBounds(node, curlyBracesShape);
 
   node.intersect = function (point) {

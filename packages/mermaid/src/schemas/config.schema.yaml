@@ -320,6 +320,7 @@ properties:
       - loose
       - antiscript
       - sandbox
+      - parseOnly
     meta:enum:
       strict: (**default**) HTML tags in the text are encoded and click functionality is disabled.
       antiscript: HTML tags in text are allowed (only script elements are removed), and click functionality is enabled.
@@ -487,6 +488,14 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
           If set to `false`, the absolute space required is used.
         type: boolean
         default: true
+      parser:
+        description: The parser to use for this diagram type
+        type: string
+        enum:
+          - jison
+          - antlr
+          - langium
+        default: jison
       # Declared here as well as at the top level so a diagram type can carry its own
       # default; the top-level properties `$ref` these, keeping the enums written once.
       # Resolution, highest first: frontmatter/directive, `initialize()`, this diagram
@@ -508,6 +517,7 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
           - redux-dark
           - redux-color
           - redux-dark-color
+          - mc # fork-only: themes/theme-mc.js, absent upstream
           - 'null' # should this be a `null`-type?
         meta:enum:
           'null': Can be set to disable any pre-defined mermaid theme
@@ -2594,6 +2604,11 @@ $defs: # JSON Schema definition (maybe we should move these to a separate file)
             'rounded',
           ]
         default: 'basis'
+      edgeDebug:
+        description: |
+          Highlights the points in an edge for debugging.
+        type: boolean
+        default: false
 
       padding:
         description: |

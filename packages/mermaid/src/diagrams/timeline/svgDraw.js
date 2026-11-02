@@ -453,12 +453,15 @@ const initGraphics = function (graphics, id) {
  * @param {string} text The text to be wrapped
  * @param {number} width The max width of the text
  */
+// Matches <br>, <br/>, <br /> and case-insensitive variants
+const isBrTag = (word) => /^<br\s*\/?>$/i.test(word);
+
 function wrap(text, width) {
   text.each(function () {
     var text = select(this),
       words = text
         .text()
-        .split(/(\s+|<br>)/)
+        .split(/(\s+|<br\s*\/?>)/gi)
         .reverse(),
       word,
       line = [],
@@ -475,10 +478,10 @@ function wrap(text, width) {
       word = words[words.length - 1 - j];
       line.push(word);
       tspan.text(line.join(' ').trim());
-      if (tspan.node().getComputedTextLength() > width || word === '<br>') {
+      if (tspan.node().getComputedTextLength() > width || isBrTag(word)) {
         line.pop();
         tspan.text(line.join(' ').trim());
-        if (word === '<br>') {
+        if (isBrTag(word)) {
           line = [''];
         } else {
           line = [word];
@@ -489,7 +492,7 @@ function wrap(text, width) {
           .attr('x', 0)
           .attr('y', y)
           .attr('dy', lineHeight + 'em')
-          .text(word);
+          .text(isBrTag(word) ? '' : word);
       }
     }
   });

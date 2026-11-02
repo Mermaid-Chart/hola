@@ -4,7 +4,7 @@ The curated corpus the `/hola-improve-loop` skill hill-climbs on. Everything her
 yours to edit — add, remove or reshape fixtures freely to steer what the loop optimises.
 
 This folder is deliberately **separate from `../hola/`**. That corpus is guarded by
-`scoreSweep.spec.ts` with a `KNOWN_INVALID` ratchet and is shared with other work; this
+`fixtureCorpus.spec.ts` with a `KNOWN_INVALID` ratchet and is shared with other work; this
 one has no ratchet and no floor, so a fixture that scores 0 here is a target for the
 loop rather than a build failure.
 
@@ -53,9 +53,10 @@ font, and the font changes every measurement.
 ## Running the sweep
 
 ```bash
-pnpm exec vitest run \
-  packages/mermaid/src/rendering-util/layout-algorithms/hola/attached/loopFixturesSweep.spec.ts \
-  --testTimeout=900000 2>&1 | grep 'LOOP-FIXTURES-AGG'
+pnpm test:layout-sweep loopFixturesSweep 2>&1 | grep 'LOOP-FIXTURES-AGG'
 ```
+
+The sweeps are excluded from the default `vitest run`, so naming the spec file directly
+no longer finds it; `test:layout-sweep` is what includes them.
 
 Add `LOOP_FIXTURES_ISSUES=1` to also print per-issue detail for each fixture.

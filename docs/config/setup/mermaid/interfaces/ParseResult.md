@@ -4,30 +4,64 @@
 >
 > ## Please edit the corresponding file in [/packages/mermaid/src/docs/config/setup/mermaid/interfaces/ParseResult.md](../../../../../packages/mermaid/src/docs/config/setup/mermaid/interfaces/ParseResult.md).
 
-[**mermaid**](../../README.md)
+[**@mermaid-chart/mermaid**](../../README.md)
 
 ---
 
 # Interface: ParseResult
 
-Defined in: [packages/mermaid/src/types.ts:104](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L104)
+Defined in: [packages/mermaid/src/types.ts:106](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L106)
 
 ## Properties
+
+### code
+
+> **code**: `string`
+
+Defined in: [packages/mermaid/src/types.ts:111](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L111)
+
+The mermaid code after extracting the config.
+
+---
 
 ### config
 
 > **config**: [`MermaidConfig`](MermaidConfig.md)
 
-Defined in: [packages/mermaid/src/types.ts:112](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L112)
+Defined in: [packages/mermaid/src/types.ts:115](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L115)
 
 The config passed as YAML frontmatter or directives
 
 ---
 
-### diagramType
+### diagram?
 
-> **diagramType**: `string`
+> `optional` **diagram**: `Diagram`
 
-Defined in: [packages/mermaid/src/types.ts:108](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L108)
+Defined in: [packages/mermaid/src/types.ts:117](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L117)
 
-The diagram type, e.g. 'flowchart', 'sequence', etc.
+---
+
+### error?
+
+> `optional` **error**: `unknown`
+
+Defined in: [packages/mermaid/src/types.ts:121](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L121)
+
+The error that occurred during parsing, if any.
+
+---
+
+### success
+
+> **success**: `boolean`
+
+Defined in: [packages/mermaid/src/types.ts:107](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L107)
+
+---
+
+### title?
+
+> `optional` **title**: `string`
+
+Defined in: [packages/mermaid/src/types.ts:116](https://github.com/mermaid-js/mermaid/blob/master/packages/mermaid/src/types.ts#L116)

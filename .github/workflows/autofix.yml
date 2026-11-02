@@ -32,7 +32,7 @@ jobs:
 
       - name: Fix Linting
         shell: bash
-        run: pnpm -w run lint:fix
+        run: NODE_OPTIONS="--max-old-space-size=8192" pnpm -w run lint:fix
 
       - name: Sync `./src/config.type.ts` with `./src/schemas/config.schema.yaml`
         shell: bash

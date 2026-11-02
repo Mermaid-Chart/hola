@@ -1,0 +1,102 @@
+name: Notify Slack about a fork-sync problem
+description: >-
+  Posts a failure summary to Slack via chat.postMessage. A no-op (with a warning)
+  when no bot token is configured, so the automation still works without Slack.
+
+inputs:
+  bot_token:
+    description: Slack bot token (xoxb-...). When empty the step warns and does nothing.
+    required: false
+    default: ''
+  channel:
+    description: Slack channel ID to post to
+    required: true
+  status:
+    description: Short machine status, e.g. needs-human or blocked-workflow-files
+    required: true
+  summary:
+    description: Human-readable explanation of what went wrong
+    required: true
+  run_url:
+    description: Link to the workflow run
+    required: true
+  details:
+    description: Optional extra context rendered as a bullet list, one item per line
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Post to Slack
+      shell: bash
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.bot_token }}
+        CHANNEL: ${{ inputs.channel }}
+        STATUS: ${{ inputs.status }}
+        SUMMARY: ${{ inputs.summary }}
+        RUN_URL: ${{ inputs.run_url }}
+        DETAILS: ${{ inputs.details }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "$SLACK_BOT_TOKEN" ]; then
+          echo "::warning title=Slack not configured::SLACK_BOT_TOKEN is unset, so no Slack message was sent. The GitHub tracking issue is still the record of this failure."
+          exit 0
+        fi
+
+        HEADING='Alana Mermaid — OSS develop sync'
+
+        # Built with jq rather than string interpolation so a summary containing
+        # quotes, newlines or backslashes cannot corrupt the payload.
+        body="*${STATUS}*"$'\n'"${SUMMARY}"
+        if [ -n "$DETAILS" ]; then
+          body="${body}"$'\n\n'"$(printf '%s\n' "$DETAILS" | sed 's/^/• /')"
+        fi
+
+        payload="$(jq -n \
+          --arg channel "$CHANNEL" \
+          --arg heading "$HEADING" \
+          --arg status "$STATUS" \
+          --arg body "$body" \
+          --arg run "$RUN_URL" \
+          '{
+             channel: $channel,
+             # `text` is the notification/fallback line shown in the sidebar and
+             # in push notifications, where blocks are not rendered.
+             text: ($heading + " — " + $status),
+             blocks: [
+               { type: "header",
+                 text: { type: "plain_text", text: $heading, emoji: true } },
+               { type: "section",
+                 text: { type: "mrkdwn", text: $body } },
+               { type: "actions",
+                 elements: [ { type: "button",
+                               text: { type: "plain_text", text: "View the run" },
+                               url: $run } ] }
+             ]
+           }')"
+
+        response="$(curl -sS -X POST https://slack.com/api/chat.postMessage \
+          -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+          -H 'Content-type: application/json; charset=utf-8' \
+          --data "$payload")"
+
+        if [ "$(jq -r '.ok' <<<"$response")" != 'true' ]; then
+          error="$(jq -r '.error // "unknown"' <<<"$response")"
+          case "$error" in
+            not_in_channel)
+              hint="The bot is not a member of ${CHANNEL}. Invite it: /invite @<your-app> in that channel." ;;
+            channel_not_found)
+              hint="Channel ${CHANNEL} is not visible to this bot. Check the ID, and invite the bot if the channel is private." ;;
+            invalid_auth | token_revoked | not_authed)
+              hint="The SLACK_BOT_TOKEN secret is missing, wrong or revoked. It must be a bot token (xoxb-) with chat:write." ;;
+            missing_scope)
+              hint="The bot token lacks the chat:write scope. Add it, then reinstall the app to the workspace." ;;
+            *)
+              hint="See https://api.slack.com/methods/chat.postMessage#errors" ;;
+          esac
+          echo "::error title=Slack notification failed::chat.postMessage returned '${error}'. ${hint}"
+          exit 1
+        fi
+        echo "Posted to Slack channel ${CHANNEL}."

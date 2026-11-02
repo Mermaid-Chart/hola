@@ -7,6 +7,7 @@ import { log } from './logger.js';
 import { encodeEntities } from './utils.js';
 import type { DetailedError } from './utils.js';
 import type { DiagramCode, DiagramDefinition, DiagramMetadata } from './diagram-api/types.js';
+import type { BaseDiagramConfig, MermaidConfig } from './config.type.js';
 
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type ParseErrorFunction = (err: string | DetailedError | unknown, hash?: any) => void;
@@ -41,7 +42,13 @@ export class Diagram {
       const { id, diagram } = await loader();
       registerDiagram(id, diagram);
     }
-    const { db, parser, renderer, init } = getDiagram(type);
+    const { db, parser: defaultParser, renderer, init, getParser } = getDiagram(type);
+    // Check if a parser is configured for this diagram type
+    // Map diagram type to config key (e.g., 'flowchart-v2' -> 'flowchart')
+    const configKey = type.replace(/-v2$/, '') as keyof MermaidConfig;
+    const parserInConfig = (config[configKey] as BaseDiagramConfig)?.parser;
+    // If a parser is configured, use the getParser function to get the parser instance
+    const parser = (parserInConfig && getParser?.(parserInConfig)) ?? defaultParser;
     if (parser.parser) {
       // The parser.parser.yy is only present in JISON parsers. So, we'll only set if required.
       parser.parser.yy = db;
@@ -52,9 +59,13 @@ export class Diagram {
     if (metadata.title) {
       db.setDiagramTitle?.(metadata.title);
     }
-    // Diagrams that report source positions set `preserveCommentsWhenParsing`
-    // so that parser positions stay meaningful in original-source space. Every
-    // other diagram parses the comment-stripped text, as before.
+    // Parsers that consume the untouched source (ANTLR-based parsers, which do
+    // their own frontmatter and comment handling) are handed `raw`.
+    //
+    // Otherwise: diagrams that report source positions set
+    // `preserveCommentsWhenParsing` so that parser positions stay meaningful in
+    // original-source space. Every other diagram parses the comment-stripped
+    // text, as before.
     //
     // `cleaned` is `withComments` with the comment lines removed, so the two
     // can differ without bound — a diagram padded with `%%` comments has a tiny
@@ -64,7 +75,9 @@ export class Diagram {
     // covers `parse()` as well as `render()`; only the latter has its own
     // truncation path.
     let source = code.cleaned;
-    if (db.preserveCommentsWhenParsing && code.withComments) {
+    if (parser.features?.processRawText) {
+      source = code.raw;
+    } else if (db.preserveCommentsWhenParsing && code.withComments) {
       const maxTextSize = config.maxTextSize ?? defaultConfig.maxTextSize;
       if (code.withComments.length > maxTextSize) {
         log.warn(
@@ -92,8 +105,13 @@ export class Diagram {
     public renderer: DiagramDefinition['renderer']
   ) {}
 
-  async render(id: string, version: string) {
-    await this.renderer.draw(this.text, id, version, this);
+  async render(id: string, version: string, positions?: any) {
+    const config = configApi.getConfig();
+    if (config.securityLevel === 'parseOnly') {
+      log.warn('Cannot render diagram in parseOnly mode');
+      return;
+    }
+    await this.renderer.draw(this.text, id, version, this, positions);
   }
 
   getParser() {

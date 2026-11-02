@@ -1,0 +1,251 @@
+name: Publish beta (main)
+
+# Publishes the fork's own packages from `main` to the org's GitHub Packages
+# npm registry under the `latest` dist tag, at whatever version `main` declares.
+#
+# This is the sibling of publish-alpha.yml and deliberately mirrors it, so the
+# two lines can be read side by side. Everything below that differs, differs for
+# a stated reason:
+#
+#   publish-alpha.yml   develop   <base>-a.N   --tag dev
+#   this file           main      <base>-b.N   --tag latest
+#
+# `latest` is the load-bearing difference. It is the tag an untagged
+# `npm install @mermaid-chart/mermaid` resolves to, so this workflow — not the
+# alpha one — decides what a consumer gets by default. That is also why the
+# alpha line must never publish untagged: `-a.N` sorts BELOW `-b.N` at the same
+# base (prerelease identifiers compare alphabetically, a < b), and `npm publish`
+# moves `latest` regardless of semver ordering, so an untagged alpha would
+# quietly become the default install ahead of the beta.
+#
+# Auth is GITHUB_TOKEN with `packages: write` — there is no secret to store and
+# nothing to configure outside this repository. GitHub Packages does not use npm
+# trusted publishing or OIDC, so there is no `id-token` and no provenance here.
+#
+# Three triggers, on purpose:
+#
+#   push      immediate publish when a promotion PR lands normally.
+#   schedule  a reconciler. The push trigger alone is NOT reliable here: a merge
+#             performed by GitHub auto-merge that was enabled with GITHUB_TOKEN
+#             may raise no event that starts a workflow. Without this, exactly
+#             the automated merges we care about would silently never publish.
+#   dispatch  manual, and for dry runs.
+#
+# The job is idempotent: a package whose exact version is already on the
+# registry is skipped. So re-running is always safe, and the reconciler is a
+# no-op once a push-triggered run has done the work.
+
+on:
+  push:
+    branches: [main]
+    # No `paths` filter, on purpose. GitHub matches a path filter against only
+    # the first 300 files of a push. A large merge, such as an upstream sync or
+    # a promotion, can push the package.json changes past that window, and the
+    # publish then silently never starts. That happened with the v12.2.0 sync
+    # (#170). Every push runs instead. The plan step skips versions already on
+    # the registry before anything is installed or built, so a no-op run is
+    # cheap.
+  schedule:
+    # 06:10 UTC — half an hour after publish-alpha's reconciler, so the two
+    # never contend for the same runner minute or interleave in the log.
+    - cron: '10 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report what would be published, but publish nothing
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-beta
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    if: github.repository == 'Mermaid-Chart/alana-mermaid'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # Publishing to the org's GitHub Packages registry. GITHUB_TOKEN is
+      # sufficient: a repository that publishes a package through a workflow is
+      # granted admin on that package automatically.
+      packages: write
+    env:
+      DIST_TAG: latest
+      GH_REGISTRY: https://npm.pkg.github.com
+      DRY_RUN: ${{ inputs.dry_run || false }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          cache: pnpm
+          node-version-file: '.node-version'
+          # Writes an .npmrc into the runner's user config (not the repo's) that
+          # maps the scope to GitHub Packages and reads NODE_AUTH_TOKEN. The
+          # repo's own .npmrc still points dependency resolution at npmjs.
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@mermaid-chart'
+
+      - name: Work out what needs publishing
+        id: plan
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The publishable set is defined once, in version.mjs, and is the same
+          # for both lines — it reads the working tree, so on `main` it reports
+          # the beta versions. Queries must name the registry explicitly: the
+          # repo's .npmrc points at npmjs, which also carries these package
+          # names, so an unqualified `npm view` would answer from the wrong
+          # registry.
+          PLAN='[]'
+          while read -r name version dir; do
+            # main owns the -b.N beta line. Anything else is not ours to
+            # publish: a -a.N here means `main` has somehow taken develop's
+            # version, and publishing it would move `latest` onto an alpha.
+            # Skipping rather than failing keeps an unrelated merge to main
+            # green, and the version check in the promotion flow is what
+            # catches a genuine mistake.
+            if ! [[ "$version" =~ -b\.[0-9]+$ ]]; then
+              echo "skip    ${name}@${version} — not a beta, so not the main line"
+            elif npm view "${name}@${version}" version --registry="$GH_REGISTRY" >/dev/null 2>&1; then
+              echo "skip    ${name}@${version} — already on the registry"
+            else
+              echo "publish ${name}@${version}"
+              PLAN="$(jq -c --arg n "$name" --arg v "$version" --arg d "$dir" \
+                '. + [{name:$n, version:$v, dir:$d}]' <<<"$PLAN")"
+            fi
+          done < <(node .github/fork-sync/version.mjs --list-publishable |
+                     jq -r '.[] | "\(.name) \(.version) \(.dir)"')
+
+          echo "plan=$PLAN" >> "$GITHUB_OUTPUT"
+          COUNT="$(jq 'length' <<<"$PLAN")"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "${COUNT} package(s) to publish." >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.[] | "- `\(.name)@\(.version)`"' <<<"$PLAN" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install and build
+        if: steps.plan.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Publish
+        if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PLAN: ${{ steps.plan.outputs.plan }}
+          # `prepublishOnly` runs `docs:verify-version`, which exits 1 while any
+          # `src/docs/**/*.md` other than `contributing.md` still holds the
+          # <MERMAID_RELEASE_VERSION> placeholder. `community/new-diagram.md`
+          # does today.
+          #
+          # The beta line is still a prerelease line, so the placeholder is left
+          # standing rather than substituted: writing `12.0.0-b.0` into the docs
+          # source would bake a prerelease number into a page permanently and
+          # conflict on every later promotion from develop. When the fork cuts a
+          # bare release the substitution becomes correct and this should be
+          # dropped so the check bites.
+          ONLY_WARN_ON_VERIFY_ERROR: 'true'
+        run: |
+          set -euo pipefail
+          jq -c '.[]' <<<"$PLAN" | while read -r entry; do
+            dir="$(jq -r '.dir' <<<"$entry")"
+            name="$(jq -r '.name' <<<"$entry")"
+            version="$(jq -r '.version' <<<"$entry")"
+            echo "::group::publishing ${name}@${version}"
+            # `pnpm publish`, not `npm publish`. pnpm substitutes a `workspace:`
+            # protocol dependency with the package's real resolved version at pack
+            # time; npm has no idea what `workspace:` means and ships the literal
+            # string. That shipped broken installs of @mermaid-chart/mermaid
+            # 12.1.0-a.0/-b.0 and @mermaid-chart/layout-elk 1.0.1-b.0 — the former
+            # carried `"@mermaid-js/parser": "workspace:^"` as a hard dependency
+            # (every consumer install fails to resolve it), the latter the same
+            # string in a peerDependency on @mermaid-chart/mermaid. Confirm this
+            # keeps working with `pnpm pack` from the package directory and
+            # reading `dependencies`/`peerDependencies` out of the tarball's
+            # package.json before changing this again.
+            #
+            # --no-git-checks: pnpm's default git checks require the current
+            # branch to be named "master" and the tree clean. Neither holds on a
+            # CI checkout of `main`, and branch/version correctness is already
+            # CI's job, not this flag's.
+            #
+            # --tag latest is explicit rather than relied upon. It IS npm's and
+            # pnpm's default, but stating it keeps this file diffable against
+            # publish-alpha.yml, where the tag is the whole point of the
+            # difference.
+            if ! ( cd "$dir" && pnpm publish --tag "$DIST_TAG" --registry="$GH_REGISTRY" --no-git-checks ); then
+              echo "::endgroup::"
+              # A 403 here is almost always the package's Actions-access grant.
+              # It cannot be checked ahead of time: the packages REST API does
+              # not expose those grants, so a publish attempt is the only test.
+              # Do not assume this was the registry. `pnpm publish` runs
+              # `prepublishOnly` first, so a failure here may never have reached
+              # GitHub at all — run 32766156722 failed on docs:verify-version and
+              # the 403 advice below sent the reader down the wrong path.
+              echo "::error title=Publish failed::${name}@${version} did not publish. Read the log above before assuming an auth problem: pnpm runs the package's own prepublishOnly hook first, and a failure there never contacts the registry. If it IS a 403 from ${GH_REGISTRY}, open the package's Settings -> Manage Actions access and give ${GITHUB_REPOSITORY} the *Write* role (repositories are added with Read by default, which cannot publish). Packages that do not exist yet need no grant — the first publish creates them."
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+
+      - name: Dry-run notice
+        if: steps.plan.outputs.count != '0' && env.DRY_RUN == 'true'
+        run: echo "::notice title=Dry run::Nothing was published. Re-run with dry_run=false to publish."
+
+      - name: Confirm the dist tags
+        if: steps.plan.outputs.count != '0' && env.DRY_RUN != 'true'
+        env:
+          PLAN: ${{ steps.plan.outputs.plan }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo '### Dist tags after publishing'
+            echo
+            echo '| package | dev | latest |'
+            echo '|---|---|---|'
+            jq -r '.[].name' <<<"$PLAN" | while read -r name; do
+              tags="$(npm view "$name" dist-tags --json --registry="$GH_REGISTRY" 2>/dev/null || echo '{}')"
+              # The backticks below are markdown for the job summary, and the
+              # single quotes are what keep them literal.
+              # shellcheck disable=SC2016
+              printf '| `%s` | %s | %s |\n' "$name" \
+                "$(jq -r '.dev // "—"' <<<"$tags")" \
+                "$(jq -r '.latest // "—"' <<<"$tags")"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A silent publish failure is worse on this line than on the alpha one:
+      # `latest` would still point at the previous beta, so every default
+      # install keeps silently resolving to the old version with nothing to
+      # show for the merge that was supposed to ship.
+      - name: Notify Slack on failure
+        if: failure()
+        uses: ./.github/fork-sync/slack-notify
+        with:
+          bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel: C0AHRPT37Q9
+          status: publish-failed
+          summary: "Publishing the main beta to GitHub Packages failed, so `latest` still points at the previous beta and default installs are not getting this release. If this is a 403, the package's Settings -> Manage Actions access needs alana-mermaid at the *Write* role."
+          details: |
+            workflow: publish-beta.yml
+            registry: https://npm.pkg.github.com
+            dist tag: latest
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

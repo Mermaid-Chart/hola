@@ -82,8 +82,10 @@ describe('default theme', () => {
      * re-established here over the same directives to read back its resolution.
      */
     const configFor = async (text: string) => {
-      const { diagramType } = await mermaidAPI.parse(text);
-      configApi.setDiagramConfigScope(diagramType);
+      // This fork's `parse()` resolves to `{ diagram, code, config, title, success }`
+      // rather than upstream's `{ diagramType, config }`.
+      const { diagram } = await mermaidAPI.parse(text);
+      configApi.setDiagramConfigScope(diagram?.type);
       const config = configApi.getConfig();
       configApi.setDiagramConfigScope(undefined);
       return config;

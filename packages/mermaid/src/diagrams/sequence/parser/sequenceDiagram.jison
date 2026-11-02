@@ -30,8 +30,9 @@
 ([0-9]+(\.[0-9]{1,2})?|\.[0-9]{1,2})(?=[ \n]+)    				return 'NUM';
 <ID>\@\{                                                        { this.begin('CONFIG'); return 'CONFIG_START'; }
 <CONFIG>[^\}]+                                                  { return 'CONFIG_CONTENT'; }
-<CONFIG>\}(?=\s+as\s)                                           { this.popState(); this.begin('ALIAS'); return 'CONFIG_END'; }
-<CONFIG>\}                                                      { this.popState(); this.popState(); return 'CONFIG_END'; }
+<CONFIG>\}\s+"as"\s+                                            { this.popState(); this.popState(); this.begin('LINE'); return 'CONFIG_END_AS'; }
+<CONFIG>\}[ \t]*                                                { this.popState(); this.popState(); return 'CONFIG_END'; }
+<ID>\s+"as"\s+                                                  { this.popState(); this.begin('LINE'); return 'AS'; }
 <ID>[^<>:\n,;@\s]+(?=\s*\@\{)                                   { yytext = yytext.trim(); return 'ACTOR'; }
 <ID>[^<>:\n,;@\s]+(?=\s+as\s)                                   { yytext = yytext.trim(); this.begin('ALIAS'); return 'ACTOR'; }
 <ID>[^<>:\n,;@]+(?=\s*[\n;#]|$)                                 { yytext = yytext.trim(); this.popState(); return 'ACTOR'; }
@@ -266,8 +267,9 @@ participant_statement
 	| 'participant_actor' actor 'AS' restOfLine 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant';$2.description=yy.parseMessage($4); $$=$2;}
 	| 'participant_actor' actor 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $$=$2;}
 	| 'destroy' actor 'NEWLINE' {$2.type='destroyParticipant'; $$=$2;}
-    | 'participant' actor_with_config 'AS' restOfLine 'NEWLINE' {$2.draw='participant'; $2.type='addParticipant'; $2.description=yy.parseMessage($4); $$=$2;}
+    | 'participant' actor_with_config_alias restOfLine 'NEWLINE' {$2.draw='participant'; $2.type='addParticipant'; $2.description=yy.parseMessage($3); $$=$2;}
     | 'participant' actor_with_config 'NEWLINE' {$2.draw='participant'; $2.type='addParticipant'; $$=$2;}
+    | 'participant_actor' actor_with_config_alias restOfLine 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $2.description=yy.parseMessage($3); $$=$2;}
     | 'participant_actor' actor_with_config 'AS' restOfLine 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $2.description=yy.parseMessage($4); $$=$2;}
     | 'participant_actor' actor_with_config 'NEWLINE' {$2.draw='actor'; $2.type='addParticipant'; $$=$2;}
 
@@ -366,8 +368,26 @@ actor_with_config
       }
     ;
 
+actor_with_config_alias
+    : ACTOR config_object_with_alias
+      {
+        $$ = {
+          type: 'addParticipant',
+          actor: $1,
+          config: $2
+        };
+      }
+    ;
+
 config_object
     : CONFIG_START CONFIG_CONTENT CONFIG_END
+      {
+        $$ = $2.trim();
+      }
+    ;
+
+config_object_with_alias
+    : CONFIG_START CONFIG_CONTENT CONFIG_END_AS
       {
         $$ = $2.trim();
       }

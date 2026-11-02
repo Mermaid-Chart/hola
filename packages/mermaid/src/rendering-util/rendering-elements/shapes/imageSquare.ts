@@ -31,26 +31,45 @@ export async function imageSquare<T extends SVGGraphicsElement>(
     node?.assetWidth ?? imageNaturalWidth
   );
 
-  const imageWidth =
+  let imageWidth =
     node.constraint === 'on'
       ? node?.assetHeight
         ? node.assetHeight * node.imageAspectRatio
         : imageRawWidth
       : imageRawWidth;
 
-  const imageHeight =
+  let imageHeight =
     node.constraint === 'on'
       ? imageWidth / node.imageAspectRatio
       : (node?.assetHeight ?? imageNaturalHeight);
-  node.width = Math.max(imageWidth, defaultWidth ?? 0);
+
+  const labelPadding = node.label ? 8 : 0;
+
+  // The fixed layout assigns persisted node dimensions before the shape is rendered
+  // (see layout-algorithms/fixed/index.js). When present, the image is sized to that
+  // box instead of to its natural/asset size. Every other layout leaves width/height
+  // unset here and measures the shape afterwards via getBBox().
+  const adjustDimensions = Boolean(node.width || node.height);
+  if (adjustDimensions) {
+    imageWidth = (node.width ?? 10) - labelPadding * 2;
+    imageHeight = (node.height ?? 10) - labelPadding * 2;
+    node.width = imageWidth;
+    node.height = imageHeight;
+  } else {
+    node.width = Math.max(imageWidth, defaultWidth ?? 0);
+  }
+
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, 'image-shape default');
+
+  if (adjustDimensions) {
+    imageWidth += labelPadding * 2;
+    imageHeight += labelPadding * 2;
+  }
 
   const topLabel = node.pos === 't';
 
   const x = -imageWidth / 2;
   const y = -imageHeight / 2;
-
-  const labelPadding = node.label ? 8 : 0;
 
   // @ts-expect-error -- Passing a D3.Selection seems to work for some reason
   const rc = rough.svg(shapeSvg);
@@ -63,17 +82,14 @@ export async function imageSquare<T extends SVGGraphicsElement>(
 
   const imageNode = rc.rectangle(x, y, imageWidth, imageHeight, options);
 
+  // The outer box enclosing image and label is only used for bounds, so pass it as
+  // known geometry rather than drawing an unpainted rect to measure. Such a rect sorts
+  // above the label and consumers that style node paths on hover then make it swallow
+  // label clicks.
   const outerWidth = Math.max(imageWidth, bbox.width);
   const outerHeight = imageHeight + bbox.height + labelPadding;
 
-  const outerNode = rc.rectangle(-outerWidth / 2, -outerHeight / 2, outerWidth, outerHeight, {
-    ...options,
-    fill: 'none',
-    stroke: 'none',
-  });
-
   const iconShape = shapeSvg.insert(() => imageNode, ':first-child');
-  const outerShape = shapeSvg.insert(() => outerNode);
 
   if (node.img) {
     const image = shapeSvg.append('image');
@@ -106,7 +122,7 @@ export async function imageSquare<T extends SVGGraphicsElement>(
     })`
   );
 
-  updateNodeBounds(node, outerShape);
+  updateNodeBounds(node, iconShape, { width: outerWidth, height: outerHeight });
 
   node.intersect = function (point) {
     log.info('iconSquare intersect', node, point);

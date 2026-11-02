@@ -1,8 +1,9 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { Diagram } from './Diagram.js';
 import { addDetector } from './diagram-api/detectType.js';
 import { addDiagrams } from './diagram-api/diagram-orchestration.js';
 import type { DiagramLoader } from './diagram-api/types.js';
+import * as configApi from './config.js';
 
 addDiagrams();
 
@@ -97,5 +98,50 @@ describe('diagram detection', () => {
 
     expect(messages[0].message).toBe('I ﬂ°°9829¶ß you!');
     expect(messages[1].message).toBe('I ﬂ°°9829¶ß you ﬂ°infin¶ß times more!');
+  });
+});
+
+describe('parser selection via config', () => {
+  beforeEach(() => {
+    configApi.reset();
+  });
+
+  test('should use jison parser by default for flowchart', async () => {
+    const diagram = await Diagram.fromText('flowchart TD; A-->B');
+    expect(diagram).toBeInstanceOf(Diagram);
+    expect(diagram.type).toBe('flowchart-v2');
+    // Default parser should be jison, which doesn't have the parse method directly callable
+    // but parsing should succeed without errors
+  });
+
+  test('should use antlr parser when flowchart.parser is set to antlr', async () => {
+    configApi.setConfig({ flowchart: { parser: 'antlr' } });
+    const diagram = await Diagram.fromText('flowchart TD\n  A-->B');
+    expect(diagram).toBeInstanceOf(Diagram);
+    expect(diagram.type).toBe('flowchart-v2');
+    // ANTLR parser should have parsed successfully
+    const db = diagram.db as { getVertices?: () => Map<string, unknown> };
+    const vertices = db.getVertices?.();
+    expect(vertices).toBeDefined();
+    expect(vertices?.get?.('A')).toBeDefined();
+    expect(vertices?.get?.('B')).toBeDefined();
+  });
+
+  test('should use jison parser when flowchart.parser is set to jison', async () => {
+    configApi.setConfig({ flowchart: { parser: 'jison' } });
+    const diagram = await Diagram.fromText('flowchart TD; A-->B');
+    expect(diagram).toBeInstanceOf(Diagram);
+    expect(diagram.type).toBe('flowchart-v2');
+    // JISON parser should have parsed successfully
+    const db = diagram.db as { getVertices?: () => Map<string, unknown> };
+    const vertices = db.getVertices?.();
+    expect(vertices).toBeDefined();
+  });
+
+  test('should use antlr parser for sequence when sequence.parser is set to antlr', async () => {
+    configApi.setConfig({ sequence: { parser: 'antlr' } });
+    const diagram = await Diagram.fromText('sequenceDiagram\n  A->>B: Hello');
+    expect(diagram).toBeInstanceOf(Diagram);
+    expect(diagram.type).toBe('sequence');
   });
 });

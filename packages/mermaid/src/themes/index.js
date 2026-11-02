@@ -9,6 +9,7 @@ import { getThemeVariables as reduxThemeVariables } from './theme-redux.js';
 import { getThemeVariables as reduxDarkThemeVariables } from './theme-redux-dark.js';
 import { getThemeVariables as reduxColorThemeVariables } from './theme-redux-color.js';
 import { getThemeVariables as reduxDarkColorThemeVariables } from './theme-redux-dark-color.js';
+import { getThemeVariables as mcThemeVariables } from './theme-mc.js';
 
 export default {
   base: {
@@ -43,5 +44,8 @@ export default {
   },
   'redux-dark-color': {
     getThemeVariables: reduxDarkColorThemeVariables,
+  },
+  mc: {
+    getThemeVariables: mcThemeVariables,
   },
 };

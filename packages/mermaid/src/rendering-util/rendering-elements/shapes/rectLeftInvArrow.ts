@@ -14,6 +14,10 @@ export async function rect_left_inv_arrow<T extends SVGGraphicsElement>(
   const nodePadding = node.padding ?? 0;
   const labelPaddingX = node.look === 'neo' ? 21 : (nodePadding ?? 0);
   const labelPaddingY = node.look === 'neo' ? 12 : (nodePadding ?? 0);
+  if (node.width || node.height) {
+    node.width = (node?.width ?? 10) - labelPaddingX * 2;
+    node.height = (node?.height ?? 10) - labelPaddingY * 2;
+  }
   const { shapeSvg, bbox, label } = await labelHelper(parent, node, getNodeClasses(node));
 
   const labelWidth = bbox.width + (node.look === 'neo' ? labelPaddingX * 2 : labelPaddingX);
@@ -26,12 +30,12 @@ export async function rect_left_inv_arrow<T extends SVGGraphicsElement>(
 
   const x = -w / 2;
   const y = -h / 2;
-  const notch = y / 2;
+  const notch = -y / 2;
 
   const points = [
-    { x: x + notch, y },
-    { x: x, y: 0 },
-    { x: x + notch, y: -y },
+    { x: x, y },
+    { x: x + notch, y: 0 },
+    { x: x, y: -y },
     { x: -x, y: -y },
     { x: -x, y },
   ];
@@ -60,11 +64,14 @@ export async function rect_left_inv_arrow<T extends SVGGraphicsElement>(
     polygon.selectAll('path').attr('style', nodeStyles);
   }
 
-  polygon.attr('transform', `translate(${-notch / 2},0)`);
+  // polygon.attr('transform', `translate(${-notch / 2},0)`);
 
+  // Use `bbox.x - (bbox.left ?? 0)` to normalize between SVG (getBBox, bbox.left=undefined→0)
+  // and HTML labels (getBoundingClientRect, bbox.left===bbox.x → difference=0).
+  // This prevents the viewport-absolute bbox.x from misplacing the HTML label.
   label.attr(
     'transform',
-    `translate(${-notch / 2 - bbox.width / 2 - (bbox.x - (bbox.left ?? 0))}, ${-(bbox.height / 2) - (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-(bbox.x - (bbox.left ?? 0)) - bbox.width / 2 + notch / 2}, ${-(bbox.height / 2) - (bbox.y - (bbox.top ?? 0))})`
   );
   updateNodeBounds(node, polygon);
 

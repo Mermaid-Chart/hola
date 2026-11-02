@@ -1598,3 +1598,58 @@ describe('validateLayout new geometric issues', () => {
     expect(getIssueTypes(layout)).not.toContain('edge-self-shared-subpath');
   });
 });
+
+/**
+ * The grid-convention rules judge one drawing style. A layout built on another
+ * must not be measured against them — but the exemption has to be narrow, or it
+ * quietly stops checking the layouts it was written for, and the suites go green
+ * for the wrong reason.
+ */
+describe('grid-convention rules are scoped to layouts that use those conventions', () => {
+  /** A roomy frame holding one small member: ~6% full, far under the fill target. */
+  function mostlyEmptyGroup(layoutAlgorithm?: string): LayoutData {
+    const group = {
+      id: 'G',
+      x: 200,
+      y: 200,
+      width: 400,
+      height: 400,
+      isGroup: true,
+    } as unknown as Node;
+    const member = { ...mkNode('m', 120, 120, 100, 100), parentId: 'G' } as Node;
+    return {
+      nodes: [group, member],
+      edges: [],
+      config: EMPTY_CONFIG,
+      ...(layoutAlgorithm ? { layoutAlgorithm } : {}),
+    } as unknown as LayoutData;
+  }
+
+  // If this stops holding, every other assertion here passes vacuously.
+  it('still reports group-dead-space when the layout is not exempt', () => {
+    expect(getIssueTypes(mostlyEmptyGroup('gipsec'))).toContain('group-dead-space');
+  });
+
+  it('still reports it when no layout algorithm is recorded at all', () => {
+    // Unknown must mean "check it", never "skip it".
+    expect(getIssueTypes(mostlyEmptyGroup())).toContain('group-dead-space');
+  });
+
+  it('skips it for a swimlane layout, which leaves lanes partly empty by design', () => {
+    expect(getIssueTypes(mostlyEmptyGroup('swimlane'))).not.toContain('group-dead-space');
+  });
+
+  it('leaves non-grid-convention rules reporting on a swimlane layout', () => {
+    // The exemption must drop only the three convention rules, not disable the
+    // validator: two nodes on top of each other is still an overlap.
+    const a = mkNode('A', 0, 0, 80, 80);
+    const b = mkNode('B', 10, 10, 80, 80);
+    const layout = {
+      nodes: [a, b],
+      edges: [],
+      config: EMPTY_CONFIG,
+      layoutAlgorithm: 'swimlane',
+    } as unknown as LayoutData;
+    expect(getIssueTypes(layout)).toContain('node-overlap');
+  });
+});

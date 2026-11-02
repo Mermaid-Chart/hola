@@ -1,0 +1,366 @@
+<html>
+  <head>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat&display=swap" rel="stylesheet" />
+    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/font-awesome.min.css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/@mdi/font@6.9.96/css/materialdesignicons.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css?family=Noto+Sans+SC&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Kalam:wght@300;400;700&family=Rubik+Mono+One&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Rubik+Mono+One&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        /* background: rgb(221, 208, 208); */
+        /* background: #333; */
+        font-family: 'Arial';
+        /* color: white; */
+        /* font-size: 18px !important; */
+      }
+
+      h1 {
+        color: grey;
+      }
+
+      .mermaid2 {
+        display: none;
+      }
+
+      .mermaid svg {
+        /* font-size: 18px !important; */
+
+        /* background-color: #efefef;
+        background-image: radial-gradient(#fff 51%, transparent 91%),
+          radial-gradient(#fff 51%, transparent 91%);
+        background-size: 20px 20px;
+        background-position:
+          0 0,
+          10px 10px;
+        background-repeat: repeat; */
+      }
+
+      .malware {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 150px;
+        background: red;
+        color: black;
+        display: flex;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: monospace;
+        font-size: 72px;
+      }
+
+      pre {
+        width: 100%;
+      }
+
+      /* tspan {
+              font-size: 6px !important;
+            } */
+      /* .flowchart-link {
+        stroke-dasharray: 4, 4 !important;
+        animation: flow 1s linear infinite;
+        animation: dashdraw 4.93282s linear infinite;
+        stroke-width: 2px !important;
+      } */
+
+      @keyframes dashdraw {
+        from {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      /*stroke-width:2;stroke-dasharray:10.000000,9.865639;stroke-dashoffset:-198.656393;animation:    4.932820s linear infinite;*/
+      /* stroke-width:2;stroke-dasharray:10.000000,9.865639;stroke-dashoffset:-198.656393;animation: dashdraw 4.932820s linear infinite;*/
+    </style>
+  </head>
+
+  <body>
+    <pre class="mermaid2">
+      flowchart TD
+         Share_ISO -->
+
+         Schedule_Meeting
+
+</pre
+    >
+    <pre class="mermaid2">
+      flowchart TD
+          MakeDonation --include--> ProcessOnlinePayment
+
+
+    </pre>
+    <pre class="mermaid2">
+
+---
+config:
+      theme: redux
+      layout: elk
+---
+flowchart TD
+  subgraph MATSUBoroughAchorageMOA
+    J["get ownerType"]
+    ---J1["Indiviual"] & J2["Business"]
+  end
+
+    </pre>
+    <pre class="mermaid">
+
+      ---
+      config:
+        look: classic
+        layout: elk
+      ---
+      flowchart LR
+
+      a2p-sms-api <--HTTPS(баланс, маршрут) --> osclte
+      Appclient e1@--HTTPS(SMS)--> a2p-sms-api
+          a2p-sms-api e2@-- PostgreSQL(sms_send) --> dbKannel
+          Kannel e3@<-- PostgreSQL(sms_send, sms_sent) --> dbKannel
+          Kannel e4@-- SMPP(SMS) --> OutAgr
+          OutAgr e5@-- GSM(SMS) --> mob2
+          mob2 e6@-- чтение SMS --> recipient
+          osclte <-- PostgreSQL(счетчики, smsc_cdr, smsc_raw) --> db-osclte
+          dbNispd <-- PostgreSQL(синхронизация) --> db-osclte
+          recipient@{ icon: "fa:user", pos: "b"}
+          mob2@{ icon: "aws:res-mobile-client", pos: "b"}
+
+         Appclient@{label: "Система  клиента"}
+          a2p-sms-api@{"API sms  send_sms" }
+          osclte@{label: "Биллинг  osclte"}
+          db-osclte@{ shape: db, label: "БД osclte"}
+          Kannel@{label: "СМС центр  Kannel"}
+          dbKannel@{shape: db, label: "БД Kannel"}
+          dbNispd@{shape: db, label: "PostgreSQL (Nispd)"}
+          OutAgr@{label: "Исходящие агрегаторы"}
+
+          classDef NotMCN fill:#C0C0C0
+          class Appclient NotMCN
+          class OutAgr NotMCN
+
+        classDef animate stroke-dasharray: 9,5,stroke-dashoffset: 900,animation: dash 25s linear infinite;
+        class e1,e2,e3,e4,e5,e6 animate
+
+      click osclte "https://www.notion.so/mcntelecomkb/ocslte-1df64f8d7bd780c9b829d6e1ba9dab73?pvs=4"
+      click IncAgr "https://www.notion.so/mcntelecomkb/1df64f8d7bd780c09736c666bbb307e2?pvs=4#1df64f8d7bd780f28f81f501dc41cb08"
+      click OutAgr "https://www.notion.so/mcntelecomkb/1df64f8d7bd780c09736c666bbb307e2?pvs=4#1df64f8d7bd780418ee0fde596da3beb"
+      click a2p-sms-api "https://www.notion.so/mcntelecomkb/API-sms-1e064f8d7bd7804fbac3ff3c5e3a84e3?pvs=4"
+
+
+
+    </pre>
+
+    <pre id="diagram5" class="mermaid2">
+---
+config:
+  layout: tidy-tree
+---
+      mindmap
+        root((Mermaid & Diagram Ecosystem))
+
+          %% TOP-LEVEL VISION
+          ("Everyone wants to create diagrams as code / as rules")
+          ("The whole diagram in code")
+
+          OpenCore/Freemium
+            Text-to-diagram
+
+          Storage
+            "Storage aligns with users’ preferences + text"
+            Integrations
+              Google Workspace
+              Dropbox?
+              GitHub
+            "No special deals."
+            Manual Mode
+              "Selling unfinished things"
+
+          Version Control
+            Scaled and Safe Collaboration
+              Enterprise Security (local storage)
+            Internal
+              Audit Logs
+            Soft Delete
+            Delete Folder
+
+          Editor
+            Lower learning curve + productivity
+            Shortcuts / quick fixes
+            Pointer
+            "Not same in SaaS"
+            Stand-alone
+            Technical
+
+          Plugins
+            VS Code
+            xyz
+            "Make diagrams useful where people are working"
+            Enterprise (not storing)
+            Mermaid
+              Layout guide
+              UML
+              Code architecture
+              "The art of the diagram world"
+
+          Presentations
+            AI
+              Images
+              Attention + basics on the market
+              "Be best on-handling mind diagrams using AI"
+              "Positive first exposure to Mermaid"
+            API
+            MCP Server
+              Visualize codebase
+              Create diagram
+              "Expose AI agent for handling Mermaid diagrams"
+            ACP Server?
+
+          Partnerships
+            Developer partners
+
+
+
+</pre
+    >
+
+    <script type="module">
+      import mermaid from './mermaid.esm.mjs';
+      import layouts from './mermaid-layout-elk.esm.mjs';
+      import tidyTreeLayouts from './mermaid-layout-tidy-tree.esm.mjs';
+
+      const staticBellIconPack = {
+        prefix: 'fa6-regular',
+        icons: {
+          bell: {
+            body: '<path fill="currentColor" d="M224 0c-17.7 0-32 14.3-32 32v19.2C119 66 64 130.6 64 208v25.4c0 45.4-15.5 89.5-43.8 124.9L5.3 377c-5.8 7.2-6.9 17.1-2.9 25.4S14.8 416 24 416h400c9.2 0 17.6-5.3 21.6-13.6s2.9-18.2-2.9-25.4l-14.9-18.6c-28.3-35.5-43.8-79.6-43.8-125V208c0-77.4-55-142-128-156.8V32c0-17.7-14.3-32-32-32m0 96c61.9 0 112 50.1 112 112v25.4c0 47.9 13.9 94.6 39.7 134.6H72.3c25.8-40 39.7-86.7 39.7-134.6V208c0-61.9 50.1-112 112-112m64 352H160c0 17 6.7 33.3 18.7 45.3S207 512 224 512s33.3-6.7 45.3-18.7S288 465 288 448"/>',
+            width: 448,
+          },
+        },
+        width: 512,
+        height: 512,
+      };
+
+      mermaid.registerIconPacks([
+        {
+          name: 'logos',
+          loader: () =>
+            fetch('https://unpkg.com/@iconify-json/logos@1/icons.json').then((res) => res.json()),
+        },
+        {
+          name: 'fa',
+          loader: () => staticBellIconPack,
+        },
+      ]);
+      mermaid.registerLayoutLoaders(tidyTreeLayouts, layouts);
+      mermaid.parseError = function (err, hash) {
+        console.error('Mermaid error: ', err);
+      };
+      window.callback = function () {
+        alert('A callback was triggered');
+      };
+      function callback() {
+        alert('It worked');
+      }
+      await mermaid.initialize({
+        theme: 'redux',
+        // theme: 'default',
+        // theme: 'forest',
+        // handDrawnSeed: 12,
+        // look: 'handdrawn',
+        // 'elk.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+        // layout: 'dagre',
+        // layout: 'elk',
+        // layout: 'fixed',
+        // htmlLabels: false,
+        flowchart: { titleTopMargin: 10, parser: 'antlr' },
+
+        // fontFamily: 'Caveat',
+        // fontFamily: 'Kalam',
+        // fontFamily: 'courier',
+        fontFamily: 'arial',
+        sequence: {
+          actorFontFamily: 'courier',
+          noteFontFamily: 'courier',
+          messageFontFamily: 'courier',
+          parser: 'antlr',
+        },
+        kanban: {
+          htmlLabels: false,
+        },
+        fontSize: 12,
+        logLevel: 0,
+        securityLevel: 'loose',
+        callback,
+      });
+
+      mermaid.parseError = function (err, hash) {
+        console.warn('In parse error:', err);
+        console.warn('Error message:', err.message);
+        console.warn('Parser type:', err.parser); // 'antlr' for ANTLR errors, undefined for Jison
+        console.warn('Hash parameter:', hash);
+        console.warn('Hash from err.hash:', err.hash);
+        console.warn('Top-level loc from err.loc:', err.loc);
+
+        // Use hash from err.hash if the hash parameter is not provided
+        const errorHash = hash || err.hash;
+
+        // Log hash details if available
+        if (errorHash) {
+          console.warn('Hash details:', {
+            line: errorHash.line,
+            text: errorHash.text,
+            token: errorHash.token,
+            loc: errorHash.loc,
+            expected: errorHash.expected,
+          });
+        }
+
+        // Log top-level loc if available
+        if (err.loc) {
+          console.warn('Top-level loc details:', {
+            first_line: err.loc.first_line,
+            last_line: err.loc.last_line,
+            first_column: err.loc.first_column,
+            last_column: err.loc.last_column,
+          });
+        }
+
+        // Log parser-specific information
+        if (err.parser === 'antlr') {
+          console.warn(
+            'ANTLR error detected - line numbers point to start of problematic statement'
+          );
+        }
+      };
+    </script>
+  </body>
+</html>

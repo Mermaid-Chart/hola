@@ -23,6 +23,10 @@ export async function card<T extends SVGGraphicsElement>(parent: D3Selection<T>,
   const nodePadding = node.padding ?? 0;
   const labelPaddingX = node.look === 'neo' ? 28 : nodePadding;
   const labelPaddingY = node.look === 'neo' ? 24 : nodePadding;
+  if (node.width || node.height) {
+    node.width = Math.max((node?.width ?? 0) - (labelPaddingX ?? 0), 10);
+    node.height = Math.max((node?.height ?? 0) - (labelPaddingY ?? 0), 10);
+  }
   const { shapeSvg, bbox } = await labelHelper(parent, node, getNodeClasses(node));
 
   const w =

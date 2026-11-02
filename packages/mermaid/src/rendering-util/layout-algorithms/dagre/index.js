@@ -297,7 +297,7 @@ const measureDagreGraph = async ({
         const data = JSON.parse(JSON.stringify(parentCluster.clusterData));
         // data.clusterPositioning = true;
         log.trace(
-          'Setting data for parent cluster XXX\n Node.id = ',
+          'Setting data for parent cluster IPI\n Node.id = ',
           v,
           '\n data=',
           data.height,
@@ -338,7 +338,7 @@ const measureDagreGraph = async ({
         // node.height = o.diff;
         node.diff = o.diff || 0;
         log.info(
-          'New compound node after recursive render XAX',
+          'New compound node after recursive render IPI',
           v,
           'width',
           // node,

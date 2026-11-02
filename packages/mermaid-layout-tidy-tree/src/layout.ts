@@ -1,5 +1,5 @@
-import type { LayoutData } from 'mermaid';
-import type { Bounds, Point } from 'mermaid/src/types.js';
+import type { LayoutData } from '@mermaid-chart/mermaid';
+import type { Bounds, Point } from '@mermaid-chart/mermaid/src/types.js';
 import { BoundingBox, Layout } from 'non-layered-tidy-tree-layout';
 import type {
   Edge,
@@ -85,12 +85,12 @@ function convertToDualTreeFormat(data: LayoutData): {
   const { nodes, edges } = data;
 
   const nodeMap = new Map<string, Node>();
-  nodes.forEach((node) => nodeMap.set(node.id, node));
+  nodes.forEach((node: Node) => nodeMap.set(node.id, node));
 
   const children = new Map<string, string[]>();
   const parents = new Map<string, string>();
 
-  edges.forEach((edge) => {
+  edges.forEach((edge: Edge) => {
     const parentId = edge.start;
     const childId = edge.end;
 
@@ -103,7 +103,7 @@ function convertToDualTreeFormat(data: LayoutData): {
     }
   });
 
-  const rootNodeData = nodes.find((node) => !parents.has(node.id));
+  const rootNodeData = nodes.find((node: Node) => !parents.has(node.id));
   if (!rootNodeData && nodes.length === 0) {
     throw new Error('No nodes available to create tree');
   }

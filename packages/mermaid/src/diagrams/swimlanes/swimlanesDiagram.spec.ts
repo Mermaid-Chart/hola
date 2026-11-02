@@ -23,9 +23,11 @@ const resetConfig = () => {
 };
 
 const layoutFor = async (text: string) => {
-  const { diagramType } = await mermaidAPI.parse(text);
+  // This fork's `parse()` resolves to `{ diagram, code, config, title, success }` rather
+  // than upstream's `{ diagramType, config }`, so the type comes off the diagram.
+  const { diagram } = await mermaidAPI.parse(text);
   // Scope is bounded to the parse; re-establish it to read back the resolution it performed.
-  setDiagramConfigScope(diagramType);
+  setDiagramConfigScope(diagram?.type);
   const { layout } = getConfig();
   setDiagramConfigScope(undefined);
   return layout;

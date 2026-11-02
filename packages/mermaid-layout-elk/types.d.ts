@@ -1,4 +1,4 @@
-import type { LayoutLoaderDefinition } from 'mermaid';
+import type { LayoutLoaderDefinition } from '@mermaid-chart/mermaid';
 
 /**
  * ELK layouts for Mermaid builds that do not bundle ELK, notably

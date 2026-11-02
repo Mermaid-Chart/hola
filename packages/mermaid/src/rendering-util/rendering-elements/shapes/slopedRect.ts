@@ -66,7 +66,7 @@ export async function slopedRect<T extends SVGGraphicsElement>(parent: D3Selecti
   polygon.attr('transform', `translate(0, ${h / 4})`);
   label.attr(
     'transform',
-    `translate(${-w / 2 + (node.padding ?? 0) - (bbox.x - (bbox.left ?? 0))}, ${-h / 4 + (node.padding ?? 0) - (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-w / 2 + (labelPaddingX ?? 0) - (bbox.x - (bbox.left ?? 0))}, ${-h / 4 + (labelPaddingY ?? 0) - (bbox.y - (bbox.top ?? 0))})`
   );
 
   updateNodeBounds(node, polygon);

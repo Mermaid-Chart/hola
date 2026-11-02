@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LayoutLoaderDefinition } from 'mermaid';
+import type { LayoutLoaderDefinition } from '@mermaid-chart/mermaid';
 
 import elkPluginUntyped from '../dist/mermaid-layout-elk.core.mjs';
 
@@ -11,7 +11,7 @@ describe('elkPlugin', () => {
   });
 
   it('should add to mermaid', async () => {
-    const { default: mermaid } = await import('mermaid');
+    const { default: mermaid } = await import('@mermaid-chart/mermaid');
     mermaid.registerLayoutLoaders(elkPlugin);
   });
 

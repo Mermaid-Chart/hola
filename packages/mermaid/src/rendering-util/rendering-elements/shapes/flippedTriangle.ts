@@ -18,6 +18,8 @@ export async function flippedTriangle<T extends SVGGraphicsElement>(
 
   const nodePadding = node.padding ?? 0;
   const labelPaddingX = node.look === 'neo' ? nodePadding * 2 : nodePadding;
+  const labelPaddingY = node.look === 'neo' ? nodePadding * 1 : nodePadding;
+
   if (node.width || node.height) {
     node.height = node?.height ?? 0;
     if (node.height < MIN_HEIGHT) {
@@ -74,7 +76,7 @@ export async function flippedTriangle<T extends SVGGraphicsElement>(
 
   label.attr(
     'transform',
-    `translate(${-bbox.width / 2 - (bbox.x - (bbox.left ?? 0))}, ${-h / 2 + (node.padding ?? 0) / 2 + (bbox.y - (bbox.top ?? 0))})`
+    `translate(${-bbox.width / 2 - (bbox.x - (bbox.left ?? 0))}, ${-h / 2 + (labelPaddingY ?? 0) / 2 + (bbox.y - (bbox.top ?? 0))})`
   );
 
   node.intersect = function (point) {
